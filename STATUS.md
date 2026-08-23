@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 18 — Multi-edit tool (P1).** Plan: add `toolMultiEdit` to `tools/index.ts` (atomic multi-edit), add `MULTIEDIT` parsing to `execToolBlock`, add tests. Files: `ra/src/tools/index.ts`, `ra/src/agent.ts`, `ra/tests/runtime.test.ts`.
+**Cycle 19 — @-mention file picker (P1).** Plan: add `expandMentions` to `tools/index.ts` (inline `@path` file content into the prompt), wire into the TUI input path, add tests. Files: `ra/src/tools/index.ts`, `ra/src/tui/app.ts`, `ra/tests/runtime.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 17 — Pluggable provider abstraction shipped.** Added `resolveProviderClient` (OpenAI-compatible providers via `ra.json`, `{env:VAR}` templating, kind inference); 5 tests. Full gate green.
+**Cycle 18 — Multi-edit tool shipped.** Added `toolMultiEdit` + `MULTIEDIT` parsing; 4 tests. Full gate green.
 
 ## Smoke-Test Table
 

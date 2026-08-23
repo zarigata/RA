@@ -206,6 +206,26 @@ export function toolTodo(ctx: ToolContext, command: string): string {
   return `Error: unknown TODO op '${op}' (use add/done/list)`;
 }
 
+/**
+ * Expand `@path` mentions in a prompt into the referenced file's content.
+ * A mention like `@src/foo.ts` is replaced with a fenced block of that file.
+ * Unresolvable mentions are left as-is (so the model can still see the token).
+ */
+export function expandMentions(input: string, cwd: string): string {
+  return input.replace(/@([^\s@]+)/g, (full, path: string) => {
+    // Skip email-like tokens and bare @.
+    if (!path || path.includes("@")) return full;
+    try {
+      const abs = safePath(cwd, path);
+      if (!existsSync(abs) || statSync(abs).isDirectory()) return full;
+      const content = readFileSync(abs, "utf-8");
+      return `\`\`\`${path}\n${content}\n\`\`\``;
+    } catch {
+      return full;
+    }
+  });
+}
+
 export function listDir(ctx: ToolContext, dir = "."): string {
   const abs = safePath(ctx.cwd, dir);
   if (!existsSync(abs)) return `Error: not found: ${dir}`;

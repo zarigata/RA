@@ -51,7 +51,7 @@
 - [x] Custom slash commands (Markdown-defined), keybinds, themes (partial: Markdown-defined commands in `.anubis/commands/*.md`; keybinds/themes not yet)
 
 ### TUI Experience
-- [x] Multi-pane TUI (partial: single-pane chat + command palette, no live token/cost sidebar, no diff viewer, no @-mention)
+- [x] Multi-pane TUI (partial: single-pane chat + command palette + @-mention file picker; no live token/cost sidebar, no diff viewer)
 - [x] Session share/export (sanitized transcript) — `ra export` writes a vibeguard-redacted Markdown transcript
 - [x] Undo/checkpoint: snapshot before each agent edit batch (added `checkpoint.ts` + `ra undo`/`ra checkpoints`; `toolWrite`/`toolEdit` snapshot before modifying)
 

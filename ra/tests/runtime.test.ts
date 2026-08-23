@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { classifyTier, tierModel } from "../../ra/src/tier.ts";
-import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo, toolMultiEdit } from "../../ra/src/tools/index.ts";
+import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo, toolMultiEdit, expandMentions } from "../../ra/src/tools/index.ts";
 import { loadProjectMemory, loadAgentPermissions, loadAgentMeta } from "../../ra/src/agent.ts";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -183,6 +183,40 @@ describe("execToolBlock EDIT", () => {
       );
       expect(r.note).toContain("2 edits");
       expect(toolRead({ cwd }, "a.txt")).toContain("one bar three");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+});
+
+describe("@-mention file picker", () => {
+  test("inlines a referenced file", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-mention-"));
+    try {
+      toolWrite({ cwd }, "notes.txt", "hello from notes");
+      const out = expandMentions("summarize @notes.txt", cwd);
+      expect(out).toContain("```notes.txt");
+      expect(out).toContain("hello from notes");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("leaves unresolvable mentions as-is", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-mention-"));
+    try {
+      const out = expandMentions("check @missing.txt", cwd);
+      expect(out).toContain("@missing.txt");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("skips email-like tokens", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-mention-"));
+    try {
+      const out = expandMentions("mail a@b.com", cwd);
+      expect(out).toContain("a@b.com");
     } finally {
       rmSync(cwd, { recursive: true });
     }

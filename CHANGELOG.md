@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- `@-mention` file picker: typing `@path/to/file` in the TUI inlines that file's content into the prompt.
 - `multi-edit` tool (`MULTIEDIT <file>` with multiple OLD/NEW blocks) applies several edits to a file atomically.
 - Pluggable provider abstraction: `provider/*` config entries (with `options.baseURL`/`options.apiKey` and `{env:VAR}` templating) now resolve to OpenAI-compatible clients, so non-Ollama providers can be wired via `ra.json`.
 - Agent frontmatter `steps` and `temperature` are now honored: `steps` bounds the tool loop and `temperature` is passed to the model.

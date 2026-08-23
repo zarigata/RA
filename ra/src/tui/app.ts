@@ -7,6 +7,7 @@ import { loadSession, saveSession, appendMessage } from "../server/session.ts";
 import { PluginHost } from "../plugins/host.ts";
 import { dispatchCommand, PALETTE_COMMANDS } from "../commands/index.ts";
 import { runOrchestratorTurn } from "../agent.ts";
+import { expandMentions } from "../tools/index.ts";
 
 export interface TuiOptions {
   cwd: string;
@@ -153,7 +154,9 @@ async function handleInput(
   }
 
   try {
-    const out = await runOrchestratorTurn(enhanced, config, ctx);
+    // @-mention file picker: inline referenced files into the prompt.
+    const withFiles = expandMentions(enhanced, ctx.cwd);
+    const out = await runOrchestratorTurn(withFiles, config, ctx);
     reply(out);
   } catch (e) {
     reply(`Error: ${String(e)}`);

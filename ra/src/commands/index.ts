@@ -31,7 +31,7 @@ const HELP_SIMPLE = `RA Simple Mode — commands:
 
 const HELP_PRO = `RA Pro Mode — commands:
   /plan /code /review /critique /docs
-  /quick /again /moa /pipeline /roles /models /cost /status /files /show /result /lane /intent /prefer /summary /timings /verify /history /ls /env /ping /which /lanes /home /doctor /selfcheck /palette /clear /lan-scan
+  /quick /again /moa /pipeline /roles /models /cost /status /files /show /result /lane /intent /prefer /summary /timings /verify /history /sessions /ls /env /ping /which /lanes /home /doctor /selfcheck /palette /clear /lan-scan
   /simple on     Grandma mode
   /help          This help
   Ctrl+P         Command palette`;
@@ -147,6 +147,11 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
     case "clear": {
       c.session.messages = [];
       c.reply("RA session cleared.");
+      return true;
+    }
+    case "sessions": {
+      const { listSessions, formatSessions } = await import("../server/session.ts");
+      c.reply(formatSessions(listSessions()));
       return true;
     }
     case "doctor": {

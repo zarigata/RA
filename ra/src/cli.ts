@@ -73,6 +73,7 @@ Usage:
   ra status                  Snapshot: profile, last run, usage
   ra last [--json]           Show last full-dev run
   ra history [--json]        Recent full-dev runs
+  ra sessions [--kill ID]    List persisted sessions (or kill one)
   ra result                  One-line RA RESULT (bash greppable)
   ra lane                    One-line RA lane (thoth@251 → ptah@cloud)
   ra intent                  One-line RA intent (code|debug|plan|…)
@@ -173,6 +174,18 @@ if (args[0] === "last") {
     console.log(formatPreferLine(run));
   }
   process.exit(run ? 0 : 1);
+}
+
+if (args[0] === "sessions") {
+  const { listSessions, formatSessions, deleteSession } = await import("./server/session.ts");
+  const killId = arg("--kill");
+  if (killId) {
+    const ok = deleteSession(killId);
+    console.log(ok ? `RA session killed: ${killId}` : `RA session not found: ${killId}`);
+    process.exit(ok ? 0 : 1);
+  }
+  console.log(formatSessions(listSessions()));
+  process.exit(0);
 }
 
 if (args[0] === "history") {

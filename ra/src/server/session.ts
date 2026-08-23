@@ -1,6 +1,6 @@
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { sessionPath, type RaConfig } from "../../../anubis/src/config.ts";
+import { sessionPath, RA_GLOBAL, type RaConfig } from "../../../anubis/src/config.ts";
 
 export interface Message {
   role: "user" | "assistant" | "system";
@@ -31,4 +31,49 @@ export function appendMessage(session: Session, role: Message["role"], content: 
   session.messages.push({ role, content, ts: Date.now() });
   if (session.messages.length > 200) session.messages = session.messages.slice(-200);
   saveSession(session);
+}
+
+/** List all persisted sessions (across projects), newest first. */
+export function listSessions(): Session[] {
+  const dir = join(RA_GLOBAL, "sessions");
+  if (!existsSync(dir)) return [];
+  const out: Session[] = [];
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith(".json")) continue;
+    try {
+      const s = JSON.parse(readFileSync(join(dir, f), "utf-8")) as Session;
+      if (s && typeof s.cwd === "string") out.push(s);
+    } catch {
+      /* skip corrupt session files */
+    }
+  }
+  return out.sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+}
+
+/** Delete a session by id. Returns true if a file was removed. */
+export function deleteSession(id: string): boolean {
+  const dir = join(RA_GLOBAL, "sessions");
+  if (!existsSync(dir)) return false;
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith(".json")) continue;
+    try {
+      const s = JSON.parse(readFileSync(join(dir, f), "utf-8")) as Session;
+      if (s.id === id) {
+        unlinkSync(join(dir, f));
+        return true;
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  return false;
+}
+
+export function formatSessions(sessions: Session[]): string {
+  if (!sessions.length) return "RA sessions\n(no sessions)";
+  const rows = sessions.map((s) => {
+    const when = new Date(s.created ?? 0).toISOString().slice(0, 19).replace("T", " ");
+    return `  ${s.id}  ${s.messages.length} msgs  ${when}  ${s.cwd}`;
+  });
+  return ["RA sessions", ...rows].join("\n");
 }

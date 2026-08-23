@@ -10,6 +10,7 @@ import * as tools from "./tools/index.ts";
 import { loadEnv } from "../../anubis/src/env.ts";
 import { classifyTier, tierModel } from "./tier.ts";
 import { canRunTool } from "./permission.ts";
+import { isAirgapped, localizeModel } from "./airgap.ts";
 
 export interface TaskResult {
   role: string;
@@ -217,7 +218,8 @@ export async function execToolBlock(
   if (webfetch) {
     const d = denied("webfetch");
     if (d) return { done: false, note: d };
-    return { done: false, note: await tools.toolWebFetch(webfetch[1].trim()) };
+    const airgap = config ? isAirgapped(config) : false;
+    return { done: false, note: await tools.toolWebFetch(webfetch[1].trim(), 15000, airgap) };
   }
   const todo = content.match(/^TODO\s+(.+)/im);
   if (todo) {
@@ -259,7 +261,9 @@ export async function runTaskAgent(
   const assignment = resolveRoleModel(role, config);
   const tier = classifyTier(task, role === "ptah" ? "code" : role === "thoth" ? "plan" : undefined);
   const tierModels = (config as RaConfig & { tier_models?: Record<string, string> }).tier_models;
-  const configured = (tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model;
+  let configured = (tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model;
+  const airgap = isAirgapped(config, env);
+  if (airgap) configured = localizeModel(configured, config.small_model ?? "ollama-lan/qwen3.8:latest");
   const { client, model } = await pickClientForModel(configured, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
   const agentPerms = loadAgentPermissions(role);
   const meta = loadAgentMeta(role);

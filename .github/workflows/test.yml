@@ -29,6 +29,7 @@ jobs:
             ../ra/tests/symbols.test.ts \
             ../ra/tests/mcp.test.ts \
             ../ra/tests/daemon.test.ts \
-            ../ra/tests/diagnostics.test.ts
+            ../ra/tests/diagnostics.test.ts \
+            ../ra/tests/airgap.test.ts
   # Full ./test.sh needs LAN .251 + Ollama Cloud — run locally
   # ./test.sh

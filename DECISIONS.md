@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-024 — Air-gapped mode localizes cloud models and blocks non-local webfetch (2026-08-22)
+
+- **Context:** Need a single flag for 100% local operation with zero telemetry. RA has no telemetry, but cloud providers and webfetch are external.
+- **Options:** A network firewall; a config flag that rewrites routing.
+- **Choice:** `airgap: true` in `ra.json` (or `RA_AIRGAP=1`) sets `isAirgapped`. In the agent loop, cloud models are localized to the small model via `localizeModel`, and `toolWebFetch` blocks non-local hosts via `isLocalUrl`.
+- **Why:** RA already has no telemetry, so the remaining external surface is cloud model calls and webfetch. Rewriting routing at the model-selection layer is the least invasive way to guarantee local-only operation, and blocking webfetch closes the other egress path. Local/LAN addresses remain reachable.
+
 ## D-023 — Diagnostics use the language compiler/linter, not a full LSP server (2026-08-22)
 
 - **Context:** Need LSP integration (auto-detect language, spawn server, feed diagnostics after every edit). A full LSP client is a large effort.

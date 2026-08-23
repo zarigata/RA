@@ -4,6 +4,7 @@ import { redact } from "../../../anubis/src/redact.ts";
 import { snapshotFile } from "../server/checkpoint.ts";
 import { outlineSymbols, formatOutline } from "../symbols.ts";
 import { diagnoseFile, formatDiagnostics } from "../diagnostics.ts";
+import { isLocalUrl } from "../airgap.ts";
 
 export interface ToolContext {
   cwd: string;
@@ -135,7 +136,7 @@ export async function toolBash(ctx: ToolContext, command: string, timeoutMs = 60
   return `$ ${safe}\nexit ${code}\n${stdout}${stderr ? `\nstderr:\n${stderr}` : ""}`.trim();
 }
 
-export async function toolWebFetch(url: string, timeoutMs = 15000): Promise<string> {
+export async function toolWebFetch(url: string, timeoutMs = 15000, airgap = false): Promise<string> {
   let u: URL;
   try {
     u = new URL(url);
@@ -144,6 +145,9 @@ export async function toolWebFetch(url: string, timeoutMs = 15000): Promise<stri
   }
   if (u.protocol !== "http:" && u.protocol !== "https:") {
     return `Error: unsupported protocol: ${u.protocol}`;
+  }
+  if (airgap && !isLocalUrl(u.host)) {
+    return `Error: webfetch blocked in air-gapped mode (${u.host})`;
   }
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);

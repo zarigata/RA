@@ -7,7 +7,7 @@
 
 1. **[P1] IDE extension host protocol** — VS Code JSON-RPC bridge.
 2. **[P2] EVAL HARNESS** — 20+ real coding tasks against every configured model.
-3. **[P2] Air-gapped mode** — single flag → 100% local, zero telemetry.
+3. **[P2] Cost dashboard** — per-session/per-model token + USD analytics in TUI.
 
 ---
 
@@ -65,7 +65,7 @@
 - [ ] SWARM MODE: N parallel agents on git worktrees + merge/conflict resolution
 - [ ] Semantic code search: local embeddings + vector index, incremental re-index
 - [ ] Cost dashboard: per-session/per-model token + USD analytics in TUI
-- [ ] Air-gapped mode: single flag → 100% local, zero telemetry
+- [x] Air-gapped mode: single flag → 100% local, zero telemetry (added `airgap` config + `RA_AIRGAP` env; localizes cloud models and blocks non-local webfetch)
 - [ ] Session replay + time-travel debugging
 - [ ] Web dashboard reading from daemon API
 - [ ] Self-healing loops: on test failure, auto-diagnose + retry (max 3), log to BUGS.md

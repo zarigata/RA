@@ -21,6 +21,8 @@ export interface RaConfig extends RouterConfig {
     skill?: Record<string, "allow" | "ask" | "deny">;
   };
   mcp?: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
+  /** Air-gapped mode: 100% local operation, no cloud providers, no external fetches. */
+  airgap?: boolean;
 }
 
 export function ensureRaDirs(): void {

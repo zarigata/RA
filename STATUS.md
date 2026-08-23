@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 27 — Diagnostics after edit (P1).** Plan: add `diagnostics.ts` (auto-detect language, run compiler/linter, parse errors), add `DIAGNOSE` tool to the agent loop, add tests. Files: `ra/src/diagnostics.ts`, `ra/src/tools/index.ts`, `ra/src/agent.ts`, `ra/tests/diagnostics.test.ts`.
+**Cycle 28 — Air-gapped mode (P2).** Plan: add `airgap.ts` (isAirgapped/localizeModel/isLocalUrl), add `airgap` config + `RA_AIRGAP` env, localize cloud models and block non-local webfetch, add tests. Files: `ra/src/airgap.ts`, `anubis/src/config.ts`, `ra/src/agent.ts`, `ra/src/tools/index.ts`, `ra/tests/airgap.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 26 — models.dev catalog ingestion shipped.** Added `catalog.ts` + `ra catalog` (193 providers, 167 OpenAI-compatible); 4 tests. Full gate green.
+**Cycle 27 — Diagnostics-after-edit shipped.** Added `diagnostics.ts` + `DIAGNOSE` tool; 5 tests. Full gate green.
 
 ## Smoke-Test Table
 

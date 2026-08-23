@@ -34,6 +34,7 @@ Or: READ path/to/file
 Or: GLOB **/*.py
 Or: GREP pattern [optional/glob]
 Or: BASH command here
+Or: WEBFETCH https://example.com
 Or: DONE — when finished, with a short summary.
 
 Prefer WRITE for new files, EDIT for small changes. Always produce real content.
@@ -66,6 +67,8 @@ export async function execToolBlock(ctx: ToolContext, content: string): Promise<
   if (grep) return { done: false, note: await tools.toolGrep(ctx, grep[1], grep[2] ?? "**/*") };
   const bash = content.match(/^BASH\s+(.+)/im);
   if (bash) return { done: false, note: await tools.toolBash(ctx, bash[1].trim()) };
+  const webfetch = content.match(/^WEBFETCH\s+(\S+)/im);
+  if (webfetch) return { done: false, note: await tools.toolWebFetch(webfetch[1].trim()) };
   if (/^DONE\b/im.test(content.trim())) {
     return { done: true, note: content.replace(/^DONE\s*/i, "").trim() || "done" };
   }

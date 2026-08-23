@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { classifyTier, tierModel } from "../../ra/src/tier.ts";
-import { toolWrite, toolRead, toolEdit, safePath } from "../../ra/src/tools/index.ts";
+import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch } from "../../ra/src/tools/index.ts";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -96,5 +96,24 @@ describe("execToolBlock EDIT", () => {
     } finally {
       rmSync(cwd, { recursive: true });
     }
+  });
+});
+
+describe("webfetch tool", () => {
+  test("rejects non-http(s) URLs", async () => {
+    const out = await toolWebFetch("file:///etc/passwd");
+    expect(out).toContain("unsupported protocol");
+  });
+
+  test("rejects invalid URLs", async () => {
+    const out = await toolWebFetch("not a url");
+    expect(out).toContain("invalid URL");
+  });
+
+  test("fetches and strips HTML tags", async () => {
+    const out = await toolWebFetch("https://example.com");
+    expect(out).toContain("HTTP 200");
+    expect(out).toContain("Example Domain");
+    expect(out).not.toContain("<html");
   });
 });

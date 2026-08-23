@@ -92,6 +92,36 @@ export async function toolBash(ctx: ToolContext, command: string, timeoutMs = 60
   return `$ ${safe}\nexit ${code}\n${stdout}${stderr ? `\nstderr:\n${stderr}` : ""}`.trim();
 }
 
+export async function toolWebFetch(url: string, timeoutMs = 15000): Promise<string> {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return `Error: invalid URL: ${url}`;
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") {
+    return `Error: unsupported protocol: ${u.protocol}`;
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(u.toString(), { signal: ctrl.signal, redirect: "follow" });
+    const text = await res.text();
+    // Strip <script>/<style> to keep the payload lean for the model.
+    const stripped = text
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return `HTTP ${res.status} ${u.host}\n${stripped.slice(0, 4000)}`;
+  } catch (e) {
+    return `Error: fetch failed: ${String(e)}`;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function listDir(ctx: ToolContext, dir = "."): string {
   const abs = safePath(ctx.cwd, dir);
   if (!existsSync(abs)) return `Error: not found: ${dir}`;

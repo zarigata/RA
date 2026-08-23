@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 3 — JSON config env-var overrides (P1).** Plan: add `applyEnvOverrides` to `anubis/src/config.ts` (RA_MODEL/RA_SMALL_MODEL/ANUBIS_MODEL/ANUBIS_SMALL_MODEL, RA_* wins), wire it into `runner.ts` and `tui/app.ts`, document in `.env.example`, add tests. Files: `anubis/src/config.ts`, `anubis/src/runner.ts`, `ra/src/tui/app.ts`, `anubis/.env.example`, `anubis/tests/config.test.ts`.
+**Cycle 4 — webfetch tool (P1).** Plan: add `toolWebFetch` to `ra/src/tools/index.ts` (http/https only, strips script/style/tags, 4KB cap, timeout), wire `WEBFETCH` into the agent tool loop, add tests. Files: `ra/src/tools/index.ts`, `ra/src/agent.ts`, `ra/tests/runtime.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 2 — Headless `ra run` command shipped.** Added `ra run "task"` (quiet, no TUI splash) with `--quick/--verify/--json/--cwd`; 2 new tests; wired into test gate + CI. Full gate green.
+**Cycle 3 — Env-var model overrides shipped.** Added `applyEnvOverrides` (RA_MODEL/RA_SMALL_MODEL + ANUBIS_* fallbacks), wired into runner + TUI, documented, 5 new tests. Full gate green.
 
 ## Smoke-Test Table
 

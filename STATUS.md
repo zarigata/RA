@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 4 — webfetch tool (P1).** Plan: add `toolWebFetch` to `ra/src/tools/index.ts` (http/https only, strips script/style/tags, 4KB cap, timeout), wire `WEBFETCH` into the agent tool loop, add tests. Files: `ra/src/tools/index.ts`, `ra/src/agent.ts`, `ra/tests/runtime.test.ts`.
+**Cycle 5 — Multi-session list/kill + fallback bugfix (P1).** Plan: add `listSessions`/`deleteSession`/`formatSessions` to `session.ts`, a `/sessions` slash command and `ra sessions [--kill ID]` CLI command; fix `runDoctor` to accept localhost fallback when `.251` is down; relax gate's dynamic `small@251` checks. Files: `ra/src/server/session.ts`, `ra/src/commands/index.ts`, `ra/src/cli.ts`, `ra/src/doctor.ts`, `anubis/test.sh`, `anubis/tests/ping.test.ts`, `ra/tests/session.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 3 — Env-var model overrides shipped.** Added `applyEnvOverrides` (RA_MODEL/RA_SMALL_MODEL + ANUBIS_* fallbacks), wired into runner + TUI, documented, 5 new tests. Full gate green.
+**Cycle 4 — webfetch tool shipped.** Added `toolWebFetch` (http/https only, strips tags, 4KB cap, 15s timeout) + `WEBFETCH` in agent loop; 3 tests incl. live fetch. Full gate green.
 
 ## Smoke-Test Table
 

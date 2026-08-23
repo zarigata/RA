@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-007 — Sessions persist per-project to `~/.ra/sessions` (2026-08-22)
+
+- **Context:** Need multi-session support (list/switch/kill) without a daemon yet. Sessions already persist to disk keyed by project cwd.
+- **Options:** In-memory only; per-project JSON files; a central daemon.
+- **Choice:** Keep per-project JSON files under `~/.ra/sessions` (existing `sessionPath`), and add `listSessions`/`deleteSession`/`formatSessions` to enumerate and kill them. `switch` is deferred until the daemon (D-008) lands.
+- **Why:** The persistence layer already exists and is tested; adding list/kill is a small, safe increment. A full daemon (client/server split) is a larger P1 task that will subsume session management.
+
 ## D-006 — Env-var model overrides use `RA_*` > `ANUBIS_*` precedence (2026-08-22)
 
 - **Context:** `ra.json` already loads, but `.env.example` declared `ANUBIS_MODEL=` with no code wiring it. Need env-var overrides for the BIG/small model without editing config files.

@@ -6,8 +6,8 @@
 ## Up Next (queue)
 
 1. **[P1] Client/server split** — background daemon owns sessions/state/FS; TUI is a thin client. (ARCHITECTURE CORE)
-2. **[P1] Multi-session** — parallel sessions on same project, list/switch/kill.
-3. **[P1] Sessions persist across terminal disconnects** — `ra` reattaches cleanly (partial: disk persistence exists, no daemon).
+2. **[P1] Sessions persist across terminal disconnects** — `ra` reattaches cleanly (partial: disk persistence exists, no daemon).
+3. **[P1] Model router: automatic fallback chain** — cloud→local on failure/rate-limit with per-request cost+latency logging (partial: `pickOllamaEndpoint` picks one endpoint; `runner.ts` has a manual fallback loop).
 
 ---
 
@@ -21,7 +21,7 @@
 ### Architecture Core
 - [ ] Client/server split: background daemon owns sessions, state, FS ops; TUI is a thin client
 - [ ] Sessions persist across terminal disconnects; `ra` reattaches cleanly (partial: `session.ts` persists to disk, no daemon)
-- [ ] Multi-session: parallel sessions on same project, list/switch/kill
+- [x] Multi-session: parallel sessions on same project, list/switch/kill (partial: list + kill via `ra sessions`/`/sessions`; switch not yet wired)
 - [x] Headless/non-interactive mode: `ra run "task"` for CI/scripting (added `ra run` with `--quick/--verify/--json/--cwd`, no TUI splash)
 - [x] JSON config file (`ra.json`) + env var overrides + sane defaults (`ra.json` loads; added `RA_MODEL`/`RA_SMALL_MODEL`/`ANUBIS_MODEL`/`ANUBIS_SMALL_MODEL` env overrides)
 

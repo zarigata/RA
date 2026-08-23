@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- `ra run "task"` headless command for CI/scripting — runs the full-dev pipeline without the TUI splash, with `--quick`, `--verify`, `--json`, and `--cwd` flags.
 - Six persistent state files (ROADMAP, STATUS, CHANGELOG, DECISIONS, BUGS, BLOCKED) to drive autonomous development.
 - Git repository initialized (project was previously unversioned).
 

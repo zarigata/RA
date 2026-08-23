@@ -6,8 +6,8 @@
 ## Up Next (queue)
 
 1. **[P1] Client/server split** — background daemon owns sessions/state/FS; TUI is a thin client. (ARCHITECTURE CORE)
-2. **[P1] Headless `ra run "task"`** — non-interactive mode for CI/scripting (currently `ra --task` exists but is coupled to TUI splash output).
-3. **[P1] JSON config `ra.json` + env overrides** — `anubis.json` exists; add `ra.json` project-level config with env-var override precedence.
+2. **[P1] JSON config `ra.json` + env overrides** — `anubis.json` exists; add `ra.json` project-level config with env-var override precedence.
+3. **[P1] Multi-session** — parallel sessions on same project, list/switch/kill.
 
 ---
 
@@ -22,7 +22,7 @@
 - [ ] Client/server split: background daemon owns sessions, state, FS ops; TUI is a thin client
 - [ ] Sessions persist across terminal disconnects; `ra` reattaches cleanly (partial: `session.ts` persists to disk, no daemon)
 - [ ] Multi-session: parallel sessions on same project, list/switch/kill
-- [ ] Headless/non-interactive mode: `ra run "task"` for CI/scripting (partial: `ra --task` exists)
+- [x] Headless/non-interactive mode: `ra run "task"` for CI/scripting (added `ra run` with `--quick/--verify/--json/--cwd`, no TUI splash)
 - [ ] JSON config file (`ra.json`) + env var overrides + sane defaults (partial: `anubis.json` + `.env`)
 
 ### Model Layer

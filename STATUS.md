@@ -5,14 +5,7 @@
 
 ## Current Cycle
 
-**Cycle 1 — Bootstrap.** No feature work yet. Establishing baseline:
-- [x] Explore repo, map existing vs Sections 3–4
-- [x] Verify build + tests green (155 tests pass)
-- [x] Run full gate `./test.sh` (passes end-to-end)
-- [x] Init git repo (was not a git repo)
-- [x] Create six state files
-- [x] Baseline dogfood smoke test (cloud + local) — recorded below
-- [x] First commit
+**Cycle 2 — Headless `ra run` command (P1).** Plan: add a `ra run "task"` subcommand to `ra/src/cli.ts` that runs the full-dev pipeline with `quiet: true` (no TUI splash), supporting `--quick/--verify/--json/--cwd`. Add a unit test file and wire it into `anubis/test.sh` + CI. Files: `ra/src/cli.ts`, `ra/tests/run-command.test.ts`, `anubis/test.sh`, `.github/workflows/test.yml`.
 
 ## Last Cycle Result
 

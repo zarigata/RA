@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-005 — `ra run` reuses `runFullDevTask` with `quiet: true` (2026-08-22)
+
+- **Context:** Need a headless, non-interactive mode for CI/scripting. `ra --task` already runs the pipeline but always prints the TUI splash and stage boxes.
+- **Options:** New separate runner; reuse `runFullDevTask` with a `quiet` flag.
+- **Choice:** Reuse `runFullDevTask` with `quiet: true`, then print only the machine-readable result lines (`RA RESULT`, `RA lane`, `RA intent`, `RA prefer`) and optional `--json`/`--verify`.
+- **Why:** `runFullDevTask` already handles model routing, fallback, file writing, and last-run persistence. A `quiet` flag avoids duplicating that logic and keeps the public CLI surface stable. The `quiet` option already existed in the signature but was unused by the CLI.
+
 ## D-004 — Initialize git + six state files (2026-08-22)
 
 - **Context:** The repo was not a git repository and had no ROADMAP/STATUS/CHANGELOG/DECISIONS/BUGS/BLOCKED files.

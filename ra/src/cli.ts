@@ -68,6 +68,7 @@ Usage:
   ra home                    Show anubis + ~/.ra paths
   ra palette                 List TUI slash commands
   ra --task "..." [--quick] [--verify] [--json]  Full pipeline with RA TUI (--quick = 2 stages)
+  ra run "..." [--quick] [--verify] [--json] [--cwd DIR]  Headless full-dev (no TUI, for CI/scripting)
   ra roles                   Show role assignments
   ra status                  Snapshot: profile, last run, usage
   ra last [--json]           Show last full-dev run
@@ -383,6 +384,51 @@ if (args[0] === "again") {
       const { verifyLastRun } = await import("../../anubis/src/verify.ts");
       const { ok, lines } = await verifyLastRun(loadLastRun());
       console.log("RA again verify");
+      console.log(lines.join("\n"));
+      process.exit(ok ? 0 : 1);
+    }
+    process.exit(0);
+  } catch (e) {
+    console.error(String(e));
+    process.exit(1);
+  }
+}
+
+if (args[0] === "run") {
+  const runTask = args[1];
+  if (!runTask) {
+    console.error(`${APP_NAME} run: missing task. Usage: ra run "task" [--quick] [--verify] [--json] [--cwd DIR]`);
+    process.exit(1);
+  }
+  const runQuick = args.includes("--quick");
+  const runVerify = args.includes("--verify");
+  const runJson = args.includes("--json");
+  const runCwd = arg("--cwd") ?? process.cwd();
+  try {
+    const result = await runFullDevTask(runTask, {
+      root: ANUBIS_HOME,
+      stages: runQuick ? ["thoth", "ptah"] : undefined,
+      cwd: runCwd,
+      quiet: true,
+    });
+    if (!result.summary) process.exit(1);
+    if (runJson) {
+      const { loadLastRun } = await import("../../anubis/src/last-run.ts");
+      console.log(JSON.stringify(loadLastRun(), null, 2));
+    } else {
+      const { loadLastRun, formatResultLine, formatLaneLine, formatIntentLine, formatPreferLine } = await import("../../anubis/src/last-run.ts");
+      const last = loadLastRun();
+      if (last) {
+        console.log(formatResultLine(last));
+        console.log(formatLaneLine(last));
+        console.log(formatIntentLine(last));
+        console.log(formatPreferLine(last));
+      }
+    }
+    if (runVerify) {
+      const { loadLastRun } = await import("../../anubis/src/last-run.ts");
+      const { verifyLastRun } = await import("../../anubis/src/verify.ts");
+      const { ok, lines } = await verifyLastRun(loadLastRun());
       console.log(lines.join("\n"));
       process.exit(ok ? 0 : 1);
     }

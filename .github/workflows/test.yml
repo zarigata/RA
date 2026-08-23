@@ -19,6 +19,7 @@ jobs:
             tests/cost.test.ts \
             tests/config.test.ts \
             ../ra/tests/runtime.test.ts \
-            ../ra/tests/benchmark-artifacts.test.ts
+            ../ra/tests/benchmark-artifacts.test.ts \
+            ../ra/tests/run-command.test.ts
   # Full ./test.sh needs LAN .251 + Ollama Cloud — run locally
   # ./test.sh

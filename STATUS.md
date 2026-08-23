@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 15 — GitHub Action `/ra` (P1).** Plan: add `.github/workflows/ra-agent.yml` that triggers on `/ra` PR comments, runs `ra run` headless, and posts the result back as a comment. Files: `.github/workflows/ra-agent.yml`.
+**Cycle 16 — Honor agent frontmatter `steps`/`temperature` (P1).** Plan: add `loadAgentMeta` to `agent.ts`, thread `temperature` through `nativeChat`/`chat`, use `steps` to bound the tool loop. Files: `ra/src/agent.ts`, `anubis/src/ollama.ts`, `ra/tests/runtime.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 14 — Undo/checkpoint shipped.** Added `checkpoint.ts` + `ra undo`/`ra checkpoints`; `toolWrite`/`toolEdit` snapshot before modifying; 5 tests. Full gate green.
+**Cycle 15 — GitHub Action `/ra` shipped.** Added `ra-agent.yml` (runs `ra run` headless on `/ra` PR comments, posts result). Full gate green.
 
 ## Smoke-Test Table
 

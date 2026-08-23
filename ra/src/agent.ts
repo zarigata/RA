@@ -81,6 +81,29 @@ export function loadAgentPermissions(role: string): Record<string, "allow" | "as
   return Object.keys(out).length ? out : null;
 }
 
+export interface AgentMeta {
+  steps?: number;
+  temperature?: number;
+}
+
+/**
+ * Parse an agent's frontmatter `steps` and `temperature` (used to bound the
+ * tool loop and set sampling). Returns empty object if absent.
+ */
+export function loadAgentMeta(role: string): AgentMeta {
+  const p = join(AGENTS_DIR, `${role}.md`);
+  if (!existsSync(p)) return {};
+  const raw = readFileSync(p, "utf-8");
+  const fm = raw.match(/^---\n([\s\S]*?)\n---/);
+  if (!fm) return {};
+  const out: AgentMeta = {};
+  const steps = fm[1].match(/^steps:\s*(\d+)\s*$/m);
+  if (steps) out.steps = Number(steps[1]);
+  const temp = fm[1].match(/^temperature:\s*([\d.]+)\s*$/m);
+  if (temp) out.temperature = Number(temp[1]);
+  return out;
+}
+
 /**
  * Load project memory (AGENTS.md or RA.md) from the project cwd, if present.
  * Injected into the system prompt so the agent follows project conventions.
@@ -200,6 +223,9 @@ export async function runTaskAgent(
   const configured = (tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model;
   const { client, model } = await pickClientForModel(configured, env);
   const agentPerms = loadAgentPermissions(role);
+  const meta = loadAgentMeta(role);
+  const steps = meta.steps ?? maxSteps;
+  const temperature = meta.temperature;
   const system = `${loadAgentPrompt(role)}${loadProjectMemory(ctx.cwd)}\n${TOOL_HINT}`;
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: system },
@@ -213,8 +239,8 @@ export async function runTaskAgent(
     const r = await runTaskAgent(subRole, subTask, config, ctx, env, 4);
     return r.output;
   };
-  for (let i = 0; i < maxSteps; i++) {
-    const res = await client.nativeChat(usedModel, messages);
+  for (let i = 0; i < steps; i++) {
+    const res = await client.nativeChat(usedModel, messages, { temperature });
     usedModel = res.model;
     last = res.content;
     const inChars = messages.reduce((n, m) => n + m.content.length, 0);

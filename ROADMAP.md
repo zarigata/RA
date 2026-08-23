@@ -35,7 +35,7 @@
 ### Agent System
 - [x] Primary agents: Build (ptah, full tools) and Plan (thoth, read-only)
 - [x] Subagents: General, Explore, Scout — spawnable, visible in TUI with subagent tree (partial: `general`/`explore`/`scout` agent defs + `TASK` spawn tool; TUI subagent tree not yet)
-- [ ] Custom agents as Markdown files with frontmatter (partial: `.anubis/agents/*.md` exist, frontmatter parsing minimal)
+- [x] Custom agents as Markdown files with frontmatter (partial: `permission`/`steps`/`temperature` frontmatter now honored; `model`/`tools` frontmatter not yet)
 - [x] Tool set: read/write/edit (diff-based), bash, grep, glob, ls, webfetch, todo tracking, task (subagent spawn) (partial: no multi-edit)
 - [x] Permission engine: per-tool allow/ask/deny rules, per-session approvals (partial: `permission.tool` + agent frontmatter `permission` enforced in agent loop; `ask`/interactive approval not yet wired)
 

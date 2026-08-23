@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-016 — Agent frontmatter `steps`/`temperature` honored in the tool loop (2026-08-22)
+
+- **Context:** Agent Markdown files declare `steps` and `temperature` in frontmatter, but `runTaskAgent` hardcoded `maxSteps = 6` and never passed temperature to the model.
+- **Options:** Ignore frontmatter; honor it.
+- **Choice:** Add `loadAgentMeta` to parse `steps`/`temperature`; use `steps` (falling back to the `maxSteps` arg) to bound the tool loop, and pass `temperature` through `nativeChat`/`chat` (Ollama `options.temperature` for local, `temperature` for OpenAI-compat cloud).
+- **Why:** These are the two frontmatter fields that directly affect agent behavior and are already declared in every agent file. Honoring them makes custom agents actually configurable. `model`/`tools` frontmatter remain deferred (model is assigned via config/router, tools via `permission`).
+
 ## D-015 — GitHub Action uses `ra run` headless, not a separate agent runtime (2026-08-22)
 
 - **Context:** Need a GitHub Action where a `/ra` comment on a PR triggers the agent. The headless `ra run` command (D-005) already exists.

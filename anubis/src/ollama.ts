@@ -86,7 +86,7 @@ export class OllamaClient {
     return (data.data ?? []).map((m) => m.id);
   }
 
-  async chat(model: string, messages: ChatMessage[], opts: { maxTokens?: number; timeoutMs?: number } = {}): Promise<ChatResult> {
+  async chat(model: string, messages: ChatMessage[], opts: { maxTokens?: number; timeoutMs?: number; temperature?: number } = {}): Promise<ChatResult> {
     const timeoutMs = opts.timeoutMs ?? 180_000;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -102,6 +102,7 @@ export class OllamaClient {
           model,
           messages,
           max_tokens: opts.maxTokens,
+          ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
         }),
       });
       if (!res.ok) throw new Error(`chat ${res.status}: ${await res.text()}`);
@@ -129,7 +130,7 @@ export class OllamaClient {
   async nativeChat(
     model: string,
     messages: ChatMessage[],
-    opts: { timeoutMs?: number } = {},
+    opts: { timeoutMs?: number; temperature?: number } = {},
   ): Promise<ChatResult> {
     if (this.cfg.kind === "cloud") return this.chat(model, messages, opts);
     const base = this.cfg.baseURL.replace(/\/v1$/, "");
@@ -142,7 +143,12 @@ export class OllamaClient {
         method: "POST",
         headers,
         signal: ctrl.signal,
-        body: JSON.stringify({ model, messages, stream: false }),
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: false,
+          ...(opts.temperature != null ? { options: { temperature: opts.temperature } } : {}),
+        }),
       });
       if (!res.ok) throw new Error(`nativeChat ${res.status}: ${await res.text()}`);
       const data = (await res.json()) as {

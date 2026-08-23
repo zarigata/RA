@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { classifyTier, tierModel } from "../../ra/src/tier.ts";
 import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo } from "../../ra/src/tools/index.ts";
-import { loadProjectMemory, loadAgentPermissions } from "../../ra/src/agent.ts";
+import { loadProjectMemory, loadAgentPermissions, loadAgentMeta } from "../../ra/src/agent.ts";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -195,6 +195,16 @@ describe("agent permissions", () => {
 
   test("unknown role returns null", () => {
     expect(loadAgentPermissions("nonexistent")).toBeNull();
+  });
+
+  test("loadAgentMeta reads steps and temperature", () => {
+    const meta = loadAgentMeta("thoth");
+    expect(meta.steps).toBe(10);
+    expect(meta.temperature).toBe(0.1);
+  });
+
+  test("loadAgentMeta returns empty for unknown role", () => {
+    expect(loadAgentMeta("nonexistent")).toEqual({});
   });
 });
 

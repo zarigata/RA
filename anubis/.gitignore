@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Environment
+.env
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Lock files
+# bun.lock
+
+# Test coverage
+coverage/
+
+.env
+node_modules/
+bun.lockb
+.anubis/node_modules/
+*.log
+dist/

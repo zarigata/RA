@@ -1,0 +1,20 @@
+{
+  "name": "anubis",
+  "version": "1.0.0-anubis.1",
+  "description": "Anubis - Mixture-of-Agents terminal coding agent (Anubis runtime distribution)",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "anubis": "./bin/anubis",
+    "ra": "./bin/ra"
+  },
+  "scripts": {
+    "start": "bun src/cli/main.ts",
+    "test": "bash test.sh",
+    "test:unit": "bun test",
+    "test:ci": "bun test tests/ci"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

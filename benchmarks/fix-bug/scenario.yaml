@@ -1,0 +1,9 @@
+name: fix-bug
+prompt: "Fix buggy hello.py so it prints Hello World instead of recursing. Keep the file as hello.py."
+cwd: ~/Desktop/RA-Tests/fix-bug
+tier: code
+success:
+  - file_exists: hello.py
+  - file_contains:
+      path: hello.py
+      text: "print"

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+TARGET="$(readlink "$0" 2>/dev/null || echo "$0")"
+[[ "$TARGET" != /* ]] && TARGET="$(cd "$(dirname "$0")" && pwd)/$TARGET"
+ANUBIS_HOME="$(cd "$(dirname "$TARGET")/.." && pwd)"
+RA_ROOT="$(cd "$ANUBIS_HOME/.." && pwd)"
+export ANUBIS_HOME RA_HOME="$RA_ROOT"
+exec bun run "$RA_ROOT/ra/src/cli.ts" "$@"

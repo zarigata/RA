@@ -1,0 +1,9 @@
+name: todo-app
+prompt: "Create a minimal todo app in a single index.html file with add and delete."
+cwd: ~/Desktop/RA-Tests/todo-app
+tier: light
+success:
+  - file_exists: index.html
+  - file_contains:
+      path: index.html
+      text: "todo"

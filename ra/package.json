@@ -1,0 +1,11 @@
+{
+  "name": "ra-runtime",
+  "version": "1.0.0-ra.1",
+  "type": "module",
+  "main": "src/cli.ts",
+  "scripts": {
+    "start": "bun src/cli.ts",
+    "test": "bun test"
+  },
+  "dependencies": {}
+}

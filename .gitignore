@@ -1,0 +1,11 @@
+# RA — Relic Agent
+.env
+.env.*
+!.env.example
+.ra/
+**/node_modules/
+.DS_Store
+*.log
+/tmp/
+anubis/.anubis/node_modules/
+.opencode/node_modules/

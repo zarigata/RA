@@ -1,0 +1,24 @@
+name: test
+on: [push, pull_request]
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: ./install
+      - name: Unit tests (no live Ollama required)
+        working-directory: anubis
+        run: |
+          bun test \
+            tests/tui.test.ts \
+            tests/last-run.test.ts \
+            tests/history.test.ts \
+            tests/hello-guard.test.ts \
+            tests/ollama-routing.test.ts \
+            tests/cost.test.ts \
+            tests/config.test.ts \
+            ../ra/tests/runtime.test.ts \
+            ../ra/tests/benchmark-artifacts.test.ts
+  # Full ./test.sh needs LAN .251 + Ollama Cloud — run locally
+  # ./test.sh

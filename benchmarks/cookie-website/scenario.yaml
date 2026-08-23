@@ -1,0 +1,9 @@
+name: cookie-website
+prompt: "Create a simple cookie recipe website with HTML/CSS. One page."
+cwd: ~/Desktop/RA-Tests/cookie-website
+tier: light
+success:
+  - file_exists: index.html
+  - file_contains:
+      path: index.html
+      text: "cookie"

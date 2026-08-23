@@ -1,0 +1,9 @@
+name: smoke
+prompt: "Create index.html hello world page"
+cwd: ~/Desktop/RA-Tests/smoke
+tier: light
+success:
+  - file_exists: index.html
+  - file_contains:
+      path: index.html
+      text: "hello"

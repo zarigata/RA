@@ -1,0 +1,28 @@
+{
+  "$schema": "https://anubis.ai/config.json",
+  "model": "ollama-cloud/glm-5.2",
+  "small_model": "ollama-cloud/gemma4:31b",
+  "provider": {
+    "ollama-cloud": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama Cloud",
+      "options": {
+        "baseURL": "https://ollama.com/v1",
+        "apiKey": "{env:OLLAMA_API_KEY}"
+      },
+      "models": {
+        "glm-5.2": { "name": "GLM 5.2 (Ollama Cloud)" },
+        "deepseek-v4-pro": { "name": "DeepSeek V4 Pro (Ollama Cloud)" },
+        "gemma4:31b": { "name": "Gemma 4 31B (Ollama Cloud)" },
+        "nemotron-3-super": { "name": "Nemotron 3 Super (Ollama Cloud)" }
+      }
+    }
+  },
+  "agent": {
+    "thoth": { "model": "ollama-cloud/glm-5.2" },
+    "ptah": { "model": "ollama-cloud/glm-5.2" },
+    "maat": { "model": "ollama-cloud/gemma4:31b" },
+    "sekhmet": { "model": "ollama-cloud/deepseek-v4-pro" }
+  },
+  "moa": { "roles": ["thoth", "ptah", "maat", "sekhmet"], "parallel": true }
+}

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# RA install — puts `ra` on PATH
+set -euo pipefail
+
+SRC="$(cd "$(dirname "$0")" && pwd)"
+ANUBIS_HOME="$SRC/anubis"
+DEST="${RA_INSTALL_DIR:-$HOME/.local/bin}"
+RA_GLOBAL="$HOME/.ra"
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "bun required: curl -fsSL https://bun.sh/install | bash" >&2
+  exit 1
+fi
+
+mkdir -p "$DEST" "$RA_GLOBAL/sessions" "$RA_GLOBAL/benchmarks"
+ln -sf "$ANUBIS_HOME/bin/ra" "$DEST/ra"
+ln -sf "$ANUBIS_HOME/bin/anubis" "$DEST/anubis"
+chmod +x "$ANUBIS_HOME/bin/ra" "$ANUBIS_HOME/bin/anubis"
+
+if [[ -f "$ANUBIS_HOME/.env.example" && ! -f "$ANUBIS_HOME/.env" ]]; then
+  cp "$ANUBIS_HOME/.env.example" "$ANUBIS_HOME/.env"
+  echo "Created $ANUBIS_HOME/.env — add API keys if using cloud models"
+fi
+
+echo "RA installed → $DEST/ra"
+echo "Config: $ANUBIS_HOME/ra.json"
+echo "Global: $RA_GLOBAL"
+echo ""
+echo "  ra                 # interactive TUI"
+echo "  ra demo            # one-shot RA TUI full-dev"
+echo "  ra selfcheck       # splash + .251/qwen ping (no LLM)"
+echo "  ra doctor          # .251 qwen + cloud"
+echo "  ./test.sh          # full bash gate"
+echo ""
+
+"$DEST/ra" --version

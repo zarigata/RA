@@ -1,0 +1,100 @@
+import { describe, expect, test } from "bun:test";
+import { classifyTier, tierModel } from "../../ra/src/tier.ts";
+import { toolWrite, toolRead, toolEdit, safePath } from "../../ra/src/tools/index.ts";
+import { join } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+
+describe("task tier classifier", () => {
+  test("plan is light/meta", () => {
+    expect(classifyTier("plan the architecture", "plan")).toBe("meta");
+  });
+  test("code task is code tier", () => {
+    expect(classifyTier("implement fibonacci function")).toBe("code");
+  });
+  test("mac-weak tier models", () => {
+    const models = { meta: "ollama/gemma:latest", code: "ollama-lan/qwen3.8:latest" };
+    expect(tierModel("meta", models)).toBe("ollama/gemma:latest");
+    expect(tierModel("code", models)).toBe("ollama-lan/qwen3.8:latest");
+  });
+
+  test("default tier fallback is qwen3.8 on LAN", () => {
+    expect(tierModel("meta")).toBe("ollama-lan/qwen3.8:latest");
+  });
+});
+
+describe("RA tools", () => {
+  test("write and read round-trip", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-tool-"));
+    try {
+      toolWrite({ cwd }, "test.txt", "hello RA");
+      const out = toolRead({ cwd }, "test.txt");
+      expect(out).toContain("hello RA");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("safePath blocks sibling prefix escape", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-safe-"));
+    try {
+      expect(() => safePath(cwd, "../evil.txt")).toThrow(/escapes/);
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("toolEdit replaces substring", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-edit-"));
+    try {
+      toolWrite({ cwd }, "a.txt", "hello world");
+      const note = toolEdit({ cwd }, "a.txt", "world", "RA");
+      expect(note).toContain("Edited");
+      expect(toolRead({ cwd }, "a.txt")).toContain("hello RA");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("toolWrite redacts secrets", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-redact-"));
+    try {
+      toolWrite({ cwd }, "leak.txt", "key=sk-abcdefghijklmnopqrstuvwxyz123456");
+      const out = toolRead({ cwd }, "leak.txt");
+      expect(out).not.toContain("sk-abcdefghijklmnopqrstuvwxyz123456");
+      expect(out).toContain("VIBEGUARD");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+});
+
+describe("execToolBlock EDIT", () => {
+  test("parses EDIT block", async () => {
+    const { execToolBlock } = await import("../../ra/src/agent.ts");
+    const cwd = mkdtempSync(join(tmpdir(), "ra-editblk-"));
+    try {
+      toolWrite({ cwd }, "x.py", "print(1)\n");
+      const r = await execToolBlock(
+        { cwd },
+        "EDIT x.py\n<<<<<<< OLD\nprint(1)\n=======\nprint(2)\n>>>>>>> NEW",
+      );
+      expect(r.note).toContain("Edited");
+      expect(toolRead({ cwd }, "x.py")).toContain("print(2)");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("parses GLOB", async () => {
+    const { execToolBlock } = await import("../../ra/src/agent.ts");
+    const cwd = mkdtempSync(join(tmpdir(), "ra-glob-"));
+    try {
+      toolWrite({ cwd }, "a.py", "x");
+      const r = await execToolBlock({ cwd }, "GLOB *.py");
+      expect(r.note).toContain("a.py");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+});

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://ra.dev/config.json",
+  "model": "ollama-cloud/glm-5.2",
+  "small_model": "ollama-lan/qwen3.8:latest",
+  "profile": "mac-weak",
+  "profiles": {
+    "mac-weak": {
+      "description": "Small on .251 (qwen3.8); BIG on Ollama Cloud (glm-5.2)",
+      "tier_models": {
+        "meta": "ollama-lan/qwen3.8:latest",
+        "light": "ollama-lan/qwen3.8:latest",
+        "heavy": "ollama-cloud/glm-5.2",
+        "code": "ollama-cloud/glm-5.2"
+      },
+      "agent": {
+        "thoth": { "model": "ollama-lan/qwen3.8:latest" },
+        "ptah": { "model": "ollama-cloud/glm-5.2" },
+        "maat": { "model": "ollama-lan/qwen3.8:latest" },
+        "sekhmet": { "model": "ollama-lan/qwen3.8:latest" },
+        "isis": { "model": "ollama-lan/qwen3.8:latest" },
+        "seshat": { "model": "ollama-lan/qwen3.8:latest" },
+        "horus": { "model": "ollama-lan/qwen3.8:latest" }
+      }
+    }
+  },
+  "provider": {
+    "ollama-cloud": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama Cloud (BIG)",
+      "options": {
+        "baseURL": "https://ollama.com/v1",
+        "apiKey": "{env:OLLAMA_API_KEY}"
+      },
+      "models": {
+        "glm-5.2": { "name": "GLM 5.2 (Cloud BIG)" },
+        "gemma4:31b": { "name": "Gemma 4 31B (Cloud)" },
+        "deepseek-v4-pro": { "name": "DeepSeek V4 Pro (Cloud)" }
+      }
+    },
+    "ollama-lan": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama .251 (small/local)",
+      "options": { "baseURL": "http://192.168.1.251:11434/v1" },
+      "models": {
+        "qwen3.8:latest": { "name": "Qwen3.8 (LAN small)" },
+        "qwen3:8b": { "name": "Qwen3 8B (LAN)" },
+        "gemma4:12b": { "name": "Gemma4 12B (LAN)" }
+      }
+    },
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama localhost fallback",
+      "options": { "baseURL": "http://localhost:11434/v1" },
+      "models": {
+        "gemma:latest": { "name": "Gemma (localhost)" }
+      }
+    }
+  },
+  "permission": { "skill": { "*": "allow" } },
+  "plugin": ["horus", "vibeguard", "dcp", "cost-tracker", "notify", "moa", "router", "lan", "papyrus"],
+  "agent": {
+    "thoth": { "model": "ollama-lan/qwen3.8:latest" },
+    "ptah": { "model": "ollama-cloud/glm-5.2" },
+    "maat": { "model": "ollama-lan/qwen3.8:latest" },
+    "sekhmet": { "model": "ollama-lan/qwen3.8:latest" },
+    "isis": { "model": "ollama-lan/qwen3.8:latest" },
+    "seshat": { "model": "ollama-lan/qwen3.8:latest" },
+    "horus": { "model": "ollama-lan/qwen3.8:latest" }
+  },
+  "moa": { "roles": ["thoth", "ptah", "maat", "sekhmet"], "parallel": true },
+  "pipeline": { "stages": ["thoth", "ptah", "maat", "sekhmet", "ptah", "seshat"] }
+}

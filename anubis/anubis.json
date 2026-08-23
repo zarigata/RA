@@ -1,0 +1,73 @@
+{
+  "$schema": "https://anubis.dev/config.json",
+  "model": "ollama-lan/qwen3:8b",
+  "small_model": "ollama/gemma:latest",
+  "provider": {
+    "ollama-cloud": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama Cloud",
+      "options": {
+        "baseURL": "https://ollama.com/v1",
+        "apiKey": "{env:OLLAMA_API_KEY}"
+      },
+      "models": {
+        "glm-5.2": { "name": "GLM 5.2 (Ollama Cloud)" },
+        "deepseek-v4-pro": { "name": "DeepSeek V4 Pro (Ollama Cloud)" },
+        "gemma4:31b": { "name": "Gemma 4 31B (Ollama Cloud)" },
+        "nemotron-3-nano:30b": { "name": "Nemotron 3 Nano (Ollama Cloud)" },
+        "nemotron-3-super": { "name": "Nemotron 3 Super (Ollama Cloud)" },
+        "nemotron-3-ultra": { "name": "Nemotron 3 Ultra (Ollama Cloud)" },
+        "deepseek-v4-flash:preview": { "name": "DeepSeek V4 Flash (Ollama Cloud)" }
+      }
+    },
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "gemma:latest": { "name": "Gemma (local)" },
+        "qwen3:8b": { "name": "Qwen3 8B (local)" },
+        "glm-5.2:cloud": { "name": "GLM 5.2 (local proxy)" },
+        "minimax-m3:cloud": { "name": "MiniMax M3 (local proxy)" }
+      }
+    },
+    "ollama-lan": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (LAN .251)",
+      "options": {
+        "baseURL": "http://192.168.1.251:11434/v1"
+      },
+      "models": {
+        "qwen3:8b": { "name": "Qwen3 8B (LAN primary)" },
+        "gemma:latest": { "name": "Gemma (LAN fallback)" }
+      }
+    }
+  },
+  "permission": {
+    "skill": { "*": "allow" }
+  },
+  "plugin": [
+    "horus",
+    "vibeguard",
+    "dcp",
+    "cost-tracker",
+    "notify",
+    "moa",
+    "router",
+    "lan",
+    "papyrus"
+  ],
+  "agent": {
+    "thoth": { "model": "ollama-lan/qwen3:8b" },
+    "ptah": { "model": "ollama-lan/qwen3:8b" },
+    "maat": { "model": "ollama/gemma:latest" },
+    "sekhmet": { "model": "ollama/gemma:latest" },
+    "isis": { "model": "ollama-lan/qwen3:8b" },
+    "seshat": { "model": "ollama/gemma:latest" },
+    "horus": { "model": "ollama/gemma:latest" }
+  },
+  "moa": { "roles": ["thoth", "ptah", "maat", "sekhmet"], "parallel": true },
+  "pipeline": { "stages": ["thoth", "ptah", "maat", "sekhmet", "ptah", "seshat"] }
+}

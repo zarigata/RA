@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 28 — Air-gapped mode (P2).** Plan: add `airgap.ts` (isAirgapped/localizeModel/isLocalUrl), add `airgap` config + `RA_AIRGAP` env, localize cloud models and block non-local webfetch, add tests. Files: `ra/src/airgap.ts`, `anubis/src/config.ts`, `ra/src/agent.ts`, `ra/src/tools/index.ts`, `ra/tests/airgap.test.ts`.
+**Cycle 29 — Self-healing loop (P2).** Plan: add `selfheal.ts` (run test → diagnose → fix → retry, max 3, log to BUGS.md), add tests. Files: `ra/src/selfheal.ts`, `ra/tests/selfheal.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 27 — Diagnostics-after-edit shipped.** Added `diagnostics.ts` + `DIAGNOSE` tool; 5 tests. Full gate green.
+**Cycle 28 — Air-gapped mode shipped.** Added `airgap.ts` + `RA_AIRGAP` env (localize cloud models, block non-local webfetch); 4 tests. Full gate green.
 
 ## Smoke-Test Table
 

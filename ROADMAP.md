@@ -68,7 +68,7 @@
 - [x] Air-gapped mode: single flag → 100% local, zero telemetry (added `airgap` config + `RA_AIRGAP` env; localizes cloud models and blocks non-local webfetch)
 - [ ] Session replay + time-travel debugging
 - [ ] Web dashboard reading from daemon API
-- [ ] Self-healing loops: on test failure, auto-diagnose + retry (max 3), log to BUGS.md
+- [x] Self-healing loops: on test failure, auto-diagnose + retry (max 3), log to BUGS.md (added `selfheal.ts`)
 
 ## P3 — Polish / Perf / DX
 

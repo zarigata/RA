@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-025 — Self-healing loop is a generic retry harness, not agent-coupled (2026-08-22)
+
+- **Context:** Need self-healing: on test failure, auto-diagnose and retry (max 3), log to BUGS.md. The diagnostics tool (D-023) already exists.
+- **Options:** Couple the loop to the agent; a generic harness.
+- **Choice:** A generic `selfHeal(opts)` that takes `runTest`, `attemptFix`, and `files` callbacks, diagnoses the files on failure, retries up to 3 times, and appends to BUGS.md if still failing.
+- **Why:** Keeping it generic makes it testable without a live model and reusable by both the agent loop and CI. The `attemptFix` callback is where the agent (or any fixer) plugs in. It composes with the existing `diagnoseFile` rather than duplicating it.
+
 ## D-024 — Air-gapped mode localizes cloud models and blocks non-local webfetch (2026-08-22)
 
 - **Context:** Need a single flag for 100% local operation with zero telemetry. RA has no telemetry, but cloud providers and webfetch are external.

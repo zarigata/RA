@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-028 — Swarm mode uses git worktrees with a merge pass (2026-08-22)
+
+- **Context:** Need swarm mode: N parallel agents on git worktrees with merge/conflict resolution.
+- **Options:** In-process parallel edits; git worktrees.
+- **Choice:** `swarm.ts` creates a git worktree per task (branch `ra-swarm/<id>`), runs the agent in parallel, then merges each branch back with `--no-ff`. A task whose merge conflicts is reported as not-ok.
+- **Why:** Worktrees give each agent an isolated filesystem, so parallel agents never collide. The merge pass is the conflict-resolution boundary — a conflicting merge is surfaced as a failure rather than silently resolved. This is the standard, safe pattern for parallel agent orchestration.
+
 ## D-027 — Semantic search uses TF-IDF, not external embeddings (2026-08-22)
 
 - **Context:** Need semantic code search with a local vector index and incremental re-index. External embedding models add a dependency and require a running service.

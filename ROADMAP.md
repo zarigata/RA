@@ -7,7 +7,7 @@
 
 1. **[P1] IDE extension host protocol** — VS Code JSON-RPC bridge.
 2. **[P2] EVAL HARNESS** — 20+ real coding tasks against every configured model.
-3. **[P2] SWARM MODE** — N parallel agents on git worktrees + merge/conflict resolution.
+3. **[P3] Live token/cost sidebar in TUI**.
 
 ---
 
@@ -62,7 +62,7 @@
 ## P2 — RA-PLUS (Beyond Parity)
 
 - [ ] EVAL HARNESS: 20+ real coding tasks against every configured model; results table in STATUS.md
-- [ ] SWARM MODE: N parallel agents on git worktrees + merge/conflict resolution
+- [x] SWARM MODE: N parallel agents on git worktrees + merge/conflict resolution (added `swarm.ts` — parallel worktrees + merge pass)
 - [x] Semantic code search: local embeddings + vector index, incremental re-index (added `search.ts` — TF-IDF vector index + cosine similarity + incremental reindex)
 - [x] Cost dashboard: per-session/per-model token + USD analytics in TUI (added per-session usage store + `ra cost --session`; TUI sidebar still pending)
 - [x] Air-gapped mode: single flag → 100% local, zero telemetry (added `airgap` config + `RA_AIRGAP` env; localizes cloud models and blocks non-local webfetch)

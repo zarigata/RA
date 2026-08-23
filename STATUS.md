@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 34 — Session replay (P2).** Plan: add `replay.ts` (timeline, replay-up-to, transcript, find-step), add tests. Files: `ra/src/server/replay.ts`, `ra/tests/replay.test.ts`.
+**Cycle 35 — Swarm mode (P2).** Plan: add `swarm.ts` (parallel git worktrees + merge pass), add tests. Files: `ra/src/swarm.ts`, `ra/tests/swarm.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 33 — Semantic code search shipped.** Added `search.ts` (TF-IDF index + cosine similarity + incremental reindex); 5 tests. Full gate green.
+**Cycle 34 — Session replay shipped.** Added `replay.ts` (timeline/replay-up-to/transcript/find-step); 4 tests. Full gate green.
 
 ## Smoke-Test Table
 

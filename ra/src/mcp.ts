@@ -147,3 +147,20 @@ export async function loadMcpTools(
   }
   return out;
 }
+
+/**
+ * Lazy MCP tool search: connect to servers only when a query is issued, and
+ * return tool definitions whose name or description matches the query. This
+ * avoids eagerly loading every tool definition into the agent context.
+ */
+export async function searchMcpTools(
+  servers: Record<string, McpServerConfig>,
+  query: string,
+): Promise<Array<McpTool & { server: string }>> {
+  const q = query.toLowerCase();
+  const all = await loadMcpTools(servers);
+  if (!q) return all;
+  return all.filter(
+    (t) => t.name.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q),
+  );
+}

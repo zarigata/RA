@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 23 — MCP stdio client (P1).** Plan: add `mcp.ts` (stdio JSON-RPC client: handshake, listTools, callTool), add `mcp` config block to `RaConfig`, add `loadMcpTools`, add tests with a fixture server. Files: `ra/src/mcp.ts`, `anubis/src/config.ts`, `ra/tests/mcp.test.ts`, `ra/tests/fixtures/mcp-server.ts`.
+**Cycle 24 — MCP tool search (P1).** Plan: add `searchMcpTools` to `mcp.ts` (lazy connect + filter by name/description), add test. Files: `ra/src/mcp.ts`, `ra/tests/mcp.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 22 — Symbol outline shipped.** Added `symbols.ts` + `OUTLINE` tool; 6 tests. Full gate green.
+**Cycle 23 — MCP stdio client shipped.** Added `McpClient` + `mcp` config + `loadMcpTools`; 2 tests. Full gate green.
 
 ## Smoke-Test Table
 

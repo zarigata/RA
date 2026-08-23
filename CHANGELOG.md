@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- MCP tool search: `searchMcpTools` lazily connects to MCP servers and filters tool definitions by name/description.
 - MCP stdio client: `mcp` config block in `ra.json` spawns MCP servers, lists their tools, and calls them (JSON-RPC handshake + `tools/list` + `tools/call`).
 - Symbol outline: an `OUTLINE <file>` tool extracts functions/classes/imports for code navigation (regex-based, no native tree-sitter dependency).
 - Session reattach: the TUI now shows a summary of the prior conversation when reattaching to a persisted session.

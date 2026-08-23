@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { McpClient } from "../src/mcp.ts";
+import { McpClient, searchMcpTools } from "../src/mcp.ts";
 
 const SERVER = join(import.meta.dir, "fixtures", "mcp-server.ts");
 
@@ -25,5 +25,18 @@ describe("MCP stdio client", () => {
     // instead verify the client rejects a missing command cleanly.
     const client = new McpClient({ command: "definitely-not-a-real-cmd-xyz" });
     await expect(client.start()).rejects.toThrow();
+  });
+
+  test("searchMcpTools filters by name/description", async () => {
+    const servers = { test: { command: "bun", args: [SERVER] } };
+    const all = await searchMcpTools(servers, "");
+    expect(all.length).toBe(1);
+    expect(all[0].name).toBe("echo");
+
+    const hit = await searchMcpTools(servers, "echo");
+    expect(hit.length).toBe(1);
+
+    const miss = await searchMcpTools(servers, "nonexistent");
+    expect(miss.length).toBe(0);
   });
 });

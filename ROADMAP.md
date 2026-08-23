@@ -46,7 +46,7 @@
 
 ### MCP + Extensibility
 - [x] MCP client: stdio, SSE/HTTP, OAuth; per-agent server config (partial: stdio client + `mcp` config block + `loadMcpTools`; SSE/HTTP + OAuth not yet)
-- [ ] MCP Tool Search: lazy-load tool definitions
+- [x] MCP Tool Search: lazy-load tool definitions (added `searchMcpTools` — connects on demand and filters by name/description)
 - [x] Plugin system + hooks (partial: 9 tier-1 plugins, hook surface limited)
 - [x] Custom slash commands (Markdown-defined), keybinds, themes (partial: Markdown-defined commands in `.anubis/commands/*.md`; keybinds/themes not yet)
 

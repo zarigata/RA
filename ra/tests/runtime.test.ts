@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { classifyTier, tierModel } from "../../ra/src/tier.ts";
-import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch } from "../../ra/src/tools/index.ts";
+import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo } from "../../ra/src/tools/index.ts";
 import { loadProjectMemory, loadAgentPermissions } from "../../ra/src/agent.ts";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -166,6 +166,33 @@ describe("agent permissions", () => {
 
   test("unknown role returns null", () => {
     expect(loadAgentPermissions("nonexistent")).toBeNull();
+  });
+});
+
+describe("todo tool", () => {
+  test("add, list, done round-trip", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-todo-"));
+    try {
+      expect(toolTodo({ cwd }, "add write tests")).toContain("#1");
+      expect(toolTodo({ cwd }, "add run linter")).toContain("#2");
+      const list = toolTodo({ cwd }, "list");
+      expect(list).toContain("[ ] #1 write tests");
+      expect(list).toContain("[ ] #2 run linter");
+      expect(toolTodo({ cwd }, "done 1")).toContain("Completed");
+      expect(toolTodo({ cwd }, "list")).toContain("[x] #1");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("empty list and unknown op", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-todo-"));
+    try {
+      expect(toolTodo({ cwd }, "list")).toContain("(no todos)");
+      expect(toolTodo({ cwd }, "bogus")).toContain("unknown TODO op");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
   });
 });
 

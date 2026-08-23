@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 9 — Agent frontmatter permissions (P1).** Plan: parse `permission` from agent Markdown frontmatter (thoth: edit/bash deny), enforce in `execToolBlock` alongside config rules, add tests. Files: `ra/src/agent.ts`, `ra/tests/runtime.test.ts`.
+**Cycle 10 — TODO tracking tool (P1).** Plan: add `toolTodo` to `ra/src/tools/index.ts` (add/done/list, persisted to `.ra/todos.json`), wire `TODO` into the agent tool loop, add tests. Files: `ra/src/tools/index.ts`, `ra/src/agent.ts`, `ra/tests/runtime.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 8 — Session export shipped.** Added `exportSession` (vibeguard-redacted Markdown) + `ra export` CLI; 1 test. Full gate green.
+**Cycle 9 — Agent frontmatter permissions shipped.** Parsed `permission` from agent Markdown frontmatter and enforced it in the tool loop (precedence over config). 3 tests. Full gate green.
 
 ## Smoke-Test Table
 

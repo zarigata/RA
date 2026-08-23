@@ -36,6 +36,7 @@ Or: GLOB **/*.py
 Or: GREP pattern [optional/glob]
 Or: BASH command here
 Or: WEBFETCH https://example.com
+Or: TODO add <text> / TODO done <id> / TODO list
 Or: DONE — when finished, with a short summary.
 
 Prefer WRITE for new files, EDIT for small changes. Always produce real content.
@@ -153,6 +154,12 @@ export async function execToolBlock(
     const d = denied("webfetch");
     if (d) return { done: false, note: d };
     return { done: false, note: await tools.toolWebFetch(webfetch[1].trim()) };
+  }
+  const todo = content.match(/^TODO\s+(.+)/im);
+  if (todo) {
+    const d = denied("todo");
+    if (d) return { done: false, note: d };
+    return { done: false, note: tools.toolTodo(ctx, todo[1].trim()) };
   }
   if (/^DONE\b/im.test(content.trim())) {
     return { done: true, note: content.replace(/^DONE\s*/i, "").trim() || "done" };

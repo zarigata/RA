@@ -122,6 +122,63 @@ export async function toolWebFetch(url: string, timeoutMs = 15000): Promise<stri
   }
 }
 
+export interface TodoItem {
+  id: number;
+  text: string;
+  done: boolean;
+}
+
+const TODO_FILE = ".ra/todos.json";
+
+function loadTodos(ctx: ToolContext): TodoItem[] {
+  const abs = safePath(ctx.cwd, TODO_FILE);
+  if (!existsSync(abs)) return [];
+  try {
+    return JSON.parse(readFileSync(abs, "utf-8")) as TodoItem[];
+  } catch {
+    return [];
+  }
+}
+
+function saveTodos(ctx: ToolContext, todos: TodoItem[]): void {
+  const abs = safePath(ctx.cwd, TODO_FILE);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, JSON.stringify(todos, null, 2), "utf-8");
+}
+
+/**
+ * TODO tool — track a task list. Syntax:
+ *   TODO add <text>          add an item
+ *   TODO done <id>           mark an item complete
+ *   TODO list                show the list
+ */
+export function toolTodo(ctx: ToolContext, command: string): string {
+  const todos = loadTodos(ctx);
+  const [op, ...rest] = command.trim().split(/\s+/);
+  const arg = rest.join(" ").trim();
+
+  if (op === "add") {
+    if (!arg) return "Error: TODO add requires text";
+    const id = (todos.length ? Math.max(...todos.map((t) => t.id)) : 0) + 1;
+    todos.push({ id, text: arg, done: false });
+    saveTodos(ctx, todos);
+    return `Added todo #${id}: ${arg}`;
+  }
+  if (op === "done") {
+    const id = Number(arg);
+    const item = todos.find((t) => t.id === id);
+    if (!item) return `Error: no todo #${arg}`;
+    item.done = true;
+    saveTodos(ctx, todos);
+    return `Completed todo #${id}: ${item.text}`;
+  }
+  if (op === "list" || op === "") {
+    if (!todos.length) return "(no todos)";
+    return todos.map((t) => `${t.done ? "[x]" : "[ ]"} #${t.id} ${t.text}`).join("\n");
+  }
+  return `Error: unknown TODO op '${op}' (use add/done/list)`;
+}
+
 export function listDir(ctx: ToolContext, dir = "."): string {
   const abs = safePath(ctx.cwd, dir);
   if (!existsSync(abs)) return `Error: not found: ${dir}`;

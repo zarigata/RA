@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-011 — Custom slash commands live in `.anubis/commands/*.md` (2026-08-22)
+
+- **Context:** Need user-defined slash commands (opencode parity). Existing commands are hardcoded in a switch.
+- **Options:** JSON config; Markdown files; a plugin API.
+- **Choice:** Markdown files in `.anubis/commands/` with `name`/`description`/`prompt` frontmatter. Unknown slash commands fall through to these before the "Unknown" error.
+- **Why:** Matches the existing agent/skill convention (Markdown + frontmatter already used for `.anubis/agents/*.md`). A custom command is just a prompt template run through the `anubis` agent, so no new execution model is needed. Keeps the hardcoded switch as the fast path.
+
 ## D-010 — Agent frontmatter `permission` overrides config `permission.tool` (2026-08-22)
 
 - **Context:** Agent Markdown files (e.g. `thoth.md`) already declare a `permission` block (`edit: deny`, `bash: deny`), but it was stripped by `loadAgentPrompt` and never enforced. Config-level `permission.tool` was added in D-009.

@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 10 — TODO tracking tool (P1).** Plan: add `toolTodo` to `ra/src/tools/index.ts` (add/done/list, persisted to `.ra/todos.json`), wire `TODO` into the agent tool loop, add tests. Files: `ra/src/tools/index.ts`, `ra/src/agent.ts`, `ra/tests/runtime.test.ts`.
+**Cycle 11 — Custom slash commands (P1).** Plan: add `loadCustomCommands` to `commands/index.ts` (Markdown files with `name`/`description`/`prompt` frontmatter in `.anubis/commands/`), dispatch unknown slash commands to them, add tests. Files: `ra/src/commands/index.ts`, `ra/tests/custom-commands.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 9 — Agent frontmatter permissions shipped.** Parsed `permission` from agent Markdown frontmatter and enforced it in the tool loop (precedence over config). 3 tests. Full gate green.
+**Cycle 10 — TODO tool shipped.** Added `toolTodo` (add/done/list, persisted to `.ra/todos.json`) + `TODO` in agent loop; 2 tests. Full gate green.
 
 ## Smoke-Test Table
 

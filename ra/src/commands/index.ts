@@ -13,6 +13,37 @@ import { classifyTier, tierModel } from "../tier.ts";
 import { loadEnv } from "../../../anubis/src/env.ts";
 import { ANUBIS_HOME } from "../paths.ts";
 import { listDir } from "../tools/index.ts";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
+export interface CustomCommand {
+  name: string;
+  description: string;
+  prompt: string;
+}
+
+const CUSTOM_COMMANDS_DIR = join(ANUBIS_HOME, ".anubis", "commands");
+
+/** Load custom slash commands from Markdown files with frontmatter. */
+export function loadCustomCommands(dir = CUSTOM_COMMANDS_DIR): CustomCommand[] {
+  if (!existsSync(dir)) return [];
+  const out: CustomCommand[] = [];
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith(".md")) continue;
+    try {
+      const raw = readFileSync(join(dir, f), "utf-8");
+      const fm = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+      if (!fm) continue;
+      const name = fm[1].match(/^name:\s*(.+)$/m)?.[1]?.trim();
+      const description = fm[1].match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
+      const prompt = fm[2].trim();
+      if (name && prompt) out.push({ name, description, prompt });
+    } catch {
+      /* skip malformed command file */
+    }
+  }
+  return out;
+}
 
 export interface CommandContext {
   config: RaConfig;
@@ -293,9 +324,18 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       return runMoa(arg, c);
     case "pipeline":
       return runFullDev(arg, c.config.pipeline?.stages ?? DEFAULT_PIPELINE_STAGES, c);
-    default:
+    default: {
+      // Custom slash commands (Markdown-defined)
+      const custom = loadCustomCommands().find((cc) => cc.name === slashCmd);
+      if (custom) {
+        const env = loadEnv(ANUBIS_HOME);
+        const result = await runTaskAgent("anubis", `${custom.prompt}\n\nUser input: ${arg || "(none)"}`, c.config, c.ctx, env);
+        c.reply(`## ${custom.name}\n${result.output}`);
+        return true;
+      }
       c.reply(`Unknown: /${slashCmd}. Try /help`);
       return true;
+    }
   }
 }
 

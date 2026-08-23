@@ -48,7 +48,7 @@
 - [ ] MCP client: stdio, SSE/HTTP, OAuth; per-agent server config
 - [ ] MCP Tool Search: lazy-load tool definitions
 - [x] Plugin system + hooks (partial: 9 tier-1 plugins, hook surface limited)
-- [ ] Custom slash commands (Markdown-defined), keybinds, themes (partial: hardcoded slash commands)
+- [x] Custom slash commands (Markdown-defined), keybinds, themes (partial: Markdown-defined commands in `.anubis/commands/*.md`; keybinds/themes not yet)
 
 ### TUI Experience
 - [x] Multi-pane TUI (partial: single-pane chat + command palette, no live token/cost sidebar, no diff viewer, no @-mention)

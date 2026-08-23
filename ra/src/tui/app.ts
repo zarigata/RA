@@ -3,7 +3,7 @@ import { renderSplash, APP_NAME } from "../../../anubis/src/tui.ts";
 import { loadRaConfig, ensureRaDirs, applyProjectOverride, applyEnvOverrides } from "../../../anubis/src/config.ts";
 import { ANUBIS_HOME } from "../paths.ts";
 import { loadEnv } from "../../../anubis/src/env.ts";
-import { loadSession, saveSession, appendMessage } from "../server/session.ts";
+import { loadSession, saveSession, appendMessage, formatReattach } from "../server/session.ts";
 import { PluginHost } from "../plugins/host.ts";
 import { dispatchCommand, PALETTE_COMMANDS } from "../commands/index.ts";
 import { runOrchestratorTurn } from "../agent.ts";
@@ -48,6 +48,9 @@ export async function startTui(opts: TuiOptions): Promise<void> {
       console.log(
         `\x1b[36mWelcome to RA.\x1b[0m New here? Try:\n  /simple on\n  /quick write a hello world function\n  /again  (re-run last full-dev)\n  /verify  (re-check last artifacts)\n  /palette\n  small: qwen3.8 @251 · gemma @local · BIG glm @cloud${lastLines}\n`,
       );
+    } else {
+      // Reattach: surface the prior conversation so the user has context.
+      console.log(`\x1b[36m${formatReattach(session)}.\x1b[0m\n  /history to review · /clear to reset\n`);
     }
   }
 

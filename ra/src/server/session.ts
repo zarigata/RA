@@ -70,6 +70,14 @@ export function deleteSession(id: string): boolean {
   return false;
 }
 
+/** One-line reattach summary for a session with prior messages. */
+export function formatReattach(session: Session): string {
+  const count = session.messages.length;
+  const last = session.messages[count - 1];
+  const preview = last.content.slice(0, 120) + (last.content.length > 120 ? "…" : "");
+  return `Reattached to session (${count} message${count === 1 ? "" : "s"}). Last: [${last.role}] ${preview}`;
+}
+
 export function formatSessions(sessions: Session[]): string {
   if (!sessions.length) return "RA sessions\n(no sessions)";
   const rows = sessions.map((s) => {

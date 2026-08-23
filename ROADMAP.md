@@ -6,8 +6,8 @@
 ## Up Next (queue)
 
 1. **[P1] Client/server split** — background daemon owns sessions/state/FS; TUI is a thin client. (ARCHITECTURE CORE)
-2. **[P1] Sessions persist across terminal disconnects** — `ra` reattaches cleanly (partial: disk persistence exists, no daemon).
-3. **[P1] LSP integration** — auto-detect language, spawn server, feed diagnostics after every edit.
+2. **[P1] LSP integration** — auto-detect language, spawn server, feed diagnostics after every edit.
+3. **[P1] Tree-sitter or equivalent** — symbol outline + precise code navigation.
 
 ---
 
@@ -20,7 +20,7 @@
 
 ### Architecture Core
 - [ ] Client/server split: background daemon owns sessions, state, FS ops; TUI is a thin client
-- [ ] Sessions persist across terminal disconnects; `ra` reattaches cleanly (partial: `session.ts` persists to disk, no daemon)
+- [x] Sessions persist across terminal disconnects; `ra` reattaches cleanly (partial: `session.ts` persists to disk + TUI shows a reattach summary; no daemon)
 - [x] Multi-session: parallel sessions on same project, list/switch/kill (partial: list + kill via `ra sessions`/`/sessions`; switch not yet wired)
 - [x] Headless/non-interactive mode: `ra run "task"` for CI/scripting (added `ra run` with `--quick/--verify/--json/--cwd`, no TUI splash)
 - [x] JSON config file (`ra.json`) + env var overrides + sane defaults (`ra.json` loads; added `RA_MODEL`/`RA_SMALL_MODEL`/`ANUBIS_MODEL`/`ANUBIS_SMALL_MODEL` env overrides)
@@ -72,9 +72,9 @@
 
 ## P3 — Polish / Perf / DX
 
-- [ ] `ra run` alias for headless mode (cleaner than `ra --task`)
+- [x] `ra run` alias for headless mode (added in Cycle 2)
 - [ ] Live token/cost sidebar in TUI
 - [ ] Diff viewer in TUI
-- [ ] @-mention file picker
-- [ ] LM Studio auto-discovery verification
+- [x] @-mention file picker (added in Cycle 19)
+- [x] LM Studio auto-discovery (added in Cycle 20)
 

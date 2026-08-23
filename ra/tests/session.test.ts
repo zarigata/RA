@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadSession, saveSession, appendMessage, listSessions, deleteSession, formatSessions, exportSession } from "../src/server/session.ts";
+import { loadSession, saveSession, appendMessage, listSessions, deleteSession, formatSessions, exportSession, formatReattach } from "../src/server/session.ts";
 import { RA_GLOBAL } from "../../anubis/src/config.ts";
 
 describe("session persistence", () => {
@@ -47,6 +47,22 @@ describe("session persistence", () => {
     expect(out).toContain("## user");
     expect(out).not.toContain("sk-ant-abcdefghijklmnopqrstuvwxyz123456");
     expect(out).toContain("__VIBEGUARD_");
+  });
+
+  test("formatReattach summarizes prior conversation", () => {
+    const s = {
+      id: "x",
+      cwd: "/tmp/x",
+      messages: [
+        { role: "user", content: "hello", ts: 1 },
+        { role: "assistant", content: "hi there", ts: 2 },
+      ],
+      simpleMode: false,
+      created: Date.now(),
+    };
+    const out = formatReattach(s);
+    expect(out).toContain("Reattached to session (2 messages)");
+    expect(out).toContain("[assistant] hi there");
   });
 
   test("listSessions + deleteSession + formatSessions", () => {

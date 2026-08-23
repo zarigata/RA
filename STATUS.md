@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 20 — LM Studio / local OpenAI auto-discovery (P1).** Plan: add `fromOpenAI` client + `discoverLocalOpenAI` to `ollama.ts`, integrate as last-resort small-model fallback, document env vars, add tests. Files: `anubis/src/ollama.ts`, `anubis/.env.example`, `anubis/tests/ollama-routing.test.ts`.
+**Cycle 21 — Session reattach summary (P1).** Plan: add `formatReattach` to `session.ts`, show a reattach summary in the TUI when a session has prior messages, add test. Files: `ra/src/server/session.ts`, `ra/src/tui/app.ts`, `ra/tests/session.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 19 — @-mention file picker shipped.** Added `expandMentions` (inline `@path` content) wired into the TUI; 3 tests. Full gate green.
+**Cycle 20 — LM Studio/llama.cpp auto-discovery shipped.** Added `fromOpenAI` + `discoverLocalOpenAI` (last-resort small-model fallback); 3 tests. Full gate green.
 
 ## Smoke-Test Table
 

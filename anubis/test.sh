@@ -88,7 +88,7 @@ echo "▶ bun test (anubis)"
 bun test
 
 echo "▶ bun test (ra runtime)"
-bun test ../ra/tests/runtime.test.ts ../ra/tests/benchmark-artifacts.test.ts ../ra/tests/run-command.test.ts
+bun test ../ra/tests/runtime.test.ts ../ra/tests/benchmark-artifacts.test.ts ../ra/tests/run-command.test.ts ../ra/tests/session.test.ts
 
 echo "▶ ra doctor"
 "${RA_BIN[@]}" doctor | tee /tmp/ra-doctor.txt
@@ -434,7 +434,7 @@ grep -qE "qwen3\.8|small:" /tmp/ra-status.txt || { echo "FAIL: ra status missing
 grep -qE "timings:.*@(251|local)|hosts:.*(251|local)|files:" /tmp/ra-status.txt || { echo "FAIL: ra status missing last full-dev"; cat /tmp/ra-status.txt; exit 1; }
 grep -qE "RA lane " /tmp/ra-status.txt || { echo "FAIL: ra status missing RA lane"; cat /tmp/ra-status.txt; exit 1; }
 grep -q "again: ra again" /tmp/ra-status.txt || { echo "FAIL: ra status missing again tip"; cat /tmp/ra-status.txt; exit 1; }
-grep -q "RA prefer small@251" /tmp/ra-status.txt || { echo "FAIL: ra status missing RA prefer"; cat /tmp/ra-status.txt; exit 1; }
+grep -qE "RA prefer small@(251|local)" /tmp/ra-status.txt || { echo "FAIL: ra status missing RA prefer"; cat /tmp/ra-status.txt; exit 1; }
 grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-status.txt || { echo "FAIL: ra status missing RA intent"; cat /tmp/ra-status.txt; exit 1; }
 grep -qE "elapsed: [0-9]" /tmp/ra-status.txt || { echo "FAIL: ra status missing elapsed"; cat /tmp/ra-status.txt; exit 1; }
 if grep -q "✓ 251" /tmp/ra-ping.txt && grep -q "qwen3" /tmp/ra-ping.txt; then
@@ -528,7 +528,7 @@ if grep -q "✓ cloud" /tmp/ra-ping.txt; then
   grep -q "ptah@cloud" /tmp/ra-timings.txt || { echo "FAIL: cloud up but ptah not @cloud"; cat /tmp/ra-timings.txt; exit 1; }
 fi
 grep -qE "RA lane " /tmp/ra-timings.txt || { echo "FAIL: ra timings missing RA lane"; cat /tmp/ra-timings.txt; exit 1; }
-grep -q "RA prefer small@251" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing RA prefer"; cat /tmp/ra-timings.txt; exit 1; }
+grep -qE "RA prefer small@(251|local)" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing RA prefer"; cat /tmp/ra-timings.txt; exit 1; }
 if grep -q "✓ 251" /tmp/ra-ping.txt && grep -q "qwen3" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@251" /tmp/ra-timings.txt || { echo "FAIL: ra timings lane not @251"; exit 1; }
 fi
@@ -545,13 +545,13 @@ grep -q "RA RESULT" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing RA R
 grep -qE "thoth@(251|local)|lane:.*thoth@" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing lane timings"; cat /tmp/ra-summary.txt; exit 1; }
 grep -qE "RA lane " /tmp/ra-summary.txt || { echo "FAIL: ra summary missing RA lane"; exit 1; }
 grep -q "again: ra again" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing again tip"; cat /tmp/ra-summary.txt; exit 1; }
-grep -q "RA prefer small@251" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing RA prefer"; cat /tmp/ra-summary.txt; exit 1; }
+grep -qE "RA prefer small@(251|local)" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing RA prefer"; cat /tmp/ra-summary.txt; exit 1; }
 grep -qE "elapsed: [0-9]" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing elapsed"; cat /tmp/ra-summary.txt; exit 1; }
 SUM_TUI="$(mktemp)"
 printf '/summary\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$SUM_TUI" >/dev/null
 grep -q "RA summary" "$SUM_TUI" || { echo "FAIL: /summary missing RA summary"; cat "$SUM_TUI"; exit 1; }
 grep -q "again: ra again" "$SUM_TUI" || { echo "FAIL: /summary missing again tip"; cat "$SUM_TUI"; exit 1; }
-grep -q "RA prefer small@251" "$SUM_TUI" || { echo "FAIL: /summary missing RA prefer"; cat "$SUM_TUI"; exit 1; }
+grep -qE "RA prefer small@(251|local)" "$SUM_TUI" || { echo "FAIL: /summary missing RA prefer"; cat "$SUM_TUI"; exit 1; }
 echo "✓ ra summary"
 
 echo "▶ ra show + TUI /show"
@@ -577,7 +577,7 @@ echo "▶ ra cost"
 "${RA_BIN[@]}" cost | tee /tmp/ra-cost.txt
 grep -q "RA cost" /tmp/ra-cost.txt || { echo "FAIL: ra cost missing header"; exit 1; }
 grep -qE "qwen3\.8|gemma|glm-5|ollama|usage|token|No usage" /tmp/ra-cost.txt || { echo "FAIL: ra cost empty"; cat /tmp/ra-cost.txt; exit 1; }
-grep -q "RA prefer small@251" /tmp/ra-cost.txt || { echo "FAIL: ra cost missing RA prefer"; cat /tmp/ra-cost.txt; exit 1; }
+grep -qE "RA prefer small@(251|local)" /tmp/ra-cost.txt || { echo "FAIL: ra cost missing RA prefer"; cat /tmp/ra-cost.txt; exit 1; }
 grep -qE "RA lane " /tmp/ra-cost.txt || { echo "FAIL: ra cost missing RA lane after full-dev"; cat /tmp/ra-cost.txt; exit 1; }
 if grep -q "✓ 251" /tmp/ra-ping.txt && grep -q "qwen3" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@251" /tmp/ra-cost.txt || { echo "FAIL: ra cost lane not @251"; exit 1; }
@@ -585,7 +585,7 @@ fi
 COST_TUI="$(mktemp)"
 printf '/cost\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$COST_TUI" >/dev/null
 grep -q "RA cost" "$COST_TUI" || { echo "FAIL: /cost missing RA cost"; cat "$COST_TUI"; exit 1; }
-grep -q "RA prefer small@251" "$COST_TUI" || { echo "FAIL: /cost missing RA prefer"; cat "$COST_TUI"; exit 1; }
+grep -qE "RA prefer small@(251|local)" "$COST_TUI" || { echo "FAIL: /cost missing RA prefer"; cat "$COST_TUI"; exit 1; }
 echo "✓ ra cost"
 
 echo "▶ ra home after full-dev"

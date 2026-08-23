@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- Web dashboard: the daemon now serves a minimal HTML dashboard at `GET /` listing sessions.
 - Per-session cost dashboard: `ra cost --session` shows token + USD usage broken down by session (project cwd) and model.
 - Self-healing loop: `selfHeal` runs a test, diagnoses changed files on failure, attempts a fix, and retries (max 3), logging to `BUGS.md` if still failing.
 - Air-gapped mode: `airgap: true` in `ra.json` (or `RA_AIRGAP=1`) forces 100% local operation — cloud models are localized to the small model and non-local webfetch is blocked.

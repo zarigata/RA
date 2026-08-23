@@ -67,7 +67,7 @@
 - [x] Cost dashboard: per-session/per-model token + USD analytics in TUI (added per-session usage store + `ra cost --session`; TUI sidebar still pending)
 - [x] Air-gapped mode: single flag → 100% local, zero telemetry (added `airgap` config + `RA_AIRGAP` env; localizes cloud models and blocks non-local webfetch)
 - [ ] Session replay + time-travel debugging
-- [ ] Web dashboard reading from daemon API
+- [x] Web dashboard reading from daemon API (added `GET /` HTML dashboard to the daemon)
 - [x] Self-healing loops: on test failure, auto-diagnose + retry (max 3), log to BUGS.md (added `selfheal.ts`)
 
 ## P3 — Polish / Perf / DX

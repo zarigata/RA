@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 30 — Per-session cost dashboard (P2).** Plan: add per-session usage store to `cost.ts` (thread session key through `recordChatUsage`), add `sessionUsage`/`formatSessionUsage`, add `ra cost --session`, add tests. Files: `anubis/src/cost.ts`, `anubis/src/runner.ts`, `ra/src/agent.ts`, `ra/src/cli.ts`, `anubis/tests/cost.test.ts`.
+**Cycle 31 — Web dashboard (P2).** Plan: add a `GET /` HTML dashboard to the daemon (lists sessions), add test. Files: `ra/src/server/daemon.ts`, `ra/src/cli.ts`, `ra/tests/daemon.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 29 — Self-healing loop shipped.** Added `selfheal.ts` (diagnose → fix → retry, max 3, log to BUGS.md); 3 tests. Full gate green.
+**Cycle 30 — Per-session cost dashboard shipped.** Added session-keyed usage store + `ra cost --session`; 3 tests. Full gate green.
 
 ## Smoke-Test Table
 

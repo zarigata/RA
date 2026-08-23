@@ -214,6 +214,7 @@ if (args[0] === "daemon") {
   const port = Number(arg("--port") ?? 4317);
   const server = startDaemon({ port });
   console.log(`RA daemon listening on http://127.0.0.1:${port} (pid ${process.pid})`);
+  console.log("  GET  /            web dashboard");
   console.log("  GET  /health");
   console.log("  GET  /sessions");
   console.log("  GET  /session?cwd=...");

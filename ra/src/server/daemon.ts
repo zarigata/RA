@@ -39,6 +39,27 @@ export function startDaemon(opts: DaemonOptions = {}) {
         return json({ ok: true, pid: process.pid });
       }
 
+      // GET / — minimal web dashboard reading from the daemon API.
+      if (req.method === "GET" && (path === "/" || path === "/dashboard")) {
+        const sessions = listSessions();
+        const rows = sessions
+          .map(
+            (s) =>
+              `<tr><td>${s.id}</td><td>${s.messages.length}</td><td>${new Date(s.created ?? 0).toISOString()}</td><td>${s.cwd}</td></tr>`,
+          )
+          .join("");
+        const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>RA Dashboard</title>
+<style>body{font-family:system-ui,sans-serif;margin:2rem;background:#0f1115;color:#e6e6e6}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid #333;padding:.5rem;text-align:left}
+th{background:#1a1d24}</style></head>
+<body><h1>RA Dashboard</h1><p>${sessions.length} session(s)</p>
+<table><thead><tr><th>Session</th><th>Messages</th><th>Created</th><th>cwd</th></tr></thead>
+<tbody>${rows || '<tr><td colspan="4">(no sessions)</td></tr>'}</tbody></table>
+</body></html>`;
+        return new Response(html, { headers: { "Content-Type": "text/html" } });
+      }
+
       // GET /sessions
       if (req.method === "GET" && path === "/sessions") {
         return json({ sessions: listSessions() });

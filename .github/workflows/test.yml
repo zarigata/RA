@@ -35,6 +35,7 @@ jobs:
             ../ra/tests/diff.test.ts \
             ../ra/tests/search.test.ts \
             ../ra/tests/replay.test.ts \
-            ../ra/tests/swarm.test.ts
+            ../ra/tests/swarm.test.ts \
+            ../ra/tests/ide.test.ts
   # Full ./test.sh needs LAN .251 + Ollama Cloud — run locally
   # ./test.sh

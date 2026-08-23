@@ -5,9 +5,8 @@
 
 ## Up Next (queue)
 
-1. **[P1] IDE extension host protocol** — VS Code JSON-RPC bridge.
-2. **[P2] EVAL HARNESS** — 20+ real coding tasks against every configured model.
-3. **[P3] Live token/cost sidebar in TUI**.
+1. **[P2] EVAL HARNESS** — 20+ real coding tasks against every configured model.
+2. **[P3] Live token/cost sidebar in TUI**.
 
 ---
 
@@ -57,7 +56,7 @@
 
 ### Integrations
 - [x] GitHub Action: `/ra` comment on PRs triggers agent (added `.github/workflows/ra-agent.yml` — `/ra` comment runs `ra run` headless and posts the result)
-- [ ] IDE extension host protocol (VS Code JSON-RPC bridge)
+- [x] IDE extension host protocol (VS Code JSON-RPC bridge) (added `ide.ts` + `ra ide` — JSON-RPC 2.0 over stdio with `ra/health`, `ra/sessions`, `ra/session`, `ra/message`, `ra/run`)
 
 ## P2 — RA-PLUS (Beyond Parity)
 

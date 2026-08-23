@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 35 — Swarm mode (P2).** Plan: add `swarm.ts` (parallel git worktrees + merge pass), add tests. Files: `ra/src/swarm.ts`, `ra/tests/swarm.test.ts`.
+**Cycle 36 — IDE JSON-RPC bridge (P1).** Plan: add `ide.ts` (JSON-RPC 2.0 dispatch + stdio server + `ra/health`/`ra/sessions`/`ra/session`/`ra/message`/`ra/run` handlers), add `ra ide` CLI command, add tests. Files: `ra/src/ide.ts`, `ra/src/cli.ts`, `ra/tests/ide.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 34 — Session replay shipped.** Added `replay.ts` (timeline/replay-up-to/transcript/find-step); 4 tests. Full gate green.
+**Cycle 35 — Swarm mode shipped.** Added `swarm.ts` (parallel worktrees + merge pass); 2 tests. Full gate green.
 
 ## Smoke-Test Table
 

@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- IDE extension host protocol: `ra ide` serves a VS Code-compatible JSON-RPC 2.0 bridge over stdio (`ra/health`, `ra/sessions`, `ra/session`, `ra/message`, `ra/run`).
 - Swarm mode: `swarm.ts` orchestrates N parallel agents on git worktrees with a merge pass.
 - Session replay: `replay.ts` provides a message timeline, replay-up-to, transcript, and find-step for time-travel debugging.
 - Semantic code search: a local TF-IDF vector index with cosine-similarity ranking and incremental re-index on file change.

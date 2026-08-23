@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-029 — IDE bridge is JSON-RPC 2.0 over stdio, reusing the daemon's session store (2026-08-22)
+
+- **Context:** Need an IDE extension host protocol (VS Code-compatible JSON-RPC bridge). The daemon (D-021) already owns session state over HTTP.
+- **Options:** A separate socket protocol; JSON-RPC 2.0 over stdio.
+- **Choice:** `ide.ts` implements JSON-RPC 2.0 dispatch + a stdio server, exposing `ra/health`, `ra/sessions`, `ra/session`, `ra/message`, and `ra/run` (which calls `runFullDevTask`). `ra ide` serves it.
+- **Why:** JSON-RPC 2.0 over stdio is the standard VS Code language-server transport, so an IDE extension can drive RA directly. It reuses the existing session store and `runFullDevTask` rather than duplicating them, and it's fully testable without a live model (the `ra/run` handler is exercised via the dispatch unit tests).
+
 ## D-028 — Swarm mode uses git worktrees with a merge pass (2026-08-22)
 
 - **Context:** Need swarm mode: N parallel agents on git worktrees with merge/conflict resolution.

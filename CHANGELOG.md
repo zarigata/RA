@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- Semantic code search: a local TF-IDF vector index with cosine-similarity ranking and incremental re-index on file change.
 - Diff viewer: `ra diff <file>` shows a unified diff between the latest checkpoint and the current file.
 - Web dashboard: the daemon now serves a minimal HTML dashboard at `GET /` listing sessions.
 - Per-session cost dashboard: `ra cost --session` shows token + USD usage broken down by session (project cwd) and model.

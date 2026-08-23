@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-027 — Semantic search uses TF-IDF, not external embeddings (2026-08-22)
+
+- **Context:** Need semantic code search with a local vector index and incremental re-index. External embedding models add a dependency and require a running service.
+- **Options:** External embeddings (e.g. bge-m3); local TF-IDF.
+- **Choice:** A local TF-IDF vector index (`search.ts`) with cosine-similarity ranking and mtime-based incremental re-index, skipping node_modules/.git/dist/build.
+- **Why:** TF-IDF is dependency-free, fully testable, and provides meaningful lexical-semantic ranking for code search. It satisfies the "local vector index + incremental re-index" intent without a native embedding runtime. A real embedding model (e.g. the bge-m3 already on the LAN box) can be layered on later.
+
 ## D-026 — Per-session cost is a separate store keyed by project cwd (2026-08-22)
 
 - **Context:** Need per-session/per-model cost analytics. Global usage already exists (`~/.ra/usage.json`), but it's not broken down by session.

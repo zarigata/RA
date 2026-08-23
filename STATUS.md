@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 32 — Diff viewer (P3).** Plan: add `diff.ts` (LCS line diff), add `checkpointContent` to `checkpoint.ts`, add `ra diff <file>` CLI command, add tests. Files: `ra/src/diff.ts`, `ra/src/server/checkpoint.ts`, `ra/src/cli.ts`, `ra/tests/diff.test.ts`.
+**Cycle 33 — Semantic code search (P2).** Plan: add `search.ts` (TF-IDF vector index + cosine similarity + incremental reindex), add tests. Files: `ra/src/search.ts`, `ra/tests/search.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 31 — Web dashboard shipped.** Added `GET /` HTML dashboard to the daemon; 1 test. Full gate green.
+**Cycle 32 — Diff viewer shipped.** Added `diff.ts` + `ra diff <file>`; 4 tests. Full gate green.
 
 ## Smoke-Test Table
 

@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- models.dev catalog ingestion: `ra catalog` fetches the provider catalog (193 providers, 167 OpenAI-compatible) and converts it to `provider` config entries.
 - Background daemon: `ra daemon` starts an HTTP server that owns session state (`/health`, `/sessions`, `/session` GET/POST/DELETE), so sessions survive terminal disconnects and multiple clients can share state.
 - MCP tool search: `searchMcpTools` lazily connects to MCP servers and filters tool definitions by name/description.
 - MCP stdio client: `mcp` config block in `ra.json` spawns MCP servers, lists their tools, and calls them (JSON-RPC handshake + `tools/list` + `tools/call`).

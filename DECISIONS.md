@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-022 — models.dev catalog converted to `provider` config, not a hardcoded list (2026-08-22)
+
+- **Context:** Need "75+ provider compatibility". The docs claimed 75+ but code only wired Ollama. models.dev exposes a live catalog (193 providers, 167 OpenAI-compatible).
+- **Options:** Hardcode a provider list; ingest models.dev at runtime.
+- **Choice:** Add `catalog.ts` that fetches `https://models.dev/api.json` and converts each provider with an OpenAI-compatible `api` URL + `env` key into a `provider` config entry (with `{env:VAR}` templating). Expose via `ra catalog [--json]`.
+- **Why:** Runtime ingestion stays current with the catalog and reuses the pluggable provider resolution (D-017) — no hardcoded list to drift. The `{env:VAR}` templating means keys are never embedded, only referenced.
+
 ## D-021 — Daemon is an HTTP server over the existing session store (2026-08-22)
 
 - **Context:** Need a client/server split: a background daemon owns sessions/state/FS, and the TUI is a thin client. Sessions already persist to `~/.ra/sessions`.

@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 25 — Client/server daemon (P1).** Plan: add `daemon.ts` (HTTP server owning session state: health/sessions/session GET+POST+DELETE), add `ra daemon` CLI command, add tests. Files: `ra/src/server/daemon.ts`, `ra/src/cli.ts`, `ra/tests/daemon.test.ts`.
+**Cycle 26 — models.dev catalog ingestion (P1).** Plan: add `catalog.ts` (fetch + convert catalog to `provider` config), add `ra catalog` CLI command, add tests. Files: `anubis/src/catalog.ts`, `ra/src/cli.ts`, `anubis/tests/catalog.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 24 — MCP tool search shipped.** Added `searchMcpTools` (lazy connect + filter); 1 test. Full gate green.
+**Cycle 25 — Client/server daemon shipped.** Added `daemon.ts` + `ra daemon` (HTTP session state); 4 tests. Full gate green.
 
 ## Smoke-Test Table
 
@@ -32,7 +32,7 @@
 
 ## Known Capability Limits
 
-- **gemma (localhost)** — too weak for full code tasks; use for review/docs/reduced probes only.
+- **gemma (localhost)** — too weak for full code tasks; use for review/docs/reduced probes only. When `.251` is down and gemma is used for the code stage, it occasionally generates a `hello.py` that runs but doesn't print "hello", causing the `--verify` step to fail transiently. This is a model-quality flake, not a code regression (re-runs pass).
 - **qwen3.8 (.251)** — good for planning and moderate code; heavy implementation routed to cloud glm-5.2.
 - **No daemon** — sessions persist to disk but there is no background server yet (P1 gap).
 

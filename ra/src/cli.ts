@@ -78,6 +78,7 @@ Usage:
   ra undo [--cwd DIR]        Restore the most recent edit checkpoint
   ra checkpoints [--cwd DIR] List pending edit checkpoints
   ra daemon [--port N]       Start the background session daemon
+  ra catalog [--json]        Fetch models.dev provider catalog
   ra result                  One-line RA RESULT (bash greppable)
   ra lane                    One-line RA lane (thoth@251 → ptah@cloud)
   ra intent                  One-line RA intent (code|debug|plan|…)
@@ -190,6 +191,22 @@ if (args[0] === "sessions") {
   }
   console.log(formatSessions(listSessions()));
   process.exit(0);
+}
+
+if (args[0] === "catalog") {
+  const { fetchCatalog, countUsableProviders, buildProviderConfig } = await import("../../anubis/src/catalog.ts");
+  try {
+    const catalog = await fetchCatalog();
+    const usable = countUsableProviders(catalog);
+    console.log(`RA catalog: ${Object.keys(catalog).length} providers, ${usable} OpenAI-compatible`);
+    if (args.includes("--json")) {
+      console.log(JSON.stringify(buildProviderConfig(catalog), null, 2));
+    }
+    process.exit(0);
+  } catch (e) {
+    console.error(`RA catalog: ${String(e)}`);
+    process.exit(1);
+  }
 }
 
 if (args[0] === "daemon") {

@@ -7,7 +7,7 @@
 
 1. **[P1] LSP integration** — auto-detect language, spawn server, feed diagnostics after every edit.
 2. **[P1] IDE extension host protocol** — VS Code JSON-RPC bridge.
-3. **[P1] 75+ provider catalog ingestion** — models.dev catalog.
+3. **[P2] EVAL HARNESS** — 20+ real coding tasks against every configured model.
 
 ---
 
@@ -27,7 +27,7 @@
 
 ### Model Layer
 - [x] Provider abstraction (partial: `resolveProviderClient` resolves custom `provider/*` config to OpenAI-compatible clients with `{env:VAR}` templating; built-in Ollama path preserved)
-- [ ] 75+ provider compatibility via OpenAI-compatible endpoints + models.dev catalog ingestion (partial: docs claim 75+, code only wires Ollama cloud/local/LAN)
+- [x] 75+ provider compatibility via OpenAI-compatible endpoints + models.dev catalog ingestion (added `catalog.ts` + `ra catalog`; 193 providers, 167 OpenAI-compatible, converted to `provider` config)
 - [x] Local models: Ollama + LM Studio auto-discovery (added `discoverLocalOpenAI` for LM Studio/llama.cpp OpenAI-compatible servers + `fromOpenAI` client)
 - [x] Per-agent model assignment in config (`agent.<role>.model` in `anubis.json`)
 - [x] Model router: automatic fallback chain cloud→local on failure/rate-limit, with per-request cost + latency logging (added `fallbackChain` + `runWithFallback` with per-attempt host/latency logging; `runner.ts` refactored to use it)

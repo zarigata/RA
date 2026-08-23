@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 16 — Honor agent frontmatter `steps`/`temperature` (P1).** Plan: add `loadAgentMeta` to `agent.ts`, thread `temperature` through `nativeChat`/`chat`, use `steps` to bound the tool loop. Files: `ra/src/agent.ts`, `anubis/src/ollama.ts`, `ra/tests/runtime.test.ts`.
+**Cycle 17 — Pluggable provider abstraction (P1).** Plan: add `resolveProviderClient` to `ollama.ts` (resolve `provider/*` config to OpenAI-compatible clients with `{env:VAR}` templating, infer kind from baseURL, skip built-in Ollama), wire into `pickClientForModel`/`runner.ts`/`agent.ts`, add tests. Files: `anubis/src/ollama.ts`, `anubis/src/runner.ts`, `ra/src/agent.ts`, `anubis/tests/ollama-routing.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 15 — GitHub Action `/ra` shipped.** Added `ra-agent.yml` (runs `ra run` headless on `/ra` PR comments, posts result). Full gate green.
+**Cycle 16 — Agent frontmatter `steps`/`temperature` shipped.** Added `loadAgentMeta`; `steps` bounds the tool loop, `temperature` passed to the model; 2 tests. Full gate green.
 
 ## Smoke-Test Table
 

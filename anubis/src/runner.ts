@@ -153,6 +153,7 @@ export async function runFullDevTask(
           { role: "system", content: system },
           { role: "user", content: user },
         ], { timeoutMs: 120_000 }),
+        (candidate, e) => pickClientForModel(candidate, e, config.provider as Record<string, import("./ollama.ts").ProviderDef> | undefined),
       );
       content = result.content;
       usedModel = result.model;

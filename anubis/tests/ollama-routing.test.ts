@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { pickModel, smallOllamaUrls, fallbackChain, runWithFallback } from "../src/ollama.ts";
+import { pickModel, smallOllamaUrls, fallbackChain, runWithFallback, resolveProviderClient } from "../src/ollama.ts";
 
 describe("small Ollama routing", () => {
   test(".251 first, localhost gemma second", () => {
@@ -94,5 +94,48 @@ describe("fallback chain", () => {
         }),
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe("provider abstraction", () => {
+  test("resolveProviderClient resolves a configured provider with env key", () => {
+    const client = resolveProviderClient(
+      "zai/glm-5.2",
+      {
+        zai: { options: { baseURL: "https://api.z.ai/v1", apiKey: "{env:ZAI_API_KEY}" } },
+      },
+      { ZAI_API_KEY: "secret-key" },
+    );
+    expect(client).not.toBeNull();
+    expect(client!.baseURL).toBe("https://api.z.ai/v1");
+    expect(client!.kind).toBe("cloud");
+  });
+
+  test("resolveProviderClient returns null for unconfigured provider", () => {
+    expect(resolveProviderClient("unknown/model", undefined, {})).toBeNull();
+    expect(resolveProviderClient("zai/glm-5.2", {}, {})).toBeNull();
+  });
+
+  test("resolveProviderClient returns null for bare model (no slash)", () => {
+    expect(resolveProviderClient("qwen3.8:latest", {}, {})).toBeNull();
+  });
+
+  test("resolveProviderClient skips built-in ollama providers", () => {
+    const providers = {
+      ollama: { options: { baseURL: "http://localhost:11434/v1" } },
+      "ollama-lan": { options: { baseURL: "http://192.168.1.251:11434/v1" } },
+    };
+    expect(resolveProviderClient("ollama/gemma:latest", providers, {})).toBeNull();
+    expect(resolveProviderClient("ollama-lan/qwen3.8:latest", providers, {})).toBeNull();
+  });
+
+  test("resolveProviderClient infers local kind from localhost baseURL", () => {
+    const client = resolveProviderClient(
+      "lmstudio/model",
+      { lmstudio: { options: { baseURL: "http://localhost:1234/v1" } } },
+      {},
+    );
+    expect(client).not.toBeNull();
+    expect(client!.kind).toBe("local");
   });
 });

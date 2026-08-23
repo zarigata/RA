@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- Pluggable provider abstraction: `provider/*` config entries (with `options.baseURL`/`options.apiKey` and `{env:VAR}` templating) now resolve to OpenAI-compatible clients, so non-Ollama providers can be wired via `ra.json`.
 - Agent frontmatter `steps` and `temperature` are now honored: `steps` bounds the tool loop and `temperature` is passed to the model.
 - GitHub Action: a `/ra` comment on a PR triggers the agent headless and posts the result back as a comment (`.github/workflows/ra-agent.yml`).
 - Undo/checkpoint: `toolWrite`/`toolEdit` snapshot files before modifying; `ra undo` restores the latest checkpoint and `ra checkpoints` lists them.

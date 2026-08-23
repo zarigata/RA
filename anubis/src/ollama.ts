@@ -210,16 +210,65 @@ export async function pickOllamaEndpoint(
   throw new Error("No reachable small Ollama (tried .251 and localhost)");
 }
 
+export interface ProviderDef {
+  name?: string;
+  options?: { baseURL?: string; apiKey?: string };
+  models?: Record<string, unknown>;
+}
+
+/**
+ * Resolve a `provider/model` string to an OpenAI-compatible client using the
+ * `provider` config block. Supports `{env:VAR}` templating for the API key.
+ * Returns null if the provider is not configured (caller falls back to Ollama).
+ */
+export function resolveProviderClient(
+  configured: string,
+  providers: Record<string, ProviderDef> | undefined,
+  env: Record<string, string | undefined>,
+): OllamaClient | null {
+  const slash = configured.indexOf("/");
+  if (slash <= 0) return null;
+  const provider = configured.slice(0, slash);
+  // Built-in Ollama providers are handled by the dedicated Ollama path below;
+  // only resolve genuinely custom providers here (e.g. zai, anthropic, google).
+  if (/^ollama/i.test(provider)) return null;
+  const def = providers?.[provider];
+  if (!def?.options?.baseURL) return null;
+  const baseURL = def.options.baseURL;
+  const rawKey = def.options.apiKey ?? "";
+  const apiKey = rawKey.startsWith("{env:") && rawKey.endsWith("}")
+    ? (env[rawKey.slice(5, -1)] ?? "")
+    : rawKey;
+  const kind: "cloud" | "local" = /localhost|127\.0\.0\.1|192\.168\./.test(baseURL) ? "local" : "cloud";
+  return new OllamaClient({ baseURL, apiKey, kind });
+}
+
 /**
  * Route by provider prefix:
+ * - a configured `provider/*` (from the `provider` config block) → OpenAI-compatible client
  * - ollama-cloud/* → Ollama Cloud (BIG) with OLLAMA_API_KEY
  * - everything else → .251 LAN as small/local
  */
 export async function pickClientForModel(
   configured: string,
   env: Record<string, string | undefined>,
+  providers?: Record<string, ProviderDef>,
 ): Promise<{ client: OllamaClient; model: string }> {
   const bare = bareModel(configured);
+
+  const custom = resolveProviderClient(configured, providers, env);
+  if (custom) {
+    try {
+      await custom.probe(5000);
+    } catch {
+      /* key may still chat */
+    }
+    const model =
+      custom.availableModels.length > 0
+        ? pickModel(bare, custom.availableModels, CLOUD_FALLBACKS)
+        : bare;
+    return { client: custom, model };
+  }
 
   if (isCloudModel(configured)) {
     const client = OllamaClient.fromEnv(env);

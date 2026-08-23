@@ -221,7 +221,7 @@ export async function runTaskAgent(
   const tier = classifyTier(task, role === "ptah" ? "code" : role === "thoth" ? "plan" : undefined);
   const tierModels = (config as RaConfig & { tier_models?: Record<string, string> }).tier_models;
   const configured = (tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model;
-  const { client, model } = await pickClientForModel(configured, env);
+  const { client, model } = await pickClientForModel(configured, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
   const agentPerms = loadAgentPermissions(role);
   const meta = loadAgentMeta(role);
   const steps = meta.steps ?? maxSteps;

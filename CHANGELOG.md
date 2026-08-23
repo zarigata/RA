@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- Diff viewer: `ra diff <file>` shows a unified diff between the latest checkpoint and the current file.
 - Web dashboard: the daemon now serves a minimal HTML dashboard at `GET /` listing sessions.
 - Per-session cost dashboard: `ra cost --session` shows token + USD usage broken down by session (project cwd) and model.
 - Self-healing loop: `selfHeal` runs a test, diagnoses changed files on failure, attempts a fix, and retries (max 3), logging to `BUGS.md` if still failing.

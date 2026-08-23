@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 31 — Web dashboard (P2).** Plan: add a `GET /` HTML dashboard to the daemon (lists sessions), add test. Files: `ra/src/server/daemon.ts`, `ra/src/cli.ts`, `ra/tests/daemon.test.ts`.
+**Cycle 32 — Diff viewer (P3).** Plan: add `diff.ts` (LCS line diff), add `checkpointContent` to `checkpoint.ts`, add `ra diff <file>` CLI command, add tests. Files: `ra/src/diff.ts`, `ra/src/server/checkpoint.ts`, `ra/src/cli.ts`, `ra/tests/diff.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 30 — Per-session cost dashboard shipped.** Added session-keyed usage store + `ra cost --session`; 3 tests. Full gate green.
+**Cycle 31 — Web dashboard shipped.** Added `GET /` HTML dashboard to the daemon; 1 test. Full gate green.
 
 ## Smoke-Test Table
 

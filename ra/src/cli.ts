@@ -77,6 +77,7 @@ Usage:
   ra export [--cwd DIR] [--out FILE]  Export sanitized session transcript
   ra undo [--cwd DIR]        Restore the most recent edit checkpoint
   ra checkpoints [--cwd DIR] List pending edit checkpoints
+  ra diff <file> [--cwd DIR] Show checkpoint → current diff
   ra daemon [--port N]       Start the background session daemon
   ra catalog [--json]        Fetch models.dev provider catalog
   ra result                  One-line RA RESULT (bash greppable)
@@ -235,6 +236,29 @@ if (args[0] === "undo") {
   }
   console.log(`RA undo → restored ${restored.length} file(s):`);
   for (const f of restored) console.log(`  ${f}`);
+  process.exit(0);
+}
+
+if (args[0] === "diff") {
+  const { checkpointContent } = await import("./server/checkpoint.ts");
+  const { diffLines, formatDiff } = await import("./diff.ts");
+  const { readFileSync, existsSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const cwd = arg("--cwd") ?? process.cwd();
+  const file = args[1];
+  if (!file) {
+    console.error("RA diff: usage: ra diff <file> [--cwd DIR]");
+    process.exit(1);
+  }
+  const before = checkpointContent(cwd, file);
+  if (before === null) {
+    console.log("RA diff: no checkpoint for this file.");
+    process.exit(1);
+  }
+  const abs = join(cwd, file);
+  const after = existsSync(abs) ? readFileSync(abs, "utf-8") : "";
+  console.log(`RA diff ${file} (checkpoint → current)`);
+  console.log(formatDiff(diffLines(before, after)));
   process.exit(0);
 }
 

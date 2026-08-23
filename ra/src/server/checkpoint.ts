@@ -89,3 +89,13 @@ export function clearCheckpoints(cwd: string): void {
   const dir = checkpointDir(cwd);
   if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
 }
+
+/** Return the latest checkpoint's snapshot content for a file, or null. */
+export function checkpointContent(cwd: string, relPath: string): string | null {
+  const list = loadManifest(cwd);
+  if (!list.length) return null;
+  const cp = list[0];
+  const store = join(checkpointDir(cwd), cp.id, relPath);
+  if (!existsSync(store)) return null;
+  return readFileSync(store, "utf-8");
+}

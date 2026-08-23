@@ -74,7 +74,7 @@
 
 - [x] `ra run` alias for headless mode (added in Cycle 2)
 - [ ] Live token/cost sidebar in TUI
-- [ ] Diff viewer in TUI
+- [x] Diff viewer in TUI (added `diff.ts` + `ra diff <file>` showing checkpoint → current)
 - [x] @-mention file picker (added in Cycle 19)
 - [x] LM Studio auto-discovery (added in Cycle 20)
 

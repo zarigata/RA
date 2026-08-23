@@ -16,6 +16,10 @@ export interface RaConfig extends RouterConfig {
   plugin?: string[];
   moa?: { roles: string[]; parallel: boolean };
   pipeline?: { stages: string[] };
+  permission?: {
+    tool?: Record<string, "allow" | "ask" | "deny">;
+    skill?: Record<string, "allow" | "ask" | "deny">;
+  };
 }
 
 export function ensureRaDirs(): void {

@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-009 — Permission engine: `ask` treated as deny in headless mode (2026-08-22)
+
+- **Context:** Need per-tool allow/ask/deny rules. The agent loop is currently headless (no interactive approval prompt).
+- **Options:** Implement full interactive approval; treat `ask` as deny for now.
+- **Choice:** Enforce `allow` (proceed) and `deny`/`ask` (block) in `execToolBlock`. `ask` is treated as deny until an interactive approval flow exists.
+- **Why:** Blocking on `ask` is the safe default — it never performs an action the user hasn't approved. Interactive approval is deferred to the client/server split (D-008) where a real prompt loop can live. This is a strict, non-stub enforcement: a denied tool returns an error note to the model rather than silently no-oping.
+
 ## D-008 — Project memory: `AGENTS.md` preferred over `RA.md` (2026-08-22)
 
 - **Context:** Need project conventions auto-loaded into the agent's context (opencode parity). Two candidate filenames exist in the ecosystem: `AGENTS.md` (opencode convention) and `RA.md` (RA-specific).

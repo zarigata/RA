@@ -98,6 +98,19 @@ describe("execToolBlock EDIT", () => {
       rmSync(cwd, { recursive: true });
     }
   });
+
+  test("denies a tool when config forbids it", async () => {
+    const { execToolBlock } = await import("../../ra/src/agent.ts");
+    const cwd = mkdtempSync(join(tmpdir(), "ra-deny-"));
+    try {
+      const cfg = { agent: {}, model: "x", permission: { tool: { write: "deny" } } };
+      const r = await execToolBlock({ cwd }, "WRITE a.txt\n```\nhello\n```", cfg as never);
+      expect(r.note).toContain("not permitted");
+      expect(r.done).toBe(false);
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
 });
 
 describe("project memory", () => {

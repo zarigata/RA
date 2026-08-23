@@ -88,7 +88,7 @@ echo "▶ bun test (anubis)"
 bun test
 
 echo "▶ bun test (ra runtime)"
-bun test ../ra/tests/runtime.test.ts ../ra/tests/benchmark-artifacts.test.ts ../ra/tests/run-command.test.ts ../ra/tests/session.test.ts
+bun test ../ra/tests/runtime.test.ts ../ra/tests/benchmark-artifacts.test.ts ../ra/tests/run-command.test.ts ../ra/tests/session.test.ts ../ra/tests/permission.test.ts
 
 echo "▶ ra doctor"
 "${RA_BIN[@]}" doctor | tee /tmp/ra-doctor.txt

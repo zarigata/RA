@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 6 — AGENTS.md/RA.md project memory (P1).** Plan: add `loadProjectMemory` to `ra/src/agent.ts` (reads AGENTS.md or RA.md from cwd), inject into the agent system prompt and orchestrator prompt, add tests. Files: `ra/src/agent.ts`, `ra/tests/runtime.test.ts`.
+**Cycle 7 — Permission engine (P1).** Plan: add `permission.tool` to `RaConfig`, create `ra/src/permission.ts` (allow/ask/deny resolution), enforce in `execToolBlock` (deny/ask block the tool), add tests. Files: `anubis/src/config.ts`, `ra/src/permission.ts`, `ra/src/agent.ts`, `ra/tests/permission.test.ts`, `ra/tests/runtime.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 5 — Multi-session + fallback fix shipped.** Added `ra sessions`/`/sessions` (list/kill), fixed `runDoctor` to accept localhost fallback, relaxed gate's dynamic `small@251` checks. 3 commits, full gate green.
+**Cycle 6 — Project memory shipped.** Added `loadProjectMemory` (AGENTS.md preferred over RA.md), injected into agent + orchestrator system prompts; 3 tests. Full gate green.
 
 ## Smoke-Test Table
 

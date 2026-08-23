@@ -9,6 +9,7 @@ import type { ToolContext } from "./tools/index.ts";
 import * as tools from "./tools/index.ts";
 import { loadEnv } from "../../anubis/src/env.ts";
 import { classifyTier, tierModel } from "./tier.ts";
+import { canRunTool } from "./permission.ts";
 
 export interface TaskResult {
   role: string;
@@ -63,33 +64,66 @@ export function loadProjectMemory(cwd: string): string {
   return "";
 }
 
-export async function execToolBlock(ctx: ToolContext, content: string): Promise<{ done: boolean; note: string }> {
+export async function execToolBlock(
+  ctx: ToolContext,
+  content: string,
+  config?: RaConfig,
+): Promise<{ done: boolean; note: string }> {
+  const denied = (tool: string) =>
+    config && !canRunTool(config, tool) ? `Error: tool '${tool}' is not permitted by config` : null;
+
   const write = content.match(/^WRITE\s+(\S+)\s*\n```(?:\w*\n)?([\s\S]*?)```/im);
   if (write) {
+    const d = denied("write");
+    if (d) return { done: false, note: d };
     return { done: false, note: tools.toolWrite(ctx, write[1], write[2].replace(/\n$/, "")) };
   }
   const edit = content.match(
     /^EDIT\s+(\S+)\s*\n<<<<<<<\s*OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>>\s*NEW/im,
   );
   if (edit) {
+    const d = denied("edit");
+    if (d) return { done: false, note: d };
     return { done: false, note: tools.toolEdit(ctx, edit[1], edit[2], edit[3]) };
   }
   const read = content.match(/^READ\s+(\S+)/im);
-  if (read) return { done: false, note: tools.toolRead(ctx, read[1]) };
+  if (read) {
+    const d = denied("read");
+    if (d) return { done: false, note: d };
+    return { done: false, note: tools.toolRead(ctx, read[1]) };
+  }
   const glob = content.match(/^GLOB\s+(.+)/im);
-  if (glob) return { done: false, note: await tools.toolGlob(ctx, glob[1].trim()) };
+  if (glob) {
+    const d = denied("glob");
+    if (d) return { done: false, note: d };
+    return { done: false, note: await tools.toolGlob(ctx, glob[1].trim()) };
+  }
   const grep = content.match(/^GREP\s+(\S+)(?:\s+(\S+))?/im);
-  if (grep) return { done: false, note: await tools.toolGrep(ctx, grep[1], grep[2] ?? "**/*") };
+  if (grep) {
+    const d = denied("grep");
+    if (d) return { done: false, note: d };
+    return { done: false, note: await tools.toolGrep(ctx, grep[1], grep[2] ?? "**/*") };
+  }
   const bash = content.match(/^BASH\s+(.+)/im);
-  if (bash) return { done: false, note: await tools.toolBash(ctx, bash[1].trim()) };
+  if (bash) {
+    const d = denied("bash");
+    if (d) return { done: false, note: d };
+    return { done: false, note: await tools.toolBash(ctx, bash[1].trim()) };
+  }
   const webfetch = content.match(/^WEBFETCH\s+(\S+)/im);
-  if (webfetch) return { done: false, note: await tools.toolWebFetch(webfetch[1].trim()) };
+  if (webfetch) {
+    const d = denied("webfetch");
+    if (d) return { done: false, note: d };
+    return { done: false, note: await tools.toolWebFetch(webfetch[1].trim()) };
+  }
   if (/^DONE\b/im.test(content.trim())) {
     return { done: true, note: content.replace(/^DONE\s*/i, "").trim() || "done" };
   }
   // Fenced file with filename comment
   const fence = content.match(/(?:file|path)[:\s]+([^\s\n]+\.[a-zA-Z0-9]+).*?```(?:\w*\n)?([\s\S]*?)```/is);
   if (fence) {
+    const d = denied("write");
+    if (d) return { done: false, note: d };
     return { done: false, note: tools.toolWrite(ctx, fence[1], fence[2].trim()) };
   }
   return { done: false, note: "" };
@@ -125,7 +159,7 @@ export async function runTaskAgent(
     recordChatUsage(res.model, cloud, res.usage, { in: inChars, out: last.length });
     messages.push({ role: "assistant", content: last });
 
-    const tool = await execToolBlock(ctx, last);
+    const tool = await execToolBlock(ctx, last, config);
     if (tool.done) return { role, model: res.model, output: tool.note || last };
     if (tool.note) {
       messages.push({ role: "user", content: `Tool result:\n${tool.note}\nContinue. WRITE files if needed, then DONE.` });

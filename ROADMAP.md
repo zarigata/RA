@@ -42,7 +42,7 @@
 ### Code Intelligence
 - [ ] LSP integration: auto-detect language, spawn server, feed diagnostics after every edit
 - [ ] Tree-sitter or equivalent for symbol outline + navigation
-- [ ] AGENTS.md / RA.md project memory auto-loaded into system context
+- [x] AGENTS.md / RA.md project memory auto-loaded into system context (added `loadProjectMemory`, injected into agent + orchestrator system prompts)
 
 ### MCP + Extensibility
 - [ ] MCP client: stdio, SSE/HTTP, OAuth; per-agent server config

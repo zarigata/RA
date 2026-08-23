@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 5 — Multi-session list/kill + fallback bugfix (P1).** Plan: add `listSessions`/`deleteSession`/`formatSessions` to `session.ts`, a `/sessions` slash command and `ra sessions [--kill ID]` CLI command; fix `runDoctor` to accept localhost fallback when `.251` is down; relax gate's dynamic `small@251` checks. Files: `ra/src/server/session.ts`, `ra/src/commands/index.ts`, `ra/src/cli.ts`, `ra/src/doctor.ts`, `anubis/test.sh`, `anubis/tests/ping.test.ts`, `ra/tests/session.test.ts`.
+**Cycle 6 — AGENTS.md/RA.md project memory (P1).** Plan: add `loadProjectMemory` to `ra/src/agent.ts` (reads AGENTS.md or RA.md from cwd), inject into the agent system prompt and orchestrator prompt, add tests. Files: `ra/src/agent.ts`, `ra/tests/runtime.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 4 — webfetch tool shipped.** Added `toolWebFetch` (http/https only, strips tags, 4KB cap, 15s timeout) + `WEBFETCH` in agent loop; 3 tests incl. live fetch. Full gate green.
+**Cycle 5 — Multi-session + fallback fix shipped.** Added `ra sessions`/`/sessions` (list/kill), fixed `runDoctor` to accept localhost fallback, relaxed gate's dynamic `small@251` checks. 3 commits, full gate green.
 
 ## Smoke-Test Table
 

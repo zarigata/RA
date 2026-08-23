@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { classifyTier, tierModel } from "../../ra/src/tier.ts";
 import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch } from "../../ra/src/tools/index.ts";
+import { loadProjectMemory } from "../../ra/src/agent.ts";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -93,6 +94,42 @@ describe("execToolBlock EDIT", () => {
       toolWrite({ cwd }, "a.py", "x");
       const r = await execToolBlock({ cwd }, "GLOB *.py");
       expect(r.note).toContain("a.py");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+});
+
+describe("project memory", () => {
+  test("loads AGENTS.md when present", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-mem-"));
+    try {
+      toolWrite({ cwd }, "AGENTS.md", "Use tabs, not spaces.");
+      const mem = loadProjectMemory(cwd);
+      expect(mem).toContain("AGENTS.md");
+      expect(mem).toContain("Use tabs");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("prefers AGENTS.md over RA.md", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-mem-"));
+    try {
+      toolWrite({ cwd }, "AGENTS.md", "from agents");
+      toolWrite({ cwd }, "RA.md", "from ra");
+      const mem = loadProjectMemory(cwd);
+      expect(mem).toContain("from agents");
+      expect(mem).not.toContain("from ra");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("returns empty when no memory file", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-mem-"));
+    try {
+      expect(loadProjectMemory(cwd)).toBe("");
     } finally {
       rmSync(cwd, { recursive: true });
     }

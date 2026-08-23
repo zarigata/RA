@@ -48,6 +48,21 @@ function loadAgentPrompt(role: string): string {
   return body || `You are ${role}.`;
 }
 
+/**
+ * Load project memory (AGENTS.md or RA.md) from the project cwd, if present.
+ * Injected into the system prompt so the agent follows project conventions.
+ */
+export function loadProjectMemory(cwd: string): string {
+  for (const name of ["AGENTS.md", "RA.md"]) {
+    const p = join(cwd, name);
+    if (existsSync(p)) {
+      const body = readFileSync(p, "utf-8").trim();
+      if (body) return `\n\nProject memory (${name}):\n${body}`;
+    }
+  }
+  return "";
+}
+
 export async function execToolBlock(ctx: ToolContext, content: string): Promise<{ done: boolean; note: string }> {
   const write = content.match(/^WRITE\s+(\S+)\s*\n```(?:\w*\n)?([\s\S]*?)```/im);
   if (write) {
@@ -93,7 +108,7 @@ export async function runTaskAgent(
   const tierModels = (config as RaConfig & { tier_models?: Record<string, string> }).tier_models;
   const configured = (tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model;
   const { client, model } = await pickClientForModel(configured, env);
-  const system = `${loadAgentPrompt(role)}\n${TOOL_HINT}`;
+  const system = `${loadAgentPrompt(role)}${loadProjectMemory(ctx.cwd)}\n${TOOL_HINT}`;
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: system },
     { role: "user", content: `Task: ${task}\nProject cwd: ${ctx.cwd}` },
@@ -184,7 +199,7 @@ export async function runOrchestratorTurn(
 
   const client = await pickOllamaEndpoint(env);
   const model = pickModel(config.small_model ?? config.model, client.availableModels);
-  const system = loadAgentPrompt("anubis").replace(/Anubis/g, "RA");
+  const system = (loadAgentPrompt("anubis") + loadProjectMemory(ctx.cwd)).replace(/Anubis/g, "RA");
   const res = await client.nativeChat(model, [
     { role: "system", content: system },
     { role: "user", content: userText },

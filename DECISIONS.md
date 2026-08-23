@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-008 — Project memory: `AGENTS.md` preferred over `RA.md` (2026-08-22)
+
+- **Context:** Need project conventions auto-loaded into the agent's context (opencode parity). Two candidate filenames exist in the ecosystem: `AGENTS.md` (opencode convention) and `RA.md` (RA-specific).
+- **Options:** Only `AGENTS.md`; only `RA.md`; both with precedence.
+- **Choice:** Check `AGENTS.md` first, then `RA.md`; inject the first non-empty one into the system prompt.
+- **Why:** `AGENTS.md` is the established opencode convention (parity target), so it wins. `RA.md` is a fallback for RA-native projects. Both are read from the project cwd, not the repo root, so per-directory conventions apply.
+
 ## D-007 — Sessions persist per-project to `~/.ra/sessions` (2026-08-22)
 
 - **Context:** Need multi-session support (list/switch/kill) without a daemon yet. Sessions already persist to disk keyed by project cwd.

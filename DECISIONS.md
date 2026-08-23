@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-006 — Env-var model overrides use `RA_*` > `ANUBIS_*` precedence (2026-08-22)
+
+- **Context:** `ra.json` already loads, but `.env.example` declared `ANUBIS_MODEL=` with no code wiring it. Need env-var overrides for the BIG/small model without editing config files.
+- **Options:** Only `ANUBIS_*`; only `RA_*`; both with precedence.
+- **Choice:** Support both `RA_MODEL`/`RA_SMALL_MODEL` and `ANUBIS_MODEL`/`ANUBIS_SMALL_MODEL`, with `RA_*` winning when both are set. Applied after project override, before use, in `runner.ts` and `tui/app.ts`.
+- **Why:** `ANUBIS_*` is the legacy name already in `.env.example`; `RA_*` is the current product name. Supporting both is backward-compatible, and `RA_*` precedence reflects the rebrand. Env overrides sit above config but below the `--model` CLI flag (which is handled separately in the router).
+
 ## D-005 — `ra run` reuses `runFullDevTask` with `quiet: true` (2026-08-22)
 
 - **Context:** Need a headless, non-interactive mode for CI/scripting. `ra --task` already runs the pipeline but always prints the TUI splash and stage boxes.

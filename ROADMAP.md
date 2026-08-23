@@ -6,8 +6,8 @@
 ## Up Next (queue)
 
 1. **[P1] Client/server split** — background daemon owns sessions/state/FS; TUI is a thin client. (ARCHITECTURE CORE)
-2. **[P1] JSON config `ra.json` + env overrides** — `anubis.json` exists; add `ra.json` project-level config with env-var override precedence.
-3. **[P1] Multi-session** — parallel sessions on same project, list/switch/kill.
+2. **[P1] Multi-session** — parallel sessions on same project, list/switch/kill.
+3. **[P1] Sessions persist across terminal disconnects** — `ra` reattaches cleanly (partial: disk persistence exists, no daemon).
 
 ---
 
@@ -23,7 +23,7 @@
 - [ ] Sessions persist across terminal disconnects; `ra` reattaches cleanly (partial: `session.ts` persists to disk, no daemon)
 - [ ] Multi-session: parallel sessions on same project, list/switch/kill
 - [x] Headless/non-interactive mode: `ra run "task"` for CI/scripting (added `ra run` with `--quick/--verify/--json/--cwd`, no TUI splash)
-- [ ] JSON config file (`ra.json`) + env var overrides + sane defaults (partial: `anubis.json` + `.env`)
+- [x] JSON config file (`ra.json`) + env var overrides + sane defaults (`ra.json` loads; added `RA_MODEL`/`RA_SMALL_MODEL`/`ANUBIS_MODEL`/`ANUBIS_SMALL_MODEL` env overrides)
 
 ### Model Layer
 - [x] Provider abstraction (partial: `ollama.ts` has cloud/local/LAN clients, not a full pluggable interface)

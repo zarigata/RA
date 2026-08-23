@@ -2,7 +2,7 @@
 
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadRaConfig, applyProjectOverride, type RaConfig } from "./config.ts";
+import { loadRaConfig, applyProjectOverride, applyEnvOverrides, type RaConfig } from "./config.ts";
 import { pickClientForModel } from "./ollama.ts";
 import { resolveRoleModel, resolveAll, formatAssignments, type RouterConfig } from "./router.ts";
 import { DEFAULT_PIPELINE_STAGES, planPipeline } from "./pipeline.ts";
@@ -127,7 +127,7 @@ export async function runFullDevTask(
   const root = opts.root ?? join(import.meta.dir, "..");
   const workDir = opts.cwd ?? process.cwd();
   const env = loadEnv(root);
-  const config = applyProjectOverride(loadConfig(root), workDir);
+  const config = applyEnvOverrides(applyProjectOverride(loadConfig(root), workDir), env);
   const stages = opts.stages ?? DEFAULT_PIPELINE_STAGES.slice(0, 4);
   const plan = planPipeline(task, stages);
   if (!plan) throw new Error("invalid pipeline stages");

@@ -68,3 +68,22 @@ export function applyProjectOverride(cfg: RaConfig, cwd: string): RaConfig {
   if (!o) return cfg;
   return { ...cfg, ...o };
 }
+
+/**
+ * Env-var overrides for model config. Precedence (highest first):
+ *   RA_MODEL / ANUBIS_MODEL        → cfg.model (BIG)
+ *   RA_SMALL_MODEL / ANUBIS_SMALL_MODEL → cfg.small_model (small)
+ * `RA_*` wins over `ANUBIS_*` when both are set.
+ */
+export function applyEnvOverrides(
+  cfg: RaConfig,
+  env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
+): RaConfig {
+  const big = env.RA_MODEL ?? env.ANUBIS_MODEL;
+  const small = env.RA_SMALL_MODEL ?? env.ANUBIS_SMALL_MODEL;
+  if (!big && !small) return cfg;
+  const out: RaConfig = { ...cfg };
+  if (big) out.model = big;
+  if (small) out.small_model = small;
+  return out;
+}

@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 2 — Headless `ra run` command (P1).** Plan: add a `ra run "task"` subcommand to `ra/src/cli.ts` that runs the full-dev pipeline with `quiet: true` (no TUI splash), supporting `--quick/--verify/--json/--cwd`. Add a unit test file and wire it into `anubis/test.sh` + CI. Files: `ra/src/cli.ts`, `ra/tests/run-command.test.ts`, `anubis/test.sh`, `.github/workflows/test.yml`.
+**Cycle 3 — JSON config env-var overrides (P1).** Plan: add `applyEnvOverrides` to `anubis/src/config.ts` (RA_MODEL/RA_SMALL_MODEL/ANUBIS_MODEL/ANUBIS_SMALL_MODEL, RA_* wins), wire it into `runner.ts` and `tui/app.ts`, document in `.env.example`, add tests. Files: `anubis/src/config.ts`, `anubis/src/runner.ts`, `ra/src/tui/app.ts`, `anubis/.env.example`, `anubis/tests/config.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 1 — Bootstrap complete.** Build + tests green (155 pass), full gate green, git initialized, six state files created, baseline smoke test recorded (cloud + local both pass).
+**Cycle 2 — Headless `ra run` command shipped.** Added `ra run "task"` (quiet, no TUI splash) with `--quick/--verify/--json/--cwd`; 2 new tests; wired into test gate + CI. Full gate green.
 
 ## Smoke-Test Table
 

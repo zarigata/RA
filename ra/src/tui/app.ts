@@ -1,6 +1,6 @@
 import * as readline from "node:readline";
 import { renderSplash, APP_NAME } from "../../../anubis/src/tui.ts";
-import { loadRaConfig, ensureRaDirs, applyProjectOverride } from "../../../anubis/src/config.ts";
+import { loadRaConfig, ensureRaDirs, applyProjectOverride, applyEnvOverrides } from "../../../anubis/src/config.ts";
 import { ANUBIS_HOME } from "../paths.ts";
 import { loadEnv } from "../../../anubis/src/env.ts";
 import { loadSession, saveSession, appendMessage } from "../server/session.ts";
@@ -16,7 +16,7 @@ export interface TuiOptions {
 export async function startTui(opts: TuiOptions): Promise<void> {
   ensureRaDirs();
   loadEnv(ANUBIS_HOME);
-  const config = applyProjectOverride(loadRaConfig(ANUBIS_HOME), opts.cwd);
+  const config = applyEnvOverrides(applyProjectOverride(loadRaConfig(ANUBIS_HOME), opts.cwd));
   const session = loadSession(opts.cwd);
   const plugins = new PluginHost();
   await plugins.load(config.plugin ?? []);

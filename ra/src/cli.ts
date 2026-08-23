@@ -94,7 +94,7 @@ Usage:
   ra which                   Which small host is active (@251 or @local)
   ra lanes                   Small@251 vs BIG@cloud routing map
   ra models                  Probe qwen/gemma on .251 + cloud BIG
-  ra cost                    Usage / cost report
+  ra cost [--session]        Usage / cost report (per-session with --session)
   ra init                    Mark cwd as RA project
   ra demo                    One-shot RA TUI full-dev (hello.py) + verify
   ra doctor                  Health check
@@ -396,9 +396,13 @@ if (args[0] === "models") {
 }
 
 if (args[0] === "cost") {
-  const { formatReport, buildReport, loadUsage } = await import("../../anubis/src/cost.ts");
+  const { formatReport, buildReport, loadUsage, sessionUsage, formatSessionUsage } = await import("../../anubis/src/cost.ts");
   const { loadLastRun, formatLaneLine, formatIntentLine, formatPreferLine } = await import("../../anubis/src/last-run.ts");
   const last = loadLastRun();
+  if (args.includes("--session")) {
+    console.log(`RA cost (per session)\n${formatSessionUsage(sessionUsage())}`);
+    process.exit(0);
+  }
   console.log(`RA cost\n${formatReport(buildReport(loadUsage()))}`);
   console.log(formatPreferLine(last));
   if (last?.timings?.length) console.log(formatLaneLine(last));

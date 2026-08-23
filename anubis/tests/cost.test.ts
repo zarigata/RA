@@ -5,6 +5,8 @@ import {
   priceFor,
   buildReport,
   formatReport,
+  sessionUsage,
+  formatSessionUsage,
 } from "../src/cost.ts";
 
 describe("cost estimation", () => {
@@ -59,6 +61,38 @@ describe("cost report", () => {
   });
   test("formatReport empty", () => {
     expect(formatReport([])).toContain("No usage");
+  });
+});
+
+describe("session usage", () => {
+  test("sessionUsage flattens per-session data", () => {
+    const data = {
+      "/tmp/proj-a": {
+        "ollama/gemma:latest": { model: "ollama/gemma:latest", inputTokens: 100, outputTokens: 50 },
+      },
+      "/tmp/proj-b": {
+        "anthropic/claude-sonnet-4-5": { model: "anthropic/claude-sonnet-4-5", inputTokens: 1_000_000, outputTokens: 0 },
+      },
+    };
+    const rows = sessionUsage(data);
+    expect(rows.length).toBe(2);
+    expect(rows.find((r) => r.session === "/tmp/proj-a")?.model).toBe("ollama/gemma:latest");
+    expect(rows.find((r) => r.session === "/tmp/proj-b")?.cost).toBe(3);
+  });
+
+  test("formatSessionUsage includes session and total", () => {
+    const rows = sessionUsage({
+      "/tmp/proj-a": {
+        "anthropic/claude-sonnet-4-5": { model: "anthropic/claude-sonnet-4-5", inputTokens: 1_000_000, outputTokens: 0 },
+      },
+    });
+    const text = formatSessionUsage(rows);
+    expect(text).toContain("/tmp/proj-a");
+    expect(text).toContain("TOTAL");
+  });
+
+  test("formatSessionUsage empty", () => {
+    expect(formatSessionUsage([])).toContain("No usage");
   });
 });
 

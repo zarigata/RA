@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 29 — Self-healing loop (P2).** Plan: add `selfheal.ts` (run test → diagnose → fix → retry, max 3, log to BUGS.md), add tests. Files: `ra/src/selfheal.ts`, `ra/tests/selfheal.test.ts`.
+**Cycle 30 — Per-session cost dashboard (P2).** Plan: add per-session usage store to `cost.ts` (thread session key through `recordChatUsage`), add `sessionUsage`/`formatSessionUsage`, add `ra cost --session`, add tests. Files: `anubis/src/cost.ts`, `anubis/src/runner.ts`, `ra/src/agent.ts`, `ra/src/cli.ts`, `anubis/tests/cost.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 28 — Air-gapped mode shipped.** Added `airgap.ts` + `RA_AIRGAP` env (localize cloud models, block non-local webfetch); 4 tests. Full gate green.
+**Cycle 29 — Self-healing loop shipped.** Added `selfheal.ts` (diagnose → fix → retry, max 3, log to BUGS.md); 3 tests. Full gate green.
 
 ## Smoke-Test Table
 

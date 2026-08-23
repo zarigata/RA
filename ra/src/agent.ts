@@ -287,7 +287,7 @@ export async function runTaskAgent(
     usedModel = res.model;
     last = res.content;
     const inChars = messages.reduce((n, m) => n + m.content.length, 0);
-    recordChatUsage(res.model, cloud, res.usage, { in: inChars, out: last.length });
+    recordChatUsage(res.model, cloud, res.usage, { in: inChars, out: last.length }, ctx.cwd);
     messages.push({ role: "assistant", content: last });
 
     const tool = await execToolBlock(ctx, last, config, agentPerms, spawn);
@@ -372,6 +372,6 @@ export async function runOrchestratorTurn(
   recordChatUsage(res.model, client.kind === "cloud", res.usage, {
     in: system.length + userText.length,
     out: res.content.length,
-  });
+  }, ctx.cwd);
   return res.content;
 }

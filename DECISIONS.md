@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-026 — Per-session cost is a separate store keyed by project cwd (2026-08-22)
+
+- **Context:** Need per-session/per-model cost analytics. Global usage already exists (`~/.ra/usage.json`), but it's not broken down by session.
+- **Options:** Derive sessions from history; add a session-keyed store.
+- **Choice:** Add a `~/.ra/session-usage.json` store keyed by session (project cwd), populated by threading an optional `session` arg through `recordChatUsage`. `sessionUsage`/`formatSessionUsage` read it, and `ra cost --session` renders it.
+- **Why:** The project cwd is the natural session key (it's how sessions are already persisted). A separate store avoids breaking the existing global `usage.json` consumers while adding the per-session dimension. The TUI sidebar remains a separate polish item.
+
 ## D-025 — Self-healing loop is a generic retry harness, not agent-coupled (2026-08-22)
 
 - **Context:** Need self-healing: on test failure, auto-diagnose and retry (max 3), log to BUGS.md. The diagnostics tool (D-023) already exists.

@@ -96,6 +96,45 @@ export function clearUsage(): void {
   saveUsage({});
 }
 
+export interface SessionUsage {
+  session: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+}
+
+/**
+ * Break down per-session usage into a flat list. Reads the session-usage store
+ * (populated when `recordChatUsage` is called with a session key).
+ */
+export function sessionUsage(data: Record<string, Record<string, UsageEntry>> = loadSessionUsage()): SessionUsage[] {
+  const out: SessionUsage[] = [];
+  for (const [session, perModel] of Object.entries(data)) {
+    for (const [model, u] of Object.entries(perModel)) {
+      out.push({
+        session,
+        model,
+        inputTokens: u.inputTokens,
+        outputTokens: u.outputTokens,
+        cost: estimateCost(model, u.inputTokens, u.outputTokens),
+      });
+    }
+  }
+  return out;
+}
+
+/** Format a per-session/per-model cost dashboard. */
+export function formatSessionUsage(rows: SessionUsage[]): string {
+  if (!rows.length) return "No usage recorded.";
+  const lines = rows.map(
+    (r) => `${r.session} · ${r.model}: ${r.inputTokens} in / ${r.outputTokens} out — $${r.cost.toFixed(6)}`,
+  );
+  const total = rows.reduce((s, r) => s + r.cost, 0);
+  lines.push(`TOTAL: $${total.toFixed(6)}`);
+  return lines.join("\n");
+}
+
 /** Tag bare model id with provider for free/paid classification */
 export function tagModel(model: string, cloud: boolean): string {
   if (model.includes("/")) return model;
@@ -121,6 +160,7 @@ export function recordChatUsage(
   cloud: boolean,
   usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null,
   approxChars?: { in: number; out: number },
+  session?: string,
 ): void {
   const tagged = tagModel(model, cloud);
   let inn = usage?.prompt_tokens ?? 0;
@@ -131,4 +171,34 @@ export function recordChatUsage(
     out = Math.ceil(approxChars.out / 4);
   }
   if (inn || out) addUsage(tagged, inn, out);
+  if (session) recordSessionUsage(session, tagged, inn, out);
+}
+
+const SESSION_USAGE_PATH = () => join(homedir(), ".ra", "session-usage.json");
+
+export function loadSessionUsage(): Record<string, Record<string, UsageEntry>> {
+  const p = SESSION_USAGE_PATH();
+  if (!existsSync(p)) return {};
+  try {
+    return JSON.parse(readFileSync(p, "utf-8")) as Record<string, Record<string, UsageEntry>>;
+  } catch {
+    return {};
+  }
+}
+
+export function saveSessionUsage(data: Record<string, Record<string, UsageEntry>>): void {
+  const dir = join(homedir(), ".ra");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(SESSION_USAGE_PATH(), JSON.stringify(data, null, 2), "utf-8");
+}
+
+function recordSessionUsage(session: string, model: string, inputTokens: number, outputTokens: number): void {
+  const data = loadSessionUsage();
+  const perModel = data[session] ?? {};
+  const cur = perModel[model] ?? { model, inputTokens: 0, outputTokens: 0 };
+  cur.inputTokens += Math.max(0, inputTokens | 0);
+  cur.outputTokens += Math.max(0, outputTokens | 0);
+  perModel[model] = cur;
+  data[session] = perModel;
+  saveSessionUsage(data);
 }

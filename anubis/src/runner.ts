@@ -162,7 +162,7 @@ export async function runFullDevTask(
       recordChatUsage(result.model, usedHost === "cloud", result.usage, {
         in: system.length + user.length,
         out: content.length,
-      });
+      }, workDir);
     } catch (e) {
       content = `(stage ${stage} failed: ${String(e)})`;
     }

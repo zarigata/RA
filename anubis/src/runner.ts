@@ -3,20 +3,16 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadRaConfig, applyProjectOverride, applyEnvOverrides, type RaConfig } from "./config.ts";
-import { pickClientForModel } from "./ollama.ts";
+import { pickClientForModel, runWithFallback } from "./ollama.ts";
 import { resolveRoleModel, resolveAll, formatAssignments, type RouterConfig } from "./router.ts";
 import { DEFAULT_PIPELINE_STAGES, planPipeline } from "./pipeline.ts";
-import { renderSplash, renderStageProgress, renderTaskComplete, renderRolesTable, hostTag } from "./tui.ts";
+import { renderSplash, renderStageProgress, renderTaskComplete, renderRolesTable } from "./tui.ts";
 import { loadEnv } from "./env.ts";
 import { recordChatUsage, formatReport, buildReport, loadUsage } from "./cost.ts";
 import { saveLastRun, formatResultLine, formatLaneLine, formatIntentLine, formatPreferLine, type StageTiming } from "./last-run.ts";
 import { appendHistory } from "./history.ts";
 import { detectIntent } from "./intent.ts";
 import { HELLO_PY_STUB, ensureHelloPyBody } from "./hello-py.ts";
-
-function isCloudModel(configured: string): boolean {
-  return configured.startsWith("ollama-cloud/") || configured.startsWith("cloud/");
-}
 
 const ROLE_PROMPTS: Record<string, string> = {
   thoth: "You are Thoth — planner. Outline steps only. Be brief.",
@@ -146,55 +142,28 @@ export async function runFullDevTask(
     let usedModel = assignment.model;
     let usedHost = "lan";
     const stageT0 = Date.now();
+    const system = ROLE_PROMPTS[stage] ?? `You are ${stage}.`;
+    const prior = outputs.map((o) => `[${o.stage}]: ${o.content.slice(0, 300)}`).join("\n");
+    const user = prior
+      ? `Task: ${task}\n\nPrior work:\n${prior}\n\nYour turn (${stage}):`
+      : `Task: ${task}\n\nYour turn (${stage}):`;
     try {
-      const { client, model } = await pickClientForModel(assignment.model, env);
-      usedModel = model;
-      usedHost = hostTag(client.baseURL, client.kind);
-      const system = ROLE_PROMPTS[stage] ?? `You are ${stage}.`;
-      const prior = outputs.map((o) => `[${o.stage}]: ${o.content.slice(0, 300)}`).join("\n");
-      const user = prior
-        ? `Task: ${task}\n\nPrior work:\n${prior}\n\nYour turn (${stage}):`
-        : `Task: ${task}\n\nYour turn (${stage}):`;
-      const res = await client.nativeChat(model, [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ], { timeoutMs: 120_000 });
-      content = res.content;
-      usedModel = res.model;
-      recordChatUsage(res.model, client.kind === "cloud", res.usage, {
+      const { result, attempts } = await runWithFallback(assignment.model, env, (client, model) =>
+        client.nativeChat(model, [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ], { timeoutMs: 120_000 }),
+      );
+      content = result.content;
+      usedModel = result.model;
+      const okAttempt = attempts.find((a) => a.ok);
+      usedHost = okAttempt?.host ?? "lan";
+      recordChatUsage(result.model, usedHost === "cloud", result.usage, {
         in: system.length + user.length,
         out: content.length,
       });
     } catch (e) {
-      // Small → .251 qwen, then localhost gemma; Big → cloud then .251
-      const fallbacks = isCloudModel(assignment.model)
-        ? ["ollama-lan/qwen3.8:latest", "ollama/gemma:latest"]
-        : ["ollama-lan/qwen3.8:latest", "ollama/gemma:latest", "ollama-cloud/glm-5.2"];
-      let ok = false;
-      for (const fb of fallbacks) {
-        try {
-          const { client, model } = await pickClientForModel(fb, env);
-          usedModel = model;
-          usedHost = hostTag(client.baseURL, client.kind);
-          const userFb = `Task: ${task}\nYour turn (${stage}). Be brief.`;
-          const sysFb = ROLE_PROMPTS[stage] ?? `You are ${stage}.`;
-          const res = await client.nativeChat(model, [
-            { role: "system", content: sysFb },
-            { role: "user", content: userFb },
-          ], { timeoutMs: 90_000 });
-          content = res.content;
-          usedModel = res.model;
-          recordChatUsage(res.model, client.kind === "cloud", res.usage, {
-            in: sysFb.length + userFb.length,
-            out: content.length,
-          });
-          ok = true;
-          break;
-        } catch {
-          /* try next */
-        }
-      }
-      if (!ok) content = `(stage ${stage} failed: ${String(e)})`;
+      content = `(stage ${stage} failed: ${String(e)})`;
     }
 
     if (stage === "ptah") {

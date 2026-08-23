@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { pickModel, smallOllamaUrls } from "../src/ollama.ts";
+import { pickModel, smallOllamaUrls, fallbackChain, runWithFallback } from "../src/ollama.ts";
 
 describe("small Ollama routing", () => {
   test(".251 first, localhost gemma second", () => {
@@ -30,5 +30,69 @@ describe("small Ollama routing", () => {
   test("pickModel falls back to gemma when qwen absent", () => {
     const available = ["gemma:latest", "gemma2:2b"];
     expect(pickModel("ollama-lan/qwen3.8:latest", available)).toBe("gemma:latest");
+  });
+});
+
+describe("fallback chain", () => {
+  test("cloud model falls back to LAN then local", () => {
+    const chain = fallbackChain("ollama-cloud/glm-5.2");
+    expect(chain[0]).toBe("ollama-cloud/glm-5.2");
+    expect(chain).toContain("ollama-lan/qwen3.8:latest");
+    expect(chain).toContain("ollama/gemma:latest");
+  });
+
+  test("small model falls back to LAN, local, then cloud", () => {
+    const chain = fallbackChain("ollama-lan/qwen3.8:latest");
+    expect(chain[0]).toBe("ollama-lan/qwen3.8:latest");
+    expect(chain).toContain("ollama/gemma:latest");
+    expect(chain).toContain("ollama-cloud/glm-5.2");
+  });
+
+  test("dedupes repeated candidates", () => {
+    const chain = fallbackChain("ollama-lan/qwen3.8:latest");
+    expect(new Set(chain).size).toBe(chain.length);
+  });
+
+  test("runWithFallback returns first success and records attempts", async () => {
+    const calls: string[] = [];
+    const { result, attempts } = await runWithFallback(
+      "ollama-lan/qwen3.8:latest",
+      {},
+      async (_client, model) => {
+        calls.push(model);
+        if (model === "qwen3.8:latest") {
+          return { content: "ok", model, usage: null };
+        }
+        throw new Error("down");
+      },
+      async (candidate) => {
+        // Fake picker: resolve candidate to a bare model + a fake client.
+        const bare = candidate.split("/").pop()!;
+        return {
+          client: { baseURL: "http://192.168.1.251:11434", kind: "local" } as never,
+          model: bare,
+        };
+      },
+    );
+    expect(result.content).toBe("ok");
+    expect(attempts.length).toBeGreaterThanOrEqual(1);
+    expect(attempts[0].ok).toBe(true);
+    expect(attempts[0].host).toBe("251");
+  });
+
+  test("runWithFallback throws when all candidates fail", async () => {
+    await expect(
+      runWithFallback(
+        "ollama-lan/qwen3.8:latest",
+        {},
+        async () => {
+          throw new Error("down");
+        },
+        async (candidate) => ({
+          client: { baseURL: "http://localhost:11434", kind: "local" } as never,
+          model: candidate.split("/").pop()!,
+        }),
+      ),
+    ).rejects.toThrow();
   });
 });

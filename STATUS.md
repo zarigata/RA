@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 11 — Custom slash commands (P1).** Plan: add `loadCustomCommands` to `commands/index.ts` (Markdown files with `name`/`description`/`prompt` frontmatter in `.anubis/commands/`), dispatch unknown slash commands to them, add tests. Files: `ra/src/commands/index.ts`, `ra/tests/custom-commands.test.ts`.
+**Cycle 12 — Model router fallback chain (P1).** Plan: add `fallbackChain` + `runWithFallback` to `ollama.ts` (ordered cloud→LAN→local chain, per-attempt host/latency logging), refactor `runner.ts` to use it (removing the inline fallback loop), add tests. Files: `anubis/src/ollama.ts`, `anubis/src/runner.ts`, `anubis/tests/ollama-routing.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 10 — TODO tool shipped.** Added `toolTodo` (add/done/list, persisted to `.ra/todos.json`) + `TODO` in agent loop; 2 tests. Full gate green.
+**Cycle 11 — Custom slash commands shipped.** Added `loadCustomCommands` (Markdown-defined commands in `.anubis/commands/`); 3 tests. Full gate green.
 
 ## Smoke-Test Table
 
@@ -20,6 +20,7 @@
 | 2026-08-22 | qwen3.8:latest | @251 (LAN) | chat completion | 28.6s | ✅ PASS | integration test |
 | 2026-08-22 | glm-5.2 + qwen3.8 | @cloud + @251 | hello-world CLI (full-dev) | 39.2s | ✅ PASS | wrote hello.py, ran → "Hello, World!" |
 | 2026-08-22 | qwen3.8:latest | @251 (LAN) | list+summarize (reduced probe) | ~2s | ✅ PASS | correct file/purpose table |
+| 2026-08-22 | gemma:latest + glm-5.2 | @local + @cloud | hello-world CLI (fallback chain) | 16.9s | ✅ PASS | .251 down → thoth fell back to gemma@local, ptah used glm-5.2@cloud |
 
 ## Model Capability Matrix
 

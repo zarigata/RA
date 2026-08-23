@@ -7,7 +7,7 @@
 
 1. **[P1] Client/server split** — background daemon owns sessions/state/FS; TUI is a thin client. (ARCHITECTURE CORE)
 2. **[P1] Sessions persist across terminal disconnects** — `ra` reattaches cleanly (partial: disk persistence exists, no daemon).
-3. **[P1] Model router: automatic fallback chain** — cloud→local on failure/rate-limit with per-request cost+latency logging (partial: `pickOllamaEndpoint` picks one endpoint; `runner.ts` has a manual fallback loop).
+3. **[P1] Subagents** — General, Explore, Scout (spawnable, visible in TUI with subagent tree).
 
 ---
 
@@ -30,7 +30,7 @@
 - [ ] 75+ provider compatibility via OpenAI-compatible endpoints + models.dev catalog ingestion (partial: docs claim 75+, code only wires Ollama cloud/local/LAN)
 - [x] Local models: Ollama + LM Studio auto-discovery (partial: Ollama yes, LM Studio not verified)
 - [x] Per-agent model assignment in config (`agent.<role>.model` in `anubis.json`)
-- [ ] Model router: automatic fallback chain cloud→local on failure/rate-limit, with per-request cost + latency logging (partial: `pickOllamaEndpoint` picks one endpoint, no chain)
+- [x] Model router: automatic fallback chain cloud→local on failure/rate-limit, with per-request cost + latency logging (added `fallbackChain` + `runWithFallback` with per-attempt host/latency logging; `runner.ts` refactored to use it)
 
 ### Agent System
 - [x] Primary agents: Build (ptah, full tools) and Plan (thoth, read-only)

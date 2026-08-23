@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-012 — Fallback chain extracted to `runWithFallback` in `ollama.ts` (2026-08-22)
+
+- **Context:** The model router fallback (cloud→LAN→local) was implemented inline in `runner.ts` with a duplicated try/catch loop. The roadmap flagged it as "no chain" because the logic wasn't reusable or tested.
+- **Options:** Leave inline; extract to a helper.
+- **Choice:** Extract `fallbackChain(configured)` (ordered candidate list) and `runWithFallback(configured, env, run, pick?)` (iterates candidates, records per-attempt host/latency, returns first success) into `ollama.ts`. Refactor `runner.ts` to call it. The `pick` function is injectable for testability.
+- **Why:** The fallback logic is a core model-layer concern that belongs next to `pickClientForModel`, not buried in the pipeline runner. Extracting it makes it unit-testable (no live network) and removes ~25 lines of duplicated try/catch. Behavior is preserved: cloud→LAN→local for BIG, LAN→local→cloud for small.
+
 ## D-011 — Custom slash commands live in `.anubis/commands/*.md` (2026-08-22)
 
 - **Context:** Need user-defined slash commands (opencode parity). Existing commands are hardcoded in a switch.

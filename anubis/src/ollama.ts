@@ -258,3 +258,75 @@ export function pickModel(
   }
   return available[0] ?? bare;
 }
+
+/**
+ * Ordered fallback chain for a configured model.
+ * - cloud (BIG) → .251 qwen → localhost gemma
+ * - small/local → .251 qwen → localhost gemma → cloud glm-5.2
+ */
+export function fallbackChain(configured: string): string[] {
+  const chain = [configured];
+  if (isCloudModel(configured)) {
+    chain.push("ollama-lan/qwen3.8:latest", "ollama/gemma:latest");
+  } else {
+    chain.push("ollama-lan/qwen3.8:latest", "ollama/gemma:latest", "ollama-cloud/glm-5.2");
+  }
+  return [...new Set(chain)];
+}
+
+export interface FallbackAttempt {
+  configured: string;
+  model: string;
+  host: string;
+  ms: number;
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Run a chat request through the fallback chain, recording per-attempt
+ * latency and host. Returns the first successful result plus the attempt log.
+ * Throws if every candidate fails.
+ */
+export async function runWithFallback(
+  configured: string,
+  env: Record<string, string | undefined>,
+  run: (client: OllamaClient, model: string) => Promise<ChatResult>,
+  pick: (candidate: string, env: Record<string, string | undefined>) => Promise<{ client: OllamaClient; model: string }> = pickClientForModel,
+): Promise<{ result: ChatResult; attempts: FallbackAttempt[] }> {
+  const attempts: FallbackAttempt[] = [];
+  let lastErr: Error | null = null;
+  for (const candidate of fallbackChain(configured)) {
+    const t0 = Date.now();
+    try {
+      const { client, model } = await pick(candidate, env);
+      const result = await run(client, model);
+      attempts.push({
+        configured: candidate,
+        model: result.model,
+        host: hostTag(client.baseURL, client.kind),
+        ms: Date.now() - t0,
+        ok: true,
+      });
+      return { result, attempts };
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e));
+      attempts.push({
+        configured: candidate,
+        model: candidate,
+        host: "down",
+        ms: Date.now() - t0,
+        ok: false,
+        error: lastErr.message,
+      });
+    }
+  }
+  throw lastErr ?? new Error(`No fallback succeeded for ${configured}`);
+}
+
+function hostTag(baseURL: string, kind: "cloud" | "local"): string {
+  if (kind === "cloud") return "cloud";
+  if (baseURL.includes("192.168.1.251")) return "251";
+  if (/localhost|127\.0\.0\.1/.test(baseURL)) return "local";
+  return "lan";
+}

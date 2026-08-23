@@ -25,8 +25,10 @@ export async function runDoctor(): Promise<number> {
     const { pingAll, formatPings } = await import("../../anubis/src/ping.ts");
     const pings = await pingAll(process.env as Record<string, string>);
     console.log(formatPings(pings));
-    const lan = pings.find((p) => p.name === "251" || p.name === "local");
-    check("Ollama small reachable", !!lan?.ok, "start ollama on 192.168.1.251 or localhost");
+    const lan = pings.find((p) => p.name === "251");
+    const local = pings.find((p) => p.name === "local");
+    // Small is reachable if EITHER .251 or localhost is up (fallback chain).
+    check("Ollama small reachable", !!(lan?.ok || local?.ok), "start ollama on 192.168.1.251 or localhost");
   } catch {
     check("Ollama ping", false, "network / ollama down");
   }

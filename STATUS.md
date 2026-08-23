@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 7 — Permission engine (P1).** Plan: add `permission.tool` to `RaConfig`, create `ra/src/permission.ts` (allow/ask/deny resolution), enforce in `execToolBlock` (deny/ask block the tool), add tests. Files: `anubis/src/config.ts`, `ra/src/permission.ts`, `ra/src/agent.ts`, `ra/tests/permission.test.ts`, `ra/tests/runtime.test.ts`.
+**Cycle 8 — Session export (P1).** Plan: add `exportSession` to `session.ts` (sanitized Markdown via vibeguard redact), add `ra export [--cwd] [--out]` CLI command, add test. Files: `ra/src/server/session.ts`, `ra/src/cli.ts`, `ra/tests/session.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 6 — Project memory shipped.** Added `loadProjectMemory` (AGENTS.md preferred over RA.md), injected into agent + orchestrator system prompts; 3 tests. Full gate green.
+**Cycle 7 — Permission engine shipped.** Added `permission.tool` allow/ask/deny enforcement in the agent loop; 5 tests. Full gate green.
 
 ## Smoke-Test Table
 

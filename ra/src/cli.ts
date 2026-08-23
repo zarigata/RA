@@ -74,6 +74,7 @@ Usage:
   ra last [--json]           Show last full-dev run
   ra history [--json]        Recent full-dev runs
   ra sessions [--kill ID]    List persisted sessions (or kill one)
+  ra export [--cwd DIR] [--out FILE]  Export sanitized session transcript
   ra result                  One-line RA RESULT (bash greppable)
   ra lane                    One-line RA lane (thoth@251 → ptah@cloud)
   ra intent                  One-line RA intent (code|debug|plan|…)
@@ -185,6 +186,26 @@ if (args[0] === "sessions") {
     process.exit(ok ? 0 : 1);
   }
   console.log(formatSessions(listSessions()));
+  process.exit(0);
+}
+
+if (args[0] === "export") {
+  const { loadSession, exportSession } = await import("./server/session.ts");
+  const cwd = arg("--cwd") ?? process.cwd();
+  const session = loadSession(cwd);
+  if (!session.messages.length) {
+    console.error("RA export: no messages in this session.");
+    process.exit(1);
+  }
+  const out = arg("--out");
+  const text = exportSession(session);
+  if (out) {
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(out, text, "utf-8");
+    console.log(`RA export → ${out}`);
+  } else {
+    console.log(text);
+  }
   process.exit(0);
 }
 

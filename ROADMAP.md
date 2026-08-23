@@ -52,7 +52,7 @@
 
 ### TUI Experience
 - [x] Multi-pane TUI (partial: single-pane chat + command palette, no live token/cost sidebar, no diff viewer, no @-mention)
-- [ ] Session share/export (sanitized transcript)
+- [x] Session share/export (sanitized transcript) — `ra export` writes a vibeguard-redacted Markdown transcript
 - [ ] Undo/checkpoint: snapshot before each agent edit batch
 
 ### Integrations

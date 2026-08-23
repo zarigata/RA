@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadSession, saveSession, appendMessage, listSessions, deleteSession, formatSessions } from "../src/server/session.ts";
+import { loadSession, saveSession, appendMessage, listSessions, deleteSession, formatSessions, exportSession } from "../src/server/session.ts";
 import { RA_GLOBAL } from "../../anubis/src/config.ts";
 
 describe("session persistence", () => {
@@ -29,6 +29,24 @@ describe("session persistence", () => {
     } finally {
       rmSync(cwd, { recursive: true });
     }
+  });
+
+  test("exportSession sanitizes secrets", () => {
+    const s = {
+      id: "x",
+      cwd: "/tmp/x",
+      messages: [
+        { role: "user", content: "my key is sk-ant-abcdefghijklmnopqrstuvwxyz123456", ts: 1 },
+        { role: "assistant", content: "ok", ts: 2 },
+      ],
+      simpleMode: false,
+      created: Date.now(),
+    };
+    const out = exportSession(s);
+    expect(out).toContain("# RA Session Transcript");
+    expect(out).toContain("## user");
+    expect(out).not.toContain("sk-ant-abcdefghijklmnopqrstuvwxyz123456");
+    expect(out).toContain("__VIBEGUARD_");
   });
 
   test("listSessions + deleteSession + formatSessions", () => {

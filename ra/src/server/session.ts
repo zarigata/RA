@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { sessionPath, RA_GLOBAL, type RaConfig } from "../../../anubis/src/config.ts";
+import { redact } from "../../../anubis/src/redact.ts";
 
 export interface Message {
   role: "user" | "assistant" | "system";
@@ -76,4 +77,27 @@ export function formatSessions(sessions: Session[]): string {
     return `  ${s.id}  ${s.messages.length} msgs  ${when}  ${s.cwd}`;
   });
   return ["RA sessions", ...rows].join("\n");
+}
+
+/**
+ * Export a session transcript as sanitized Markdown. Secrets are redacted
+ * (vibeguard) so the transcript is safe to share.
+ */
+export function exportSession(session: Session): string {
+  const lines: string[] = [
+    "# RA Session Transcript",
+    "",
+    `- **cwd:** \`${session.cwd}\``,
+    `- **created:** ${new Date(session.created ?? 0).toISOString()}`,
+    `- **messages:** ${session.messages.length}`,
+    "",
+  ];
+  for (const m of session.messages) {
+    const safe = redact(m.content).text;
+    lines.push(`## ${m.role}`);
+    lines.push("");
+    lines.push(safe);
+    lines.push("");
+  }
+  return lines.join("\n");
 }

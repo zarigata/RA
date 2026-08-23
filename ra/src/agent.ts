@@ -45,6 +45,7 @@ new text 2
 
 Or: READ path/to/file
 Or: OUTLINE path/to/file
+Or: DIAGNOSE path/to/file
 Or: GLOB **/*.py
 Or: GREP pattern [optional/glob]
 Or: BASH command here
@@ -187,6 +188,12 @@ export async function execToolBlock(
     const d = denied("read");
     if (d) return { done: false, note: d };
     return { done: false, note: tools.toolOutline(ctx, outline[1]) };
+  }
+  const diagnose = content.match(/^DIAGNOSE\s+(\S+)/im);
+  if (diagnose) {
+    const d = denied("bash");
+    if (d) return { done: false, note: d };
+    return { done: false, note: await tools.toolDiagnose(ctx, diagnose[1]) };
   }
   const glob = content.match(/^GLOB\s+(.+)/im);
   if (glob) {

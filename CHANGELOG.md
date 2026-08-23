@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- Diagnostics: a `DIAGNOSE <file>` tool runs the language's compiler/linter (tsc, py_compile, go vet, cargo check, node --check) and feeds errors back into the agent loop.
 - models.dev catalog ingestion: `ra catalog` fetches the provider catalog (193 providers, 167 OpenAI-compatible) and converts it to `provider` config entries.
 - Background daemon: `ra daemon` starts an HTTP server that owns session state (`/health`, `/sessions`, `/session` GET/POST/DELETE), so sessions survive terminal disconnects and multiple clients can share state.
 - MCP tool search: `searchMcpTools` lazily connects to MCP servers and filters tool definitions by name/description.

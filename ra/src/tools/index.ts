@@ -3,6 +3,7 @@ import { join, relative, resolve, dirname, sep } from "node:path";
 import { redact } from "../../../anubis/src/redact.ts";
 import { snapshotFile } from "../server/checkpoint.ts";
 import { outlineSymbols, formatOutline } from "../symbols.ts";
+import { diagnoseFile, formatDiagnostics } from "../diagnostics.ts";
 
 export interface ToolContext {
   cwd: string;
@@ -15,6 +16,12 @@ export function safePath(cwd: string, p: string): string {
     throw new Error(`path escapes project: ${p}`);
   }
   return abs;
+}
+
+/** Run diagnostics (compiler/linter) on a file and return errors/warnings. */
+export async function toolDiagnose(ctx: ToolContext, path: string): Promise<string> {
+  const diags = await diagnoseFile(ctx.cwd, path);
+  return `Diagnostics for ${path}:\n${formatDiagnostics(diags)}`;
 }
 
 /** Symbol outline of a file (functions/classes/imports) for code navigation. */

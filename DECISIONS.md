@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-023 — Diagnostics use the language compiler/linter, not a full LSP server (2026-08-22)
+
+- **Context:** Need LSP integration (auto-detect language, spawn server, feed diagnostics after every edit). A full LSP client is a large effort.
+- **Options:** Full LSP client; run the language's compiler/linter.
+- **Choice:** A `diagnostics.ts` that maps file extensions to a check command (tsc, py_compile, go vet, cargo check, node --check), runs it, and parses the stderr into structured diagnostics, exposed as a `DIAGNOSE` tool.
+- **Why:** This delivers the core value — diagnostics fed back into the agent loop after an edit — with zero new dependencies and full testability. A real LSP server (with incremental sync, hover, completion) remains a larger follow-up; this is the pragmatic "feed diagnostics after every edit" slice.
+
 ## D-022 — models.dev catalog converted to `provider` config, not a hardcoded list (2026-08-22)
 
 - **Context:** Need "75+ provider compatibility". The docs claimed 75+ but code only wired Ollama. models.dev exposes a live catalog (193 providers, 167 OpenAI-compatible).

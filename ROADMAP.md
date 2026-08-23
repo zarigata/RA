@@ -5,9 +5,9 @@
 
 ## Up Next (queue)
 
-1. **[P1] LSP integration** — auto-detect language, spawn server, feed diagnostics after every edit.
-2. **[P1] IDE extension host protocol** — VS Code JSON-RPC bridge.
-3. **[P2] EVAL HARNESS** — 20+ real coding tasks against every configured model.
+1. **[P1] IDE extension host protocol** — VS Code JSON-RPC bridge.
+2. **[P2] EVAL HARNESS** — 20+ real coding tasks against every configured model.
+3. **[P2] Air-gapped mode** — single flag → 100% local, zero telemetry.
 
 ---
 
@@ -40,7 +40,7 @@
 - [x] Permission engine: per-tool allow/ask/deny rules, per-session approvals (partial: `permission.tool` + agent frontmatter `permission` enforced in agent loop; `ask`/interactive approval not yet wired)
 
 ### Code Intelligence
-- [ ] LSP integration: auto-detect language, spawn server, feed diagnostics after every edit
+- [x] LSP integration: auto-detect language, spawn server, feed diagnostics after every edit (partial: `diagnostics.ts` runs the language compiler/linter + `DIAGNOSE` tool; no full LSP server protocol)
 - [x] Tree-sitter or equivalent for symbol outline + navigation (added regex-based `symbols.ts` outline + `OUTLINE` tool; no native tree-sitter dep)
 - [x] AGENTS.md / RA.md project memory auto-loaded into system context (added `loadProjectMemory`, injected into agent + orchestrator system prompts)
 

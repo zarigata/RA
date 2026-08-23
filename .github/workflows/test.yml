@@ -33,6 +33,7 @@ jobs:
             ../ra/tests/airgap.test.ts \
             ../ra/tests/selfheal.test.ts \
             ../ra/tests/diff.test.ts \
-            ../ra/tests/search.test.ts
+            ../ra/tests/search.test.ts \
+            ../ra/tests/replay.test.ts
   # Full ./test.sh needs LAN .251 + Ollama Cloud — run locally
   # ./test.sh

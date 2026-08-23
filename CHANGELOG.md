@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- Session replay: `replay.ts` provides a message timeline, replay-up-to, transcript, and find-step for time-travel debugging.
 - Semantic code search: a local TF-IDF vector index with cosine-similarity ranking and incremental re-index on file change.
 - Diff viewer: `ra diff <file>` shows a unified diff between the latest checkpoint and the current file.
 - Web dashboard: the daemon now serves a minimal HTML dashboard at `GET /` listing sessions.

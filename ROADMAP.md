@@ -66,7 +66,7 @@
 - [x] Semantic code search: local embeddings + vector index, incremental re-index (added `search.ts` — TF-IDF vector index + cosine similarity + incremental reindex)
 - [x] Cost dashboard: per-session/per-model token + USD analytics in TUI (added per-session usage store + `ra cost --session`; TUI sidebar still pending)
 - [x] Air-gapped mode: single flag → 100% local, zero telemetry (added `airgap` config + `RA_AIRGAP` env; localizes cloud models and blocks non-local webfetch)
-- [ ] Session replay + time-travel debugging
+- [x] Session replay + time-travel debugging (added `replay.ts` — timeline, replay-up-to, transcript, find-step)
 - [x] Web dashboard reading from daemon API (added `GET /` HTML dashboard to the daemon)
 - [x] Self-healing loops: on test failure, auto-diagnose + retry (max 3), log to BUGS.md (added `selfheal.ts`)
 

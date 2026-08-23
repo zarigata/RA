@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 33 — Semantic code search (P2).** Plan: add `search.ts` (TF-IDF vector index + cosine similarity + incremental reindex), add tests. Files: `ra/src/search.ts`, `ra/tests/search.test.ts`.
+**Cycle 34 — Session replay (P2).** Plan: add `replay.ts` (timeline, replay-up-to, transcript, find-step), add tests. Files: `ra/src/server/replay.ts`, `ra/tests/replay.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 32 — Diff viewer shipped.** Added `diff.ts` + `ra diff <file>`; 4 tests. Full gate green.
+**Cycle 33 — Semantic code search shipped.** Added `search.ts` (TF-IDF index + cosine similarity + incremental reindex); 5 tests. Full gate green.
 
 ## Smoke-Test Table
 

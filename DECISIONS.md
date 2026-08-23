@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-020 — MCP client is stdio-only for now; SSE/HTTP + OAuth deferred (2026-08-22)
+
+- **Context:** Need an MCP client (stdio, SSE/HTTP, OAuth). The core value is spawning a server and calling its tools.
+- **Options:** Full MCP transport matrix; stdio first.
+- **Choice:** Implement a stdio JSON-RPC client (`McpClient`) with `initialize`/`tools/list`/`tools/call`, a `mcp` config block in `RaConfig`, and `loadMcpTools` to enumerate tools across configured servers. SSE/HTTP and OAuth are deferred.
+- **Why:** stdio is the most common MCP transport and the highest-value slice; it's fully testable with a fixture server. SSE/HTTP/OAuth add transport/auth complexity that can be layered on later without changing the tool-call interface.
+
 ## D-019 — Symbol outline uses regex, not a native tree-sitter dependency (2026-08-22)
 
 - **Context:** Need symbol outline + code navigation (tree-sitter or equivalent). Adding a native tree-sitter binding would introduce a build/dependency burden.

@@ -20,6 +20,7 @@ export interface RaConfig extends RouterConfig {
     tool?: Record<string, "allow" | "ask" | "deny">;
     skill?: Record<string, "allow" | "ask" | "deny">;
   };
+  mcp?: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
 }
 
 export function ensureRaDirs(): void {

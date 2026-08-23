@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 22 — Symbol outline (P1).** Plan: add `symbols.ts` (regex-based function/class/import outline), add `OUTLINE` tool to the agent loop, add tests. Files: `ra/src/symbols.ts`, `ra/src/tools/index.ts`, `ra/src/agent.ts`, `ra/tests/symbols.test.ts`, `ra/tests/runtime.test.ts`.
+**Cycle 23 — MCP stdio client (P1).** Plan: add `mcp.ts` (stdio JSON-RPC client: handshake, listTools, callTool), add `mcp` config block to `RaConfig`, add `loadMcpTools`, add tests with a fixture server. Files: `ra/src/mcp.ts`, `anubis/src/config.ts`, `ra/tests/mcp.test.ts`, `ra/tests/fixtures/mcp-server.ts`.
 
 ## Last Cycle Result
 
-**Cycle 21 — Session reattach summary shipped.** Added `formatReattach` + TUI reattach summary; 1 test. Full gate green.
+**Cycle 22 — Symbol outline shipped.** Added `symbols.ts` + `OUTLINE` tool; 6 tests. Full gate green.
 
 ## Smoke-Test Table
 

@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-021 — Daemon is an HTTP server over the existing session store (2026-08-22)
+
+- **Context:** Need a client/server split: a background daemon owns sessions/state/FS, and the TUI is a thin client. Sessions already persist to `~/.ra/sessions`.
+- **Options:** A custom socket protocol; HTTP/JSON; gRPC.
+- **Choice:** A `Bun.serve` HTTP server (`ra daemon`) exposing `/health`, `/sessions`, and `/session` (GET/POST/DELETE) over the existing `session.ts` store. The TUI still runs in-process for now; making it a remote client is a follow-up.
+- **Why:** HTTP/JSON is the simplest, most debuggable transport and reuses the tested session persistence layer unchanged. It establishes the daemon boundary (state ownership) that the TUI can later connect to, and it's directly usable by the future web dashboard (P2).
+
 ## D-020 — MCP client is stdio-only for now; SSE/HTTP + OAuth deferred (2026-08-22)
 
 - **Context:** Need an MCP client (stdio, SSE/HTTP, OAuth). The core value is spawning a server and calling its tools.

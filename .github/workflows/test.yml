@@ -27,6 +27,7 @@ jobs:
             ../ra/tests/subagents.test.ts \
             ../ra/tests/checkpoint.test.ts \
             ../ra/tests/symbols.test.ts \
-            ../ra/tests/mcp.test.ts
+            ../ra/tests/mcp.test.ts \
+            ../ra/tests/daemon.test.ts
   # Full ./test.sh needs LAN .251 + Ollama Cloud — run locally
   # ./test.sh

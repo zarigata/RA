@@ -77,6 +77,7 @@ Usage:
   ra export [--cwd DIR] [--out FILE]  Export sanitized session transcript
   ra undo [--cwd DIR]        Restore the most recent edit checkpoint
   ra checkpoints [--cwd DIR] List pending edit checkpoints
+  ra daemon [--port N]       Start the background session daemon
   ra result                  One-line RA RESULT (bash greppable)
   ra lane                    One-line RA lane (thoth@251 → ptah@cloud)
   ra intent                  One-line RA intent (code|debug|plan|…)
@@ -189,6 +190,21 @@ if (args[0] === "sessions") {
   }
   console.log(formatSessions(listSessions()));
   process.exit(0);
+}
+
+if (args[0] === "daemon") {
+  const { startDaemon } = await import("./server/daemon.ts");
+  const port = Number(arg("--port") ?? 4317);
+  const server = startDaemon({ port });
+  console.log(`RA daemon listening on http://127.0.0.1:${port} (pid ${process.pid})`);
+  console.log("  GET  /health");
+  console.log("  GET  /sessions");
+  console.log("  GET  /session?cwd=...");
+  console.log("  POST /session  { cwd, role, content }");
+  console.log("  DELETE /session?id=...");
+  // Keep the process alive until interrupted.
+  await new Promise(() => {});
+  server.stop(true);
 }
 
 if (args[0] === "undo") {

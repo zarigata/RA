@@ -5,9 +5,9 @@
 
 ## Up Next (queue)
 
-1. **[P1] Client/server split** — background daemon owns sessions/state/FS; TUI is a thin client. (ARCHITECTURE CORE)
-2. **[P1] LSP integration** — auto-detect language, spawn server, feed diagnostics after every edit.
-3. **[P1] MCP client** — stdio, SSE/HTTP, OAuth; per-agent server config.
+1. **[P1] LSP integration** — auto-detect language, spawn server, feed diagnostics after every edit.
+2. **[P1] IDE extension host protocol** — VS Code JSON-RPC bridge.
+3. **[P1] 75+ provider catalog ingestion** — models.dev catalog.
 
 ---
 
@@ -19,7 +19,7 @@
 ## P1 — OpenCode Parity Backlog
 
 ### Architecture Core
-- [ ] Client/server split: background daemon owns sessions, state, FS ops; TUI is a thin client
+- [x] Client/server split: background daemon owns sessions, state, FS ops; TUI is a thin client (partial: `ra daemon` HTTP server owns session state; TUI still runs in-process, not yet a remote client)
 - [x] Sessions persist across terminal disconnects; `ra` reattaches cleanly (partial: `session.ts` persists to disk + TUI shows a reattach summary; no daemon)
 - [x] Multi-session: parallel sessions on same project, list/switch/kill (partial: list + kill via `ra sessions`/`/sessions`; switch not yet wired)
 - [x] Headless/non-interactive mode: `ra run "task"` for CI/scripting (added `ra run` with `--quick/--verify/--json/--cwd`, no TUI splash)

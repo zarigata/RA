@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 24 — MCP tool search (P1).** Plan: add `searchMcpTools` to `mcp.ts` (lazy connect + filter by name/description), add test. Files: `ra/src/mcp.ts`, `ra/tests/mcp.test.ts`.
+**Cycle 25 — Client/server daemon (P1).** Plan: add `daemon.ts` (HTTP server owning session state: health/sessions/session GET+POST+DELETE), add `ra daemon` CLI command, add tests. Files: `ra/src/server/daemon.ts`, `ra/src/cli.ts`, `ra/tests/daemon.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 23 — MCP stdio client shipped.** Added `McpClient` + `mcp` config + `loadMcpTools`; 2 tests. Full gate green.
+**Cycle 24 — MCP tool search shipped.** Added `searchMcpTools` (lazy connect + filter); 1 test. Full gate green.
 
 ## Smoke-Test Table
 

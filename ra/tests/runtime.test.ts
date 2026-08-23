@@ -111,6 +111,35 @@ describe("execToolBlock EDIT", () => {
       rmSync(cwd, { recursive: true });
     }
   });
+
+  test("TASK spawns a subagent via injected spawn fn", async () => {
+    const { execToolBlock } = await import("../../ra/src/agent.ts");
+    const cwd = mkdtempSync(join(tmpdir(), "ra-task-"));
+    try {
+      const r = await execToolBlock(
+        { cwd },
+        "TASK explore find the main function",
+        undefined,
+        null,
+        async (role, task) => `[${role}] found main in ${task}`,
+      );
+      expect(r.note).toContain("Subagent explore result");
+      expect(r.note).toContain("found main");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("TASK without spawn returns error", async () => {
+    const { execToolBlock } = await import("../../ra/src/agent.ts");
+    const cwd = mkdtempSync(join(tmpdir(), "ra-task-"));
+    try {
+      const r = await execToolBlock({ cwd }, "TASK explore find main");
+      expect(r.note).toContain("not available");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
 });
 
 describe("project memory", () => {

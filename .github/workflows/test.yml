@@ -23,6 +23,7 @@ jobs:
             ../ra/tests/run-command.test.ts \
             ../ra/tests/session.test.ts \
             ../ra/tests/permission.test.ts \
-            ../ra/tests/custom-commands.test.ts
+            ../ra/tests/custom-commands.test.ts \
+            ../ra/tests/subagents.test.ts
   # Full ./test.sh needs LAN .251 + Ollama Cloud — run locally
   # ./test.sh

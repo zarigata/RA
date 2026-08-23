@@ -37,6 +37,7 @@ Or: GREP pattern [optional/glob]
 Or: BASH command here
 Or: WEBFETCH https://example.com
 Or: TODO add <text> / TODO done <id> / TODO list
+Or: TASK <role> <task>   (spawn a subagent: general|explore|scout)
 Or: DONE — when finished, with a short summary.
 
 Prefer WRITE for new files, EDIT for small changes. Always produce real content.
@@ -100,6 +101,7 @@ export async function execToolBlock(
   content: string,
   config?: RaConfig,
   agentPerms?: Record<string, "allow" | "ask" | "deny"> | null,
+  spawn?: (role: string, task: string) => Promise<string>,
 ): Promise<{ done: boolean; note: string }> {
   const denied = (tool: string) => {
     if (agentPerms && agentPerms[tool] && agentPerms[tool] !== "allow") {
@@ -161,6 +163,16 @@ export async function execToolBlock(
     if (d) return { done: false, note: d };
     return { done: false, note: tools.toolTodo(ctx, todo[1].trim()) };
   }
+  const task = content.match(/^TASK\s+(\S+)\s+([\s\S]+)/im);
+  if (task) {
+    const d = denied("task");
+    if (d) return { done: false, note: d };
+    if (!spawn) return { done: false, note: "Error: subagent spawn not available" };
+    const role = task[1].trim();
+    const sub = task[2].trim();
+    const out = await spawn(role, sub);
+    return { done: false, note: `Subagent ${role} result:\n${out}` };
+  }
   if (/^DONE\b/im.test(content.trim())) {
     return { done: true, note: content.replace(/^DONE\s*/i, "").trim() || "done" };
   }
@@ -197,6 +209,10 @@ export async function runTaskAgent(
   const cloud = client.kind === "cloud";
   let last = "";
   let usedModel = model;
+  const spawn = async (subRole: string, subTask: string): Promise<string> => {
+    const r = await runTaskAgent(subRole, subTask, config, ctx, env, 4);
+    return r.output;
+  };
   for (let i = 0; i < maxSteps; i++) {
     const res = await client.nativeChat(usedModel, messages);
     usedModel = res.model;
@@ -205,7 +221,7 @@ export async function runTaskAgent(
     recordChatUsage(res.model, cloud, res.usage, { in: inChars, out: last.length });
     messages.push({ role: "assistant", content: last });
 
-    const tool = await execToolBlock(ctx, last, config, agentPerms);
+    const tool = await execToolBlock(ctx, last, config, agentPerms, spawn);
     if (tool.done) return { role, model: res.model, output: tool.note || last };
     if (tool.note) {
       messages.push({ role: "user", content: `Tool result:\n${tool.note}\nContinue. WRITE files if needed, then DONE.` });

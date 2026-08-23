@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-013 — Subagents are Markdown agents spawned via a `TASK` tool (2026-08-22)
+
+- **Context:** Need spawnable subagents (General, Explore, Scout) for opencode parity. The agent loop already supports arbitrary roles via `runTaskAgent` and Markdown agent files.
+- **Options:** A separate subagent runtime; reuse `runTaskAgent` with new agent files.
+- **Choice:** Add `general.md`, `explore.md`, `scout.md` agent definitions (with `permission` frontmatter: explore/scout read-only) and a `TASK <role> <task>` tool in `execToolBlock` that recursively calls `runTaskAgent`. The spawn function is injectable for testability.
+- **Why:** Reuses the existing agent execution path (model routing, permissions, tool loop) rather than building a parallel runtime. Explore/Scout are read-only by frontmatter, matching their recon/search purpose. The TUI subagent *tree* is deferred — the spawn mechanism is the core parity gap; visualization is polish.
+
 ## D-012 — Fallback chain extracted to `runWithFallback` in `ollama.ts` (2026-08-22)
 
 - **Context:** The model router fallback (cloud→LAN→local) was implemented inline in `runner.ts` with a duplicated try/catch loop. The roadmap flagged it as "no chain" because the logic wasn't reusable or tested.

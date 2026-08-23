@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSy
 import { join, relative, resolve, dirname, sep } from "node:path";
 import { redact } from "../../../anubis/src/redact.ts";
 import { snapshotFile } from "../server/checkpoint.ts";
+import { outlineSymbols, formatOutline } from "../symbols.ts";
 
 export interface ToolContext {
   cwd: string;
@@ -14,6 +15,14 @@ export function safePath(cwd: string, p: string): string {
     throw new Error(`path escapes project: ${p}`);
   }
   return abs;
+}
+
+/** Symbol outline of a file (functions/classes/imports) for code navigation. */
+export function toolOutline(ctx: ToolContext, path: string): string {
+  const abs = safePath(ctx.cwd, path);
+  if (!existsSync(abs)) return `Error: file not found: ${path}`;
+  const src = readFileSync(abs, "utf-8");
+  return `Outline of ${path}:\n${formatOutline(outlineSymbols(src))}`;
 }
 
 export function toolRead(ctx: ToolContext, path: string, offset = 1, limit = 200): string {

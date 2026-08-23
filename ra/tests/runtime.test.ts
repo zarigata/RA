@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { classifyTier, tierModel } from "../../ra/src/tier.ts";
-import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo, toolMultiEdit, expandMentions } from "../../ra/src/tools/index.ts";
+import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo, toolMultiEdit, expandMentions, toolOutline } from "../../ra/src/tools/index.ts";
 import { loadProjectMemory, loadAgentPermissions, loadAgentMeta } from "../../ra/src/agent.ts";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -67,6 +67,18 @@ describe("RA tools", () => {
       ]);
       expect(note).toContain("2 edits");
       expect(toolRead({ cwd }, "a.txt")).toContain("one bar three");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("toolOutline lists symbols", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-outline-"));
+    try {
+      toolWrite({ cwd }, "a.py", "def foo():\n    pass\n");
+      const out = toolOutline({ cwd }, "a.py");
+      expect(out).toContain("Outline of a.py");
+      expect(out).toContain("function foo");
     } finally {
       rmSync(cwd, { recursive: true });
     }

@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- Symbol outline: an `OUTLINE <file>` tool extracts functions/classes/imports for code navigation (regex-based, no native tree-sitter dependency).
 - Session reattach: the TUI now shows a summary of the prior conversation when reattaching to a persisted session.
 - LM Studio / llama.cpp auto-discovery: `discoverLocalOpenAI` probes local OpenAI-compatible servers (LM Studio @1234, llama.cpp @8080) as a last-resort small-model fallback.
 - `@-mention` file picker: typing `@path/to/file` in the TUI inlines that file's content into the prompt.

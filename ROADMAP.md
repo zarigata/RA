@@ -7,7 +7,7 @@
 
 1. **[P1] Client/server split** — background daemon owns sessions/state/FS; TUI is a thin client. (ARCHITECTURE CORE)
 2. **[P1] LSP integration** — auto-detect language, spawn server, feed diagnostics after every edit.
-3. **[P1] Tree-sitter or equivalent** — symbol outline + precise code navigation.
+3. **[P1] MCP client** — stdio, SSE/HTTP, OAuth; per-agent server config.
 
 ---
 
@@ -41,7 +41,7 @@
 
 ### Code Intelligence
 - [ ] LSP integration: auto-detect language, spawn server, feed diagnostics after every edit
-- [ ] Tree-sitter or equivalent for symbol outline + navigation
+- [x] Tree-sitter or equivalent for symbol outline + navigation (added regex-based `symbols.ts` outline + `OUTLINE` tool; no native tree-sitter dep)
 - [x] AGENTS.md / RA.md project memory auto-loaded into system context (added `loadProjectMemory`, injected into agent + orchestrator system prompts)
 
 ### MCP + Extensibility

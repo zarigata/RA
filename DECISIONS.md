@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-019 — Symbol outline uses regex, not a native tree-sitter dependency (2026-08-22)
+
+- **Context:** Need symbol outline + code navigation (tree-sitter or equivalent). Adding a native tree-sitter binding would introduce a build/dependency burden.
+- **Options:** Native tree-sitter; regex-based outline.
+- **Choice:** A regex-based `symbols.ts` that extracts functions/classes/methods/imports/consts/types/interfaces across Python, TypeScript/JS, Go, and Rust, exposed as an `OUTLINE` tool.
+- **Why:** Regex covers the common cases for outline/navigation with zero native dependencies and is fully unit-testable. It's a pragmatic "equivalent" that satisfies the parity intent (symbol outline + navigation) without the tree-sitter build complexity. A real tree-sitter/LSP integration remains a larger P1 item (LSP) if deeper precision is needed.
+
 ## D-018 — LM Studio/llama.cpp discovered as OpenAI-compatible local servers (2026-08-22)
 
 - **Context:** Need local-model auto-discovery beyond Ollama (LM Studio, llama.cpp). These expose an OpenAI-compatible `/v1` API, not Ollama's native `/api/tags` + `/api/chat`.

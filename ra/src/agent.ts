@@ -44,6 +44,7 @@ new text 2
 >>>>>>> NEW
 
 Or: READ path/to/file
+Or: OUTLINE path/to/file
 Or: GLOB **/*.py
 Or: GREP pattern [optional/glob]
 Or: BASH command here
@@ -180,6 +181,12 @@ export async function execToolBlock(
     const d = denied("read");
     if (d) return { done: false, note: d };
     return { done: false, note: tools.toolRead(ctx, read[1]) };
+  }
+  const outline = content.match(/^OUTLINE\s+(\S+)/im);
+  if (outline) {
+    const d = denied("read");
+    if (d) return { done: false, note: d };
+    return { done: false, note: tools.toolOutline(ctx, outline[1]) };
   }
   const glob = content.match(/^GLOB\s+(.+)/im);
   if (glob) {

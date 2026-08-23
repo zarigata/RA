@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 21 — Session reattach summary (P1).** Plan: add `formatReattach` to `session.ts`, show a reattach summary in the TUI when a session has prior messages, add test. Files: `ra/src/server/session.ts`, `ra/src/tui/app.ts`, `ra/tests/session.test.ts`.
+**Cycle 22 — Symbol outline (P1).** Plan: add `symbols.ts` (regex-based function/class/import outline), add `OUTLINE` tool to the agent loop, add tests. Files: `ra/src/symbols.ts`, `ra/src/tools/index.ts`, `ra/src/agent.ts`, `ra/tests/symbols.test.ts`, `ra/tests/runtime.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 20 — LM Studio/llama.cpp auto-discovery shipped.** Added `fromOpenAI` + `discoverLocalOpenAI` (last-resort small-model fallback); 3 tests. Full gate green.
+**Cycle 21 — Session reattach summary shipped.** Added `formatReattach` + TUI reattach summary; 1 test. Full gate green.
 
 ## Smoke-Test Table
 

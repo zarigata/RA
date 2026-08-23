@@ -298,8 +298,11 @@ export async function runTaskAgent(
     }
     const fence = last.match(/```(?:html|javascript|typescript|css|python)?\n([\s\S]*?)```/);
     if (fence && /\b(create|write|make|build)\b/i.test(task)) {
-      const name = "index.html";
-      let body = fence[1].trim();
+      // Infer the filename from the task + content (reuse the runner's logic).
+      const { extractCodeFile } = await import("../../anubis/src/runner.ts");
+      const file = extractCodeFile(last, task);
+      const name = file?.name ?? "index.html";
+      let body = file?.body ?? fence[1].trim();
       if (/\btodo\b/i.test(task) && !/todo/i.test(body)) {
         body = `<!DOCTYPE html><html><head><title>Todo</title></head><body><h1>Todo</h1></body></html>`;
       }

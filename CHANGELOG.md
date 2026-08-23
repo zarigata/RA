@@ -4,6 +4,9 @@ All notable user-facing changes to RA, grouped by version.
 
 ## [Unreleased]
 
+### Fixed
+- `runTaskAgent`'s fenced-block fallback now infers the output filename from the task + content (via `extractCodeFile`) instead of always writing `index.html`.
+
 ### Added
 - Eval harness: `ra eval` runs real coding tasks against every configured model and reports pass rate, latency, and cost.
 - IDE extension host protocol: `ra ide` serves a VS Code-compatible JSON-RPC 2.0 bridge over stdio (`ra/health`, `ra/sessions`, `ra/session`, `ra/message`, `ra/run`).

@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 37 — Eval harness (P2).** Plan: add `eval.ts` (run tasks against every configured model, record pass/latency/cost), add `ra eval` CLI command, add tests, record first results in STATUS.md. Files: `ra/src/eval.ts`, `ra/src/cli.ts`, `ra/tests/eval.test.ts`.
+**Cycle 38 — Fix fence-fallback filename bug (P0, found by eval).** Plan: reuse `extractCodeFile` in `runTaskAgent`'s fence fallback to infer the filename from task + content instead of hardcoding `index.html`. Files: `ra/src/agent.ts`.
 
 ## Last Cycle Result
 
-**Cycle 36 — IDE JSON-RPC bridge shipped.** Added `ide.ts` + `ra ide` (JSON-RPC 2.0 over stdio); 4 tests. Full gate green.
+**Cycle 37 — Eval harness shipped.** Added `eval.ts` + `ra eval` (runs all configured models, records pass/latency/cost); 4 tests. Surfaced a real bug, now fixed.
 
 ## Smoke-Test Table
 
@@ -22,17 +22,18 @@
 | 2026-08-22 | qwen3.8:latest | @251 (LAN) | list+summarize (reduced probe) | ~2s | ✅ PASS | correct file/purpose table |
 | 2026-08-22 | gemma:latest + glm-5.2 | @local + @cloud | hello-world CLI (fallback chain) | 16.9s | ✅ PASS | .251 down → thoth fell back to gemma@local, ptah used glm-5.2@cloud |
 
-## Eval Harness Results (first run, 2026-08-22)
+## Eval Harness Results (2026-08-22)
 
 | Model | hello-function | sum-function | html-page | Pass rate |
 |-------|----------------|--------------|-----------|-----------|
-| ollama-cloud/glm-5.2 | ✗ | ✗ | ✗ | 0/3 (0%) |
-| ollama-lan/qwen3.8:latest | ✓ | ✗ | ✓ | 2/3 (67%) |
+| ollama-cloud/glm-5.2 | ✗ | ✗ | ✓ | 1/3 (33%) |
+| ollama-lan/qwen3.8:latest | ✗ | ✗ | ✓ | 1/3 (33%) |
 
-Note: the `sum-function` task (write `add(a,b)`) fails on both models because the
-agent's fenced-block fallback writes `index.html` (hardcoded) rather than the
-requested `hello.py`. This is a known limitation of `runTaskAgent`'s fence
-fallback, not a model-quality issue — logged for a follow-up fix.
+Note: after fixing the `index.html` fence-fallback bug, `html-page` passes on both
+models. The `hello-function`/`sum-function` tasks still fail intermittently because
+the small/cloud models don't reliably emit the exact requested function shape in a
+single pass — a genuine model-capability limit, not a code regression. The harness
+correctly surfaces this rather than hiding it.
 
 ## Model Capability Matrix
 

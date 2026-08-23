@@ -4,6 +4,8 @@ export interface OllamaConfig {
   baseURL: string;
   apiKey: string;
   kind: "cloud" | "local";
+  /** Force OpenAI-compatible /chat/completions even for local servers (LM Studio, llama.cpp). */
+  openaiCompat?: boolean;
 }
 
 export interface ChatMessage {
@@ -49,9 +51,15 @@ export class OllamaClient {
     return new OllamaClient({ baseURL: url, apiKey: "ollama", kind: "local" });
   }
 
+  /** OpenAI-compatible local server (LM Studio, llama.cpp server) — no key needed. */
+  static fromOpenAI(baseURL: string): OllamaClient {
+    const url = baseURL.endsWith("/v1") ? baseURL : `${baseURL.replace(/\/$/, "")}/v1`;
+    return new OllamaClient({ baseURL: url, apiKey: "local", kind: "local", openaiCompat: true });
+  }
+
   async probe(timeoutMs = 3000): Promise<boolean> {
     try {
-      if (this.cfg.kind === "cloud") {
+      if (this.cfg.kind === "cloud" || this.cfg.openaiCompat) {
         this.availableModels = await this.listModels();
         return this.availableModels.length > 0;
       }
@@ -132,7 +140,7 @@ export class OllamaClient {
     messages: ChatMessage[],
     opts: { timeoutMs?: number; temperature?: number } = {},
   ): Promise<ChatResult> {
-    if (this.cfg.kind === "cloud") return this.chat(model, messages, opts);
+    if (this.cfg.kind === "cloud" || this.cfg.openaiCompat) return this.chat(model, messages, opts);
     const base = this.cfg.baseURL.replace(/\/v1$/, "");
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const timeoutMs = opts.timeoutMs ?? 180_000;
@@ -208,6 +216,24 @@ export async function pickOllamaEndpoint(
     if (await client.probe(2000)) return client;
   }
   throw new Error("No reachable small Ollama (tried .251 and localhost)");
+}
+
+/**
+ * Auto-discover local OpenAI-compatible servers (LM Studio @1234, llama.cpp @8080).
+ * Returns the first reachable client with models, or null.
+ */
+export async function discoverLocalOpenAI(
+  env: Record<string, string | undefined>,
+  urls: string[] = [
+    env.LM_STUDIO_URL ?? "http://localhost:1234",
+    env.LLAMACPP_URL ?? "http://localhost:8080",
+  ],
+): Promise<OllamaClient | null> {
+  for (const url of [...new Set(urls)]) {
+    const client = OllamaClient.fromOpenAI(url);
+    if (await client.probe(1500)) return client;
+  }
+  return null;
 }
 
 export interface ProviderDef {
@@ -294,6 +320,12 @@ export async function pickClientForModel(
     }
     const model = pickModel(configured, client.availableModels);
     return { client, model };
+  }
+  // Last resort: local OpenAI-compatible servers (LM Studio, llama.cpp).
+  const openai = await discoverLocalOpenAI(env);
+  if (openai) {
+    const model = pickModel(configured, openai.availableModels);
+    return { client: openai, model };
   }
   throw new Error("No reachable small Ollama at .251 (or localhost gemma fallback)");
 }

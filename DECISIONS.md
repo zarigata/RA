@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-018 — LM Studio/llama.cpp discovered as OpenAI-compatible local servers (2026-08-22)
+
+- **Context:** Need local-model auto-discovery beyond Ollama (LM Studio, llama.cpp). These expose an OpenAI-compatible `/v1` API, not Ollama's native `/api/tags` + `/api/chat`.
+- **Options:** A separate client class; extend `OllamaClient` with an `openaiCompat` flag.
+- **Choice:** Add `OllamaClient.fromOpenAI(baseURL)` (sets `openaiCompat: true`, `kind: "local"`) so `probe`/`nativeChat` use the OpenAI-compatible `/models` + `/chat/completions` path. `discoverLocalOpenAI` probes `LM_STUDIO_URL` (default `localhost:1234`) and `LLAMACPP_URL` (default `localhost:8080`), and `pickClientForModel` uses it as a last-resort small-model fallback.
+- **Why:** Reuses the existing client and routing rather than a parallel class. The `openaiCompat` flag is the minimal change to route local OpenAI servers through the already-tested `/chat/completions` code path.
+
 ## D-017 — Provider abstraction resolves `provider/*` config, skips built-in Ollama (2026-08-22)
 
 - **Context:** The `provider` block in `ra.json` (with `options.baseURL`/`options.apiKey` and `{env:VAR}` templating) was declared but never consumed; `pickClientForModel` hardcoded Ollama cloud/local/LAN.

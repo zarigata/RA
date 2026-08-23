@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 19 — @-mention file picker (P1).** Plan: add `expandMentions` to `tools/index.ts` (inline `@path` file content into the prompt), wire into the TUI input path, add tests. Files: `ra/src/tools/index.ts`, `ra/src/tui/app.ts`, `ra/tests/runtime.test.ts`.
+**Cycle 20 — LM Studio / local OpenAI auto-discovery (P1).** Plan: add `fromOpenAI` client + `discoverLocalOpenAI` to `ollama.ts`, integrate as last-resort small-model fallback, document env vars, add tests. Files: `anubis/src/ollama.ts`, `anubis/.env.example`, `anubis/tests/ollama-routing.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 18 — Multi-edit tool shipped.** Added `toolMultiEdit` + `MULTIEDIT` parsing; 4 tests. Full gate green.
+**Cycle 19 — @-mention file picker shipped.** Added `expandMentions` (inline `@path` content) wired into the TUI; 3 tests. Full gate green.
 
 ## Smoke-Test Table
 

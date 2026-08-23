@@ -28,7 +28,7 @@
 ### Model Layer
 - [x] Provider abstraction (partial: `resolveProviderClient` resolves custom `provider/*` config to OpenAI-compatible clients with `{env:VAR}` templating; built-in Ollama path preserved)
 - [ ] 75+ provider compatibility via OpenAI-compatible endpoints + models.dev catalog ingestion (partial: docs claim 75+, code only wires Ollama cloud/local/LAN)
-- [x] Local models: Ollama + LM Studio auto-discovery (partial: Ollama yes, LM Studio not verified)
+- [x] Local models: Ollama + LM Studio auto-discovery (added `discoverLocalOpenAI` for LM Studio/llama.cpp OpenAI-compatible servers + `fromOpenAI` client)
 - [x] Per-agent model assignment in config (`agent.<role>.model` in `anubis.json`)
 - [x] Model router: automatic fallback chain cloud→local on failure/rate-limit, with per-request cost + latency logging (added `fallbackChain` + `runWithFallback` with per-attempt host/latency logging; `runner.ts` refactored to use it)
 

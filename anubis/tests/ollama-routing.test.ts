@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { pickModel, smallOllamaUrls, fallbackChain, runWithFallback, resolveProviderClient } from "../src/ollama.ts";
+import { pickModel, smallOllamaUrls, fallbackChain, runWithFallback, resolveProviderClient, discoverLocalOpenAI, OllamaClient } from "../src/ollama.ts";
 
 describe("small Ollama routing", () => {
   test(".251 first, localhost gemma second", () => {
@@ -137,5 +137,17 @@ describe("provider abstraction", () => {
     );
     expect(client).not.toBeNull();
     expect(client!.kind).toBe("local");
+  });
+
+  test("fromOpenAI uses OpenAI-compatible chat and local kind", () => {
+    const c = OllamaClient.fromOpenAI("http://localhost:1234");
+    expect(c.kind).toBe("local");
+    expect(c.baseURL).toBe("http://localhost:1234/v1");
+  });
+
+  test("discoverLocalOpenAI returns null when nothing reachable", async () => {
+    // Use an unreachable port to avoid network flakiness.
+    const c = await discoverLocalOpenAI({}, ["http://localhost:1"]);
+    expect(c).toBeNull();
   });
 });

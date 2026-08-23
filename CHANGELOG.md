@@ -5,6 +5,7 @@ All notable user-facing changes to RA, grouped by version.
 ## [Unreleased]
 
 ### Added
+- Eval harness: `ra eval` runs real coding tasks against every configured model and reports pass rate, latency, and cost.
 - IDE extension host protocol: `ra ide` serves a VS Code-compatible JSON-RPC 2.0 bridge over stdio (`ra/health`, `ra/sessions`, `ra/session`, `ra/message`, `ra/run`).
 - Swarm mode: `swarm.ts` orchestrates N parallel agents on git worktrees with a merge pass.
 - Session replay: `replay.ts` provides a message timeline, replay-up-to, transcript, and find-step for time-travel debugging.

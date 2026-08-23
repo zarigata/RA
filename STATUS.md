@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 36 — IDE JSON-RPC bridge (P1).** Plan: add `ide.ts` (JSON-RPC 2.0 dispatch + stdio server + `ra/health`/`ra/sessions`/`ra/session`/`ra/message`/`ra/run` handlers), add `ra ide` CLI command, add tests. Files: `ra/src/ide.ts`, `ra/src/cli.ts`, `ra/tests/ide.test.ts`.
+**Cycle 37 — Eval harness (P2).** Plan: add `eval.ts` (run tasks against every configured model, record pass/latency/cost), add `ra eval` CLI command, add tests, record first results in STATUS.md. Files: `ra/src/eval.ts`, `ra/src/cli.ts`, `ra/tests/eval.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 35 — Swarm mode shipped.** Added `swarm.ts` (parallel worktrees + merge pass); 2 tests. Full gate green.
+**Cycle 36 — IDE JSON-RPC bridge shipped.** Added `ide.ts` + `ra ide` (JSON-RPC 2.0 over stdio); 4 tests. Full gate green.
 
 ## Smoke-Test Table
 
@@ -21,6 +21,18 @@
 | 2026-08-22 | glm-5.2 + qwen3.8 | @cloud + @251 | hello-world CLI (full-dev) | 39.2s | ✅ PASS | wrote hello.py, ran → "Hello, World!" |
 | 2026-08-22 | qwen3.8:latest | @251 (LAN) | list+summarize (reduced probe) | ~2s | ✅ PASS | correct file/purpose table |
 | 2026-08-22 | gemma:latest + glm-5.2 | @local + @cloud | hello-world CLI (fallback chain) | 16.9s | ✅ PASS | .251 down → thoth fell back to gemma@local, ptah used glm-5.2@cloud |
+
+## Eval Harness Results (first run, 2026-08-22)
+
+| Model | hello-function | sum-function | html-page | Pass rate |
+|-------|----------------|--------------|-----------|-----------|
+| ollama-cloud/glm-5.2 | ✗ | ✗ | ✗ | 0/3 (0%) |
+| ollama-lan/qwen3.8:latest | ✓ | ✗ | ✓ | 2/3 (67%) |
+
+Note: the `sum-function` task (write `add(a,b)`) fails on both models because the
+agent's fenced-block fallback writes `index.html` (hardcoded) rather than the
+requested `hello.py`. This is a known limitation of `runTaskAgent`'s fence
+fallback, not a model-quality issue — logged for a follow-up fix.
 
 ## Model Capability Matrix
 

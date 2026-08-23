@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-030 — Eval harness runs real models, not mocks (2026-08-22)
+
+- **Context:** Need an eval harness that runs 20+ real coding tasks against every configured model and records pass rate/latency/cost. This is how RA proves local models work.
+- **Options:** Mock the provider; call the real models.
+- **Choice:** `eval.ts` enumerates configured models, runs each task via `runTaskAgent` (forcing the model by overriding the `ptah` role), verifies the result in a fresh temp dir, and records latency + cost delta. `ra eval` runs it against the live models.
+- **Why:** The directive explicitly forbids mocking the provider in the smoke test. The harness calls the real cloud + local models, so the results are genuine capability data. The first run already surfaced a real bug (the `index.html` fence fallback), logged in BUGS.md.
+
 ## D-029 — IDE bridge is JSON-RPC 2.0 over stdio, reusing the daemon's session store (2026-08-22)
 
 - **Context:** Need an IDE extension host protocol (VS Code-compatible JSON-RPC bridge). The daemon (D-021) already owns session state over HTTP.

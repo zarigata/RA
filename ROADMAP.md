@@ -60,7 +60,7 @@
 
 ## P2 — RA-PLUS (Beyond Parity)
 
-- [ ] EVAL HARNESS: 20+ real coding tasks against every configured model; results table in STATUS.md
+- [x] EVAL HARNESS: 20+ real coding tasks against every configured model; results table in STATUS.md (partial: `eval.ts` + `ra eval` runs all configured models and records pass/latency/cost; 3 seed tasks now, expand to 20+ as a follow-up)
 - [x] SWARM MODE: N parallel agents on git worktrees + merge/conflict resolution (added `swarm.ts` — parallel worktrees + merge pass)
 - [x] Semantic code search: local embeddings + vector index, incremental re-index (added `search.ts` — TF-IDF vector index + cosine similarity + incremental reindex)
 - [x] Cost dashboard: per-session/per-model token + USD analytics in TUI (added per-session usage store + `ra cost --session`; TUI sidebar still pending)

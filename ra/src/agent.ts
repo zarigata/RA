@@ -31,6 +31,18 @@ exact old text
 exact new text
 >>>>>>> NEW
 
+Or: MULTIEDIT path/to/file
+<<<<<<< OLD
+old text 1
+=======
+new text 1
+>>>>>>> NEW
+<<<<<<< OLD
+old text 2
+=======
+new text 2
+>>>>>>> NEW
+
 Or: READ path/to/file
 Or: GLOB **/*.py
 Or: GREP pattern [optional/glob]
@@ -149,6 +161,19 @@ export async function execToolBlock(
     const d = denied("edit");
     if (d) return { done: false, note: d };
     return { done: false, note: tools.toolEdit(ctx, edit[1], edit[2], edit[3]) };
+  }
+  const multiedit = content.match(/^MULTIEDIT\s+(\S+)\s*\n([\s\S]*)/im);
+  if (multiedit) {
+    const d = denied("edit");
+    if (d) return { done: false, note: d };
+    const ops: tools.EditOp[] = [];
+    const re = /<<<<<<<\s*OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>>\s*NEW/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(multiedit[2])) !== null) {
+      ops.push({ old: m[1], new: m[2] });
+    }
+    if (!ops.length) return { done: false, note: "Error: MULTIEDIT had no edit blocks" };
+    return { done: false, note: tools.toolMultiEdit(ctx, multiedit[1], ops) };
   }
   const read = content.match(/^READ\s+(\S+)/im);
   if (read) {

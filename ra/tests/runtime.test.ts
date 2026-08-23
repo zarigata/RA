@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { classifyTier, tierModel } from "../../ra/src/tier.ts";
-import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo } from "../../ra/src/tools/index.ts";
+import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo, toolMultiEdit } from "../../ra/src/tools/index.ts";
 import { loadProjectMemory, loadAgentPermissions, loadAgentMeta } from "../../ra/src/agent.ts";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -52,6 +52,37 @@ describe("RA tools", () => {
       const note = toolEdit({ cwd }, "a.txt", "world", "RA");
       expect(note).toContain("Edited");
       expect(toolRead({ cwd }, "a.txt")).toContain("hello RA");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("toolMultiEdit applies multiple edits atomically", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-multi-"));
+    try {
+      toolWrite({ cwd }, "a.txt", "foo bar baz");
+      const note = toolMultiEdit({ cwd }, "a.txt", [
+        { old: "foo", new: "one" },
+        { old: "baz", new: "three" },
+      ]);
+      expect(note).toContain("2 edits");
+      expect(toolRead({ cwd }, "a.txt")).toContain("one bar three");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("toolMultiEdit fails if an old string is missing", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-multi-"));
+    try {
+      toolWrite({ cwd }, "a.txt", "foo bar");
+      const note = toolMultiEdit({ cwd }, "a.txt", [
+        { old: "foo", new: "one" },
+        { old: "nope", new: "x" },
+      ]);
+      expect(note).toContain("old_string not found");
+      // No partial application: file unchanged.
+      expect(toolRead({ cwd }, "a.txt")).toContain("foo bar");
     } finally {
       rmSync(cwd, { recursive: true });
     }
@@ -136,6 +167,22 @@ describe("execToolBlock EDIT", () => {
     try {
       const r = await execToolBlock({ cwd }, "TASK explore find main");
       expect(r.note).toContain("not available");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("MULTIEDIT parses multiple edit blocks", async () => {
+    const { execToolBlock } = await import("../../ra/src/agent.ts");
+    const cwd = mkdtempSync(join(tmpdir(), "ra-multi-"));
+    try {
+      toolWrite({ cwd }, "a.txt", "foo bar baz");
+      const r = await execToolBlock(
+        { cwd },
+        "MULTIEDIT a.txt\n<<<<<<< OLD\nfoo\n=======\none\n>>>>>>> NEW\n<<<<<<< OLD\nbaz\n=======\nthree\n>>>>>>> NEW",
+      );
+      expect(r.note).toContain("2 edits");
+      expect(toolRead({ cwd }, "a.txt")).toContain("one bar three");
     } finally {
       rmSync(cwd, { recursive: true });
     }

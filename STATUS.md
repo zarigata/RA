@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 17 — Pluggable provider abstraction (P1).** Plan: add `resolveProviderClient` to `ollama.ts` (resolve `provider/*` config to OpenAI-compatible clients with `{env:VAR}` templating, infer kind from baseURL, skip built-in Ollama), wire into `pickClientForModel`/`runner.ts`/`agent.ts`, add tests. Files: `anubis/src/ollama.ts`, `anubis/src/runner.ts`, `ra/src/agent.ts`, `anubis/tests/ollama-routing.test.ts`.
+**Cycle 18 — Multi-edit tool (P1).** Plan: add `toolMultiEdit` to `tools/index.ts` (atomic multi-edit), add `MULTIEDIT` parsing to `execToolBlock`, add tests. Files: `ra/src/tools/index.ts`, `ra/src/agent.ts`, `ra/tests/runtime.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 16 — Agent frontmatter `steps`/`temperature` shipped.** Added `loadAgentMeta`; `steps` bounds the tool loop, `temperature` passed to the model; 2 tests. Full gate green.
+**Cycle 17 — Pluggable provider abstraction shipped.** Added `resolveProviderClient` (OpenAI-compatible providers via `ra.json`, `{env:VAR}` templating, kind inference); 5 tests. Full gate green.
 
 ## Smoke-Test Table
 

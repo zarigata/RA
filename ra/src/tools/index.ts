@@ -47,6 +47,29 @@ export function toolEdit(ctx: ToolContext, path: string, oldStr: string, newStr:
   return `Edited ${relative(ctx.cwd, abs)}`;
 }
 
+export interface EditOp {
+  old: string;
+  new: string;
+}
+
+/**
+ * Apply multiple edits to a single file atomically. Each `old` must be found
+ * exactly once (or be unique); all edits are applied to the original content
+ * in order. Snapshot is taken once before any change.
+ */
+export function toolMultiEdit(ctx: ToolContext, path: string, ops: EditOp[]): string {
+  const abs = safePath(ctx.cwd, path);
+  if (!existsSync(abs)) return `Error: file not found: ${path}`;
+  let content = readFileSync(abs, "utf-8");
+  for (const op of ops) {
+    if (!content.includes(op.old)) return `Error: old_string not found: ${op.old.slice(0, 40)}`;
+    content = content.split(op.old).join(op.new);
+  }
+  snapshotFile(ctx.cwd, path);
+  writeFileSync(abs, content, "utf-8");
+  return `Edited ${relative(ctx.cwd, abs)} (${ops.length} edits)`;
+}
+
 export async function toolGlob(ctx: ToolContext, pattern: string): Promise<string> {
   const glob = new Bun.Glob(pattern);
   const matches: string[] = [];

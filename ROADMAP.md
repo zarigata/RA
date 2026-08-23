@@ -56,7 +56,7 @@
 - [x] Undo/checkpoint: snapshot before each agent edit batch (added `checkpoint.ts` + `ra undo`/`ra checkpoints`; `toolWrite`/`toolEdit` snapshot before modifying)
 
 ### Integrations
-- [ ] GitHub Action: `/ra` comment on PRs triggers agent (partial: `.github/workflows/test.yml` is CI only)
+- [x] GitHub Action: `/ra` comment on PRs triggers agent (added `.github/workflows/ra-agent.yml` — `/ra` comment runs `ra run` headless and posts the result)
 - [ ] IDE extension host protocol (VS Code JSON-RPC bridge)
 
 ## P2 — RA-PLUS (Beyond Parity)

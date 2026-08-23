@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 14 — Undo/checkpoint (P1).** Plan: add `checkpoint.ts` (snapshot/restore/list/clear), snapshot in `toolWrite`/`toolEdit`, add `ra undo`/`ra checkpoints` CLI commands, add tests. Files: `ra/src/server/checkpoint.ts`, `ra/src/tools/index.ts`, `ra/src/cli.ts`, `ra/tests/checkpoint.test.ts`.
+**Cycle 15 — GitHub Action `/ra` (P1).** Plan: add `.github/workflows/ra-agent.yml` that triggers on `/ra` PR comments, runs `ra run` headless, and posts the result back as a comment. Files: `.github/workflows/ra-agent.yml`.
 
 ## Last Cycle Result
 
-**Cycle 13 — Subagents shipped.** Added `general`/`explore`/`scout` agent defs + `TASK` spawn tool (recursive via `runTaskAgent`); 6 tests. Full gate green.
+**Cycle 14 — Undo/checkpoint shipped.** Added `checkpoint.ts` + `ra undo`/`ra checkpoints`; `toolWrite`/`toolEdit` snapshot before modifying; 5 tests. Full gate green.
 
 ## Smoke-Test Table
 

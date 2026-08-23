@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-015 — GitHub Action uses `ra run` headless, not a separate agent runtime (2026-08-22)
+
+- **Context:** Need a GitHub Action where a `/ra` comment on a PR triggers the agent. The headless `ra run` command (D-005) already exists.
+- **Options:** A dedicated GitHub Action runtime; reuse `ra run`.
+- **Choice:** A workflow (`ra-agent.yml`) that triggers on `issue_comment` with `/ra`, checks out the PR head, runs `ra run "<task>" --quick --json`, and posts the JSON result back as a comment via `github-script`.
+- **Why:** Reuses the exact headless path already tested locally, so the Action exercises the same code as the CLI. `--json` gives a machine-readable result for the comment. The workflow is gated to PR comments only and requires `OLLAMA_API_KEY` as a repo secret (documented, not hardcoded).
+
 ## D-014 — Checkpoints snapshot per-file, batched into one checkpoint (2026-08-22)
 
 - **Context:** Need undo/checkpoint: snapshot before each agent edit batch, restore on demand. Edits flow through `toolWrite`/`toolEdit`.

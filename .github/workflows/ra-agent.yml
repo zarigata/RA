@@ -1,0 +1,74 @@
+name: ra-agent
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  ra:
+    if: github.event.issue.pull_request != null && startsWith(github.event.comment.body, '/ra')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install RA
+        run: ./install
+
+      - name: Extract task from comment
+        id: task
+        run: |
+          # Strip the leading "/ra" and any trailing newlines.
+          TASK="$(echo "${{ github.event.comment.body }}" | sed 's|^/ra[[:space:]]*||')"
+          # Write to a file to avoid newline/quoting issues in the next step.
+          printf '%s' "$TASK" > /tmp/ra-task.txt
+          echo "task_len=${#TASK}" >> "$GITHUB_OUTPUT"
+
+      - name: Run RA agent (headless)
+        id: ra
+        env:
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          OLLAMA_BASE_URL: https://ollama.com/v1
+          OLLAMA_LAN_URL: http://localhost:11434
+          OLLAMA_LOCAL_URL: http://localhost:11434
+        run: |
+          TASK="$(cat /tmp/ra-task.txt)"
+          if [ -z "$TASK" ]; then
+            echo "::error::Empty task after /ra"
+            exit 1
+          fi
+          ra run "$TASK" --quick --json > /tmp/ra-result.json 2>&1 || {
+            echo "::error::ra run failed"
+            cat /tmp/ra-result.json
+            exit 1
+          }
+          cat /tmp/ra-result.json
+
+      - name: Post result as PR comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body;
+            try {
+              const result = JSON.parse(fs.readFileSync('/tmp/ra-result.json', 'utf8'));
+              const files = (result.filesWritten || []).join(', ') || '(none)';
+              const models = (result.models || []).join(', ');
+              body = `## RA agent result\n\n- **models:** ${models}\n- **files:** ${files}\n- **intent:** ${result.intent || 'n/a'}\n\n\`\`\`\n${JSON.stringify(result, null, 2).slice(0, 2000)}\n\`\`\``;
+            } catch (e) {
+              body = `## RA agent result\n\nRA run did not produce valid JSON output. See the workflow logs for details.`;
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

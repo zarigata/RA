@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 8 — Session export (P1).** Plan: add `exportSession` to `session.ts` (sanitized Markdown via vibeguard redact), add `ra export [--cwd] [--out]` CLI command, add test. Files: `ra/src/server/session.ts`, `ra/src/cli.ts`, `ra/tests/session.test.ts`.
+**Cycle 9 — Agent frontmatter permissions (P1).** Plan: parse `permission` from agent Markdown frontmatter (thoth: edit/bash deny), enforce in `execToolBlock` alongside config rules, add tests. Files: `ra/src/agent.ts`, `ra/tests/runtime.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 7 — Permission engine shipped.** Added `permission.tool` allow/ask/deny enforcement in the agent loop; 5 tests. Full gate green.
+**Cycle 8 — Session export shipped.** Added `exportSession` (vibeguard-redacted Markdown) + `ra export` CLI; 1 test. Full gate green.
 
 ## Smoke-Test Table
 

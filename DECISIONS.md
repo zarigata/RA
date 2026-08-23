@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-010 — Agent frontmatter `permission` overrides config `permission.tool` (2026-08-22)
+
+- **Context:** Agent Markdown files (e.g. `thoth.md`) already declare a `permission` block (`edit: deny`, `bash: deny`), but it was stripped by `loadAgentPrompt` and never enforced. Config-level `permission.tool` was added in D-009.
+- **Options:** Ignore frontmatter; enforce frontmatter only; enforce both with precedence.
+- **Choice:** Parse frontmatter `permission` and enforce it in `execToolBlock` *before* config rules. A tool is blocked if either the agent frontmatter or the config denies it.
+- **Why:** Agent-level permissions are the more specific, role-intrinsic constraint (thoth is read-only by design), so they take precedence. Config `permission.tool` remains a global override. Both are deny-by-default for `ask`/`deny`.
+
 ## D-009 — Permission engine: `ask` treated as deny in headless mode (2026-08-22)
 
 - **Context:** Need per-tool allow/ask/deny rules. The agent loop is currently headless (no interactive approval prompt).

@@ -37,7 +37,7 @@
 - [ ] Subagents: General, Explore, Scout — spawnable, visible in TUI with subagent tree
 - [ ] Custom agents as Markdown files with frontmatter (partial: `.anubis/agents/*.md` exist, frontmatter parsing minimal)
 - [x] Tool set: read/write/edit (diff-based), bash, grep, glob, ls, webfetch (partial: no task/subagent spawn, no todo tracking)
-- [x] Permission engine: per-tool allow/ask/deny rules, per-session approvals (partial: `permission.tool` allow/deny enforced in agent loop; `ask`/interactive approval not yet wired)
+- [x] Permission engine: per-tool allow/ask/deny rules, per-session approvals (partial: `permission.tool` + agent frontmatter `permission` enforced in agent loop; `ask`/interactive approval not yet wired)
 
 ### Code Intelligence
 - [ ] LSP integration: auto-detect language, spawn server, feed diagnostics after every edit

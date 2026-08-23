@@ -50,6 +50,36 @@ function loadAgentPrompt(role: string): string {
 }
 
 /**
+ * Parse an agent's frontmatter `permission` block (e.g. thoth: edit/bash deny).
+ * Returns a map of tool → allow/ask/deny, or null if no frontmatter permission.
+ */
+export function loadAgentPermissions(role: string): Record<string, "allow" | "ask" | "deny"> | null {
+  const p = join(AGENTS_DIR, `${role}.md`);
+  if (!existsSync(p)) return null;
+  const raw = readFileSync(p, "utf-8");
+  const fm = raw.match(/^---\n([\s\S]*?)\n---/);
+  if (!fm) return null;
+  const out: Record<string, "allow" | "ask" | "deny"> = {};
+  let inPermission = false;
+  for (const line of fm[1].split("\n")) {
+    if (/^permission:\s*$/.test(line)) {
+      inPermission = true;
+      continue;
+    }
+    if (inPermission) {
+      const m = line.match(/^\s*([a-zA-Z]+):\s*(allow|ask|deny)\s*$/);
+      if (m) {
+        out[m[1]] = m[2] as "allow" | "ask" | "deny";
+        continue;
+      }
+      // A non-indented key ends the permission block.
+      if (/^[a-zA-Z]/.test(line)) break;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
  * Load project memory (AGENTS.md or RA.md) from the project cwd, if present.
  * Injected into the system prompt so the agent follows project conventions.
  */
@@ -68,9 +98,17 @@ export async function execToolBlock(
   ctx: ToolContext,
   content: string,
   config?: RaConfig,
+  agentPerms?: Record<string, "allow" | "ask" | "deny"> | null,
 ): Promise<{ done: boolean; note: string }> {
-  const denied = (tool: string) =>
-    config && !canRunTool(config, tool) ? `Error: tool '${tool}' is not permitted by config` : null;
+  const denied = (tool: string) => {
+    if (agentPerms && agentPerms[tool] && agentPerms[tool] !== "allow") {
+      return `Error: tool '${tool}' is not permitted for this agent`;
+    }
+    if (config && !canRunTool(config, tool)) {
+      return `Error: tool '${tool}' is not permitted by config`;
+    }
+    return null;
+  };
 
   const write = content.match(/^WRITE\s+(\S+)\s*\n```(?:\w*\n)?([\s\S]*?)```/im);
   if (write) {
@@ -142,6 +180,7 @@ export async function runTaskAgent(
   const tierModels = (config as RaConfig & { tier_models?: Record<string, string> }).tier_models;
   const configured = (tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model;
   const { client, model } = await pickClientForModel(configured, env);
+  const agentPerms = loadAgentPermissions(role);
   const system = `${loadAgentPrompt(role)}${loadProjectMemory(ctx.cwd)}\n${TOOL_HINT}`;
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: system },
@@ -159,7 +198,7 @@ export async function runTaskAgent(
     recordChatUsage(res.model, cloud, res.usage, { in: inChars, out: last.length });
     messages.push({ role: "assistant", content: last });
 
-    const tool = await execToolBlock(ctx, last, config);
+    const tool = await execToolBlock(ctx, last, config, agentPerms);
     if (tool.done) return { role, model: res.model, output: tool.note || last };
     if (tool.note) {
       messages.push({ role: "user", content: `Tool result:\n${tool.note}\nContinue. WRITE files if needed, then DONE.` });

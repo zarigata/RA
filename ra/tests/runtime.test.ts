@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { classifyTier, tierModel } from "../../ra/src/tier.ts";
 import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch } from "../../ra/src/tools/index.ts";
-import { loadProjectMemory } from "../../ra/src/agent.ts";
+import { loadProjectMemory, loadAgentPermissions } from "../../ra/src/agent.ts";
 import { join } from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -146,6 +146,26 @@ describe("project memory", () => {
     } finally {
       rmSync(cwd, { recursive: true });
     }
+  });
+});
+
+describe("agent permissions", () => {
+  test("thoth denies edit and bash", () => {
+    const perms = loadAgentPermissions("thoth");
+    expect(perms).not.toBeNull();
+    expect(perms?.edit).toBe("deny");
+    expect(perms?.bash).toBe("deny");
+    expect(perms?.webfetch).toBe("allow");
+  });
+
+  test("ptah allows edit and bash", () => {
+    const perms = loadAgentPermissions("ptah");
+    expect(perms?.edit).toBe("allow");
+    expect(perms?.bash).toBe("allow");
+  });
+
+  test("unknown role returns null", () => {
+    expect(loadAgentPermissions("nonexistent")).toBeNull();
   });
 });
 

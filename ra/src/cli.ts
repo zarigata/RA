@@ -75,6 +75,8 @@ Usage:
   ra history [--json]        Recent full-dev runs
   ra sessions [--kill ID]    List persisted sessions (or kill one)
   ra export [--cwd DIR] [--out FILE]  Export sanitized session transcript
+  ra undo [--cwd DIR]        Restore the most recent edit checkpoint
+  ra checkpoints [--cwd DIR] List pending edit checkpoints
   ra result                  One-line RA RESULT (bash greppable)
   ra lane                    One-line RA lane (thoth@251 → ptah@cloud)
   ra intent                  One-line RA intent (code|debug|plan|…)
@@ -186,6 +188,34 @@ if (args[0] === "sessions") {
     process.exit(ok ? 0 : 1);
   }
   console.log(formatSessions(listSessions()));
+  process.exit(0);
+}
+
+if (args[0] === "undo") {
+  const { restoreLatest } = await import("./server/checkpoint.ts");
+  const cwd = arg("--cwd") ?? process.cwd();
+  const restored = restoreLatest(cwd);
+  if (!restored.length) {
+    console.log("RA undo: no checkpoint to restore.");
+    process.exit(1);
+  }
+  console.log(`RA undo → restored ${restored.length} file(s):`);
+  for (const f of restored) console.log(`  ${f}`);
+  process.exit(0);
+}
+
+if (args[0] === "checkpoints") {
+  const { listCheckpoints } = await import("./server/checkpoint.ts");
+  const cwd = arg("--cwd") ?? process.cwd();
+  const list = listCheckpoints(cwd);
+  if (!list.length) {
+    console.log("RA checkpoints\n(no checkpoints)");
+    process.exit(0);
+  }
+  console.log("RA checkpoints");
+  for (const cp of list) {
+    console.log(`  ${cp.id}  ${cp.files.length} file(s)  ${new Date(cp.ts).toISOString()}`);
+  }
   process.exit(0);
 }
 

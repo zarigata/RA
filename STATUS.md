@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 13 — Subagents (P1).** Plan: add `general`/`explore`/`scout` agent Markdown defs, add a `TASK <role> <task>` spawn tool to `execToolBlock` (with injectable spawn fn), wire recursive spawn into `runTaskAgent`, add tests. Files: `anubis/.anubis/agents/{general,explore,scout}.md`, `ra/src/agent.ts`, `ra/tests/subagents.test.ts`, `ra/tests/runtime.test.ts`.
+**Cycle 14 — Undo/checkpoint (P1).** Plan: add `checkpoint.ts` (snapshot/restore/list/clear), snapshot in `toolWrite`/`toolEdit`, add `ra undo`/`ra checkpoints` CLI commands, add tests. Files: `ra/src/server/checkpoint.ts`, `ra/src/tools/index.ts`, `ra/src/cli.ts`, `ra/tests/checkpoint.test.ts`.
 
 ## Last Cycle Result
 
-**Cycle 12 — Model router fallback chain shipped.** Added `fallbackChain` + `runWithFallback` (per-attempt host/latency logging), refactored `runner.ts`; 5 tests. Full gate green.
+**Cycle 13 — Subagents shipped.** Added `general`/`explore`/`scout` agent defs + `TASK` spawn tool (recursive via `runTaskAgent`); 6 tests. Full gate green.
 
 ## Smoke-Test Table
 

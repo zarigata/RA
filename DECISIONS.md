@@ -23,6 +23,13 @@ Architecture decision records: context, options, choice, why.
 - **Choice:** Hybrid: route plan/meta to small@251, code to BIG@cloud, fall back to localhost gemma when .251 is down.
 - **Why:** Cost principle — local/LAN are free; reserve cloud tokens for heavy implementation. Matches the documented "RA prefer small@251 → big@cloud" invariant enforced by the test gate.
 
+## D-014 — Checkpoints snapshot per-file, batched into one checkpoint (2026-08-22)
+
+- **Context:** Need undo/checkpoint: snapshot before each agent edit batch, restore on demand. Edits flow through `toolWrite`/`toolEdit`.
+- **Options:** Full-tree snapshot; per-file snapshot; git-based.
+- **Choice:** Per-file snapshot: `snapshotFile` stores the original content of each file before it is modified, accumulating into a single "latest" checkpoint (keyed by project cwd under `~/.ra/checkpoints`). `restoreLatest` reverts all files in that checkpoint and pops it.
+- **Why:** Per-file snapshots are cheap (only touched files are copied) and map directly to the edit-batch model. A single accumulating checkpoint matches "snapshot before each agent edit batch" — all edits in one batch roll back together. Git-based undo was rejected because it would require committing and could interfere with the user's own git state.
+
 ## D-013 — Subagents are Markdown agents spawned via a `TASK` tool (2026-08-22)
 
 - **Context:** Need spawnable subagents (General, Explore, Scout) for opencode parity. The agent loop already supports arbitrary roles via `runTaskAgent` and Markdown agent files.

@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync } from "node:fs";
 import { join, relative, resolve, dirname, sep } from "node:path";
 import { redact } from "../../../anubis/src/redact.ts";
+import { snapshotFile } from "../server/checkpoint.ts";
 
 export interface ToolContext {
   cwd: string;
@@ -28,6 +29,8 @@ export function toolRead(ctx: ToolContext, path: string, offset = 1, limit = 200
 export function toolWrite(ctx: ToolContext, path: string, content: string): string {
   const abs = safePath(ctx.cwd, path);
   mkdirSync(dirname(abs), { recursive: true });
+  // Snapshot before overwrite so the change is undoable.
+  snapshotFile(ctx.cwd, path);
   // vibeguard: never write raw secrets into the project tree
   const safe = redact(content).text;
   writeFileSync(abs, safe, "utf-8");
@@ -39,6 +42,7 @@ export function toolEdit(ctx: ToolContext, path: string, oldStr: string, newStr:
   if (!existsSync(abs)) return `Error: file not found: ${path}`;
   const content = readFileSync(abs, "utf-8");
   if (!content.includes(oldStr)) return `Error: old_string not found in ${path}`;
+  snapshotFile(ctx.cwd, path);
   writeFileSync(abs, content.split(oldStr).join(newStr), "utf-8");
   return `Edited ${relative(ctx.cwd, abs)}`;
 }

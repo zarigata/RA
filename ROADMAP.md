@@ -7,7 +7,7 @@
 
 1. **[P1] Client/server split** — background daemon owns sessions/state/FS; TUI is a thin client. (ARCHITECTURE CORE)
 2. **[P1] Sessions persist across terminal disconnects** — `ra` reattaches cleanly (partial: disk persistence exists, no daemon).
-3. **[P1] Undo/checkpoint** — snapshot before each agent edit batch, restore on demand.
+3. **[P1] LSP integration** — auto-detect language, spawn server, feed diagnostics after every edit.
 
 ---
 
@@ -53,7 +53,7 @@
 ### TUI Experience
 - [x] Multi-pane TUI (partial: single-pane chat + command palette, no live token/cost sidebar, no diff viewer, no @-mention)
 - [x] Session share/export (sanitized transcript) — `ra export` writes a vibeguard-redacted Markdown transcript
-- [ ] Undo/checkpoint: snapshot before each agent edit batch
+- [x] Undo/checkpoint: snapshot before each agent edit batch (added `checkpoint.ts` + `ra undo`/`ra checkpoints`; `toolWrite`/`toolEdit` snapshot before modifying)
 
 ### Integrations
 - [ ] GitHub Action: `/ra` comment on PRs triggers agent (partial: `.github/workflows/test.yml` is CI only)

@@ -9,9 +9,9 @@ import { RemoteClient } from "../server/remote.ts";
 import { SubagentTree } from "./tree.ts";
 import { PluginHost } from "../plugins/host.ts";
 import { dispatchCommand, PALETTE_COMMANDS } from "../commands/index.ts";
-import { runOrchestratorTurn, onGlobalHook } from "../agent.ts";
+import { runOrchestratorTurn, onGlobalHook, setActiveSubagentTracker, getActiveSubagentTracker } from "../agent.ts";
 import { expandMentions } from "../tools/index.ts";
-import { loadUsage, buildReport, formatReport } from "../../../anubis/src/cost.ts";
+import { loadUsage, buildReport, formatReport, formatCost } from "../../../anubis/src/cost.ts";
 
 export interface TuiOptions {
   cwd: string;
@@ -32,6 +32,8 @@ export async function startTui(opts: TuiOptions): Promise<void> {
   const remoteOk = remote ? await remote.health() : false;
   const session = remoteOk ? await remote.loadSession(opts.cwd) : loadSession(opts.cwd);
   const subagentTree = new SubagentTree();
+  // Make the tree visible to agent.ts (spawn tracking) and /tree (rendering).
+  setActiveSubagentTracker(subagentTree);
   const plugins = new PluginHost();
   await plugins.load(config.plugin ?? []);
 
@@ -47,7 +49,7 @@ export async function startTui(opts: TuiOptions): Promise<void> {
     const tokens = report.reduce((s, r) => s + r.inputTokens + r.outputTokens, 0);
     const top = report
       .slice(0, 3)
-      .map((r) => `  ${r.model}: ${r.inputTokens + r.outputTokens} tok · $${r.cost.toFixed(4)}`)
+      .map((r) => `  ${r.model}: ${r.inputTokens + r.outputTokens} tok · ${formatCost(r.model, r.cost)}`)
       .join("\n");
     return `\x1b[2m╭ context ─────────────\n${top}\n  TOTAL: ${tokens} tok · $${total.toFixed(4)}\n╰─\x1b[0m`;
   };
@@ -176,7 +178,15 @@ export async function startTui(opts: TuiOptions): Promise<void> {
 
   rl.on("close", () => {
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
+    setActiveSubagentTracker(null);
     saveSession(session);
+  });
+
+  // Without a SIGINT listener, readline closes the interface on Ctrl+C and
+  // the process exits — the refusal message below would be a lie. Registering
+  // this handler keeps the app alive; Ctrl+D / /exit still quit cleanly.
+  rl.on("SIGINT", () => {
+    rl.prompt();
   });
 }
 

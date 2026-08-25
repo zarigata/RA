@@ -39,6 +39,22 @@ export function estimateCost(model: string, inputTokens: number, outputTokens: n
   return (inputTokens / 1e6) * p.in + (outputTokens / 1e6) * p.out;
 }
 
+/**
+ * True for cloud models priced at zero — usage is covered by the Ollama
+ * subscription rather than billed per token. Displayed as "subscription"
+ * instead of a misleading $0.000000.
+ */
+export function isSubscriptionCovered(model: string): boolean {
+  if (!model.startsWith("ollama-cloud/")) return false;
+  const p = priceFor(model);
+  return p.in === 0 && p.out === 0;
+}
+
+/** Format a model's cost, annotating subscription-covered usage. */
+export function formatCost(model: string, cost: number): string {
+  return isSubscriptionCovered(model) ? "subscription" : `$${cost.toFixed(6)}`;
+}
+
 export interface UsageEntry {
   model: string;
   inputTokens: number;
@@ -65,10 +81,12 @@ export function formatReport(reports: CostReport[]): string {
   if (reports.length === 0) return "No usage recorded.";
   const lines = reports.map(
     (r) =>
-      `${r.model}: ${r.inputTokens} in / ${r.outputTokens} out — $${r.cost.toFixed(6)}`,
+      `${r.model}: ${r.inputTokens} in / ${r.outputTokens} out — ${formatCost(r.model, r.cost)}`,
   );
-  const total = reports.reduce((s, r) => s + r.cost, 0);
-  lines.push(`TOTAL: $${total.toFixed(6)}`);
+  const billable = reports.filter((r) => !isSubscriptionCovered(r.model));
+  const total = billable.reduce((s, r) => s + r.cost, 0);
+  const subCount = reports.length - billable.length;
+  lines.push(`TOTAL: $${total.toFixed(6)}${subCount ? ` (+${subCount} subscription-covered model${subCount > 1 ? "s" : ""})` : ""}`);
   return lines.join("\n");
 }
 

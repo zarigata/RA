@@ -11,6 +11,8 @@ import { loadEnv } from "../../anubis/src/env.ts";
 import { classifyTier, tierModel } from "./tier.ts";
 import { canRunTool } from "./permission.ts";
 import { isAirgapped, localizeModel } from "./airgap.ts";
+import { loadMcpTools, McpClient, McpHttpClient, isHttpConfig } from "./mcp.ts";
+import type { McpServerEntry, McpTool } from "./mcp.ts";
 
 /** Global hook registry — allows agent code to emit events without a PluginHost reference. */
 type GlobalHookFn = (input: Record<string, unknown>) => void;
@@ -33,21 +35,35 @@ export interface TaskResult {
   output: string;
 }
 
-const TOOL_HINT = `
-You may call tools with this exact format (one at a time):
-WRITE path/to/file
+/**
+ * Build the tool-grammar hint appended to every agent system prompt.
+ * - `allowed`: frontmatter `tools:` whitelist (lowercase tool names); verbs
+ *   outside the list are omitted from the hint.
+ * - `mcpTools`: MCP tools discovered from config; advertised in their own
+ *   section so the model knows it can call them via `MCP <server.tool>`.
+ */
+export function buildToolHint(
+  allowed?: string[],
+  mcpTools?: Array<McpTool & { server: string }>,
+): string {
+  const want = (verb: string) => !allowed || allowed.length === 0 || allowed.includes(verb.toLowerCase());
+  const sections: string[] = [];
+  if (want("WRITE")) {
+    sections.push(`WRITE path/to/file
 \`\`\`
 file contents
-\`\`\`
-
-EDIT path/to/file
+\`\`\``);
+  }
+  if (want("EDIT")) {
+    sections.push(`EDIT path/to/file
 <<<<<<< OLD
 exact old text
 =======
 exact new text
->>>>>>> NEW
-
-Or: MULTIEDIT path/to/file
+>>>>>>> NEW`);
+  }
+  if (want("MULTIEDIT")) {
+    sections.push(`Or: MULTIEDIT path/to/file
 <<<<<<< OLD
 old text 1
 =======
@@ -57,21 +73,38 @@ new text 1
 old text 2
 =======
 new text 2
->>>>>>> NEW
+>>>>>>> NEW`);
+  }
+  if (want("READ")) sections.push("Or: READ path/to/file");
+  if (want("OUTLINE")) sections.push("Or: OUTLINE path/to/file");
+  if (want("DIAGNOSE")) sections.push("Or: DIAGNOSE path/to/file");
+  if (want("GLOB")) sections.push("Or: GLOB **/*.py");
+  if (want("GREP")) sections.push("Or: GREP pattern [optional/glob]");
+  if (want("BASH")) sections.push("Or: BASH command here");
+  if (want("WEBFETCH")) sections.push("Or: WEBFETCH https://example.com");
+  if (want("TODO")) sections.push("Or: TODO add <text> / TODO done <id> / TODO list");
+  if (want("TASK")) sections.push("Or: TASK <role> <task>   (spawn a subagent: general|explore|scout)");
+  if (mcpTools && mcpTools.length) {
+    const lines = mcpTools
+      .slice(0, 20)
+      .map((t) => `  ${t.server}.${t.name}${t.description ? ` — ${t.description.slice(0, 100)}` : ""}`);
+    sections.push(`Or: MCP <server.tool> <json-args>   (configured MCP tools:\n${lines.join("\n")})`);
+  }
+  if (want("DONE")) sections.push("Or: DONE — when finished, with a short summary.");
+  const footer = [
+    ...(want("WRITE") || want("EDIT") ? ["Prefer WRITE for new files, EDIT for small changes."] : []),
+    "Always produce real content.",
+  ].join(" ");
+  return `
+You may call tools with this exact format (one at a time):
+${sections.join("\n\n")}
 
-Or: READ path/to/file
-Or: OUTLINE path/to/file
-Or: DIAGNOSE path/to/file
-Or: GLOB **/*.py
-Or: GREP pattern [optional/glob]
-Or: BASH command here
-Or: WEBFETCH https://example.com
-Or: TODO add <text> / TODO done <id> / TODO list
-Or: TASK <role> <task>   (spawn a subagent: general|explore|scout)
-Or: DONE — when finished, with a short summary.
-
-Prefer WRITE for new files, EDIT for small changes. Always produce real content.
+${footer}
 `;
+}
+
+/** Default hint with every built-in tool (no MCP, no restrictions). */
+export const TOOL_HINT = buildToolHint();
 
 function loadAgentPrompt(role: string): string {
   const p = join(AGENTS_DIR, `${role}.md`);
@@ -81,34 +114,99 @@ function loadAgentPrompt(role: string): string {
   return body || `You are ${role}.`;
 }
 
+export interface BashPatternRule {
+  pattern: string;
+  level: "allow" | "ask" | "deny";
+}
+
 /**
  * Parse an agent's frontmatter `permission` block (e.g. thoth: edit/bash deny).
  * Returns a map of tool → allow/ask/deny, or null if no frontmatter permission.
+ * Nested maps (e.g. `bash:` with `"git diff*": allow` entries) collapse to
+ * their `"*"` default — or the most restrictive entry when no `"*"` exists —
+ * with the full pattern list available via `loadAgentBashPatterns`.
  */
 export function loadAgentPermissions(role: string): Record<string, "allow" | "ask" | "deny"> | null {
+  const detail = loadAgentPermissionDetail(role);
+  return detail ? detail.tools : null;
+}
+
+/** Full permission detail including per-command bash pattern rules. */
+export function loadAgentPermissionDetail(role: string): {
+  tools: Record<string, "allow" | "ask" | "deny">;
+  bashPatterns: BashPatternRule[];
+} | null {
   const p = join(AGENTS_DIR, `${role}.md`);
   if (!existsSync(p)) return null;
   const raw = readFileSync(p, "utf-8");
   const fm = raw.match(/^---\n([\s\S]*?)\n---/);
   if (!fm) return null;
+  const RANK: Record<string, number> = { deny: 0, ask: 1, allow: 2 };
   const out: Record<string, "allow" | "ask" | "deny"> = {};
-  let inPermission = false;
-  for (const line of fm[1].split("\n")) {
-    if (/^permission:\s*$/.test(line)) {
-      inPermission = true;
-      continue;
-    }
-    if (inPermission) {
-      const m = line.match(/^\s*([a-zA-Z]+):\s*(allow|ask|deny)\s*$/);
-      if (m) {
-        out[m[1]] = m[2] as "allow" | "ask" | "deny";
+  const bashPatterns: BashPatternRule[] = [];
+  const lines = fm[1].split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const m = line.match(/^permission:\s*$/);
+    if (!m) continue;
+    // Parse the permission block until the next top-level key.
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = lines[j];
+      if (/^[a-zA-Z]/.test(l)) break; // next top-level key ends the block
+      const flat = l.match(/^\s*([a-zA-Z]+):\s*(allow|ask|deny)\s*$/);
+      if (flat) {
+        out[flat[1]] = flat[2] as "allow" | "ask" | "deny";
         continue;
       }
-      // A non-indented key ends the permission block.
-      if (/^[a-zA-Z]/.test(line)) break;
+      const nested = l.match(/^\s*([a-zA-Z]+):\s*$/);
+      if (nested) {
+        // Nested map (e.g. bash: with "pattern": level entries).
+        const tool = nested[1];
+        const rules: BashPatternRule[] = [];
+        for (let k = j + 1; k < lines.length; k++) {
+          const nl = lines[k];
+          if (!/^\s+"/.test(nl)) {
+            j = k - 1;
+            break;
+          }
+          const rm = nl.match(/^\s*"([^"]+)":\s*(allow|ask|deny)\s*$/);
+          if (rm) rules.push({ pattern: rm[1], level: rm[2] as BashPatternRule["level"] });
+        }
+        if (rules.length) {
+          if (tool === "bash") bashPatterns.push(...rules);
+          const star = rules.find((r) => r.pattern === "*");
+          out[tool] = star
+            ? star.level
+            : rules.reduce((min, r) => (RANK[r.level] < RANK[min.level] ? r : min)).level;
+        }
+      }
     }
+    break;
   }
-  return Object.keys(out).length ? out : null;
+  if (!Object.keys(out).length && !bashPatterns.length) return null;
+  return { tools: out, bashPatterns };
+}
+
+/** Shell-style glob match (`*` wildcard) for bash permission patterns. */
+export function bashPatternMatches(pattern: string, command: string): boolean {
+  const re = new RegExp(
+    "^" + pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$",
+  );
+  return re.test(command.trim());
+}
+
+/** Resolve the effective bash level for a command: first matching pattern wins
+ *  (`"*"` acts as the default, not a pattern, so it can't shadow the rest). */
+export function resolveBashLevel(
+  command: string,
+  patterns: BashPatternRule[],
+  fallback: "allow" | "ask" | "deny" | undefined,
+): "allow" | "ask" | "deny" | undefined {
+  for (const r of patterns) {
+    if (r.pattern === "*") continue;
+    if (bashPatternMatches(r.pattern, command)) return r.level;
+  }
+  return fallback;
 }
 
 export interface AgentMeta {
@@ -163,6 +261,8 @@ export async function execToolBlock(
   config?: RaConfig,
   agentPerms?: Record<string, "allow" | "ask" | "deny"> | null,
   spawn?: (role: string, task: string) => Promise<string>,
+  bashPatterns?: BashPatternRule[],
+  mcpCall?: (name: string, args: Record<string, unknown>) => Promise<string>,
 ): Promise<{ done: boolean; note: string }> {
   const denied = (tool: string) => {
     if (agentPerms && agentPerms[tool] && agentPerms[tool] !== "allow") {
@@ -233,9 +333,33 @@ export async function execToolBlock(
   }
   const bash = content.match(/^BASH\s+(.+)/im);
   if (bash) {
-    const d = denied("bash");
+    const cmd = bash[1].trim();
+    const patterns = bashPatterns ?? [];
+    // Pattern rules (when present) decide the agent layer; an explicit
+    // pattern allow overrides the flat `bash: ask` default from `"*"`.
+    const patternLevel = patterns.length ? resolveBashLevel(cmd, patterns) : undefined;
+    if (patterns.length && patternLevel !== "allow") {
+      return { done: false, note: `Error: bash '${cmd}' is not permitted for this agent (${patternLevel ?? "no matching rule"})` };
+    }
+    if (patternLevel !== "allow") {
+      const d = denied("bash");
+      if (d) return { done: false, note: d };
+    } else if (config && !canRunTool(config, "bash")) {
+      return { done: false, note: "Error: tool 'bash' is not permitted by config" };
+    }
+    return { done: false, note: await tools.toolBash(ctx, cmd) };
+  }
+  const mcp = content.match(/^MCP\s+(\S+)(?:[ \t]+([\s\S]+?))?\s*$/im);
+  if (mcp) {
+    const d = denied("mcp");
     if (d) return { done: false, note: d };
-    return { done: false, note: await tools.toolBash(ctx, bash[1].trim()) };
+    if (!mcpCall) return { done: false, note: "Error: MCP tools not available" };
+    try {
+      const args = mcp[2] ? (JSON.parse(mcp[2]) as Record<string, unknown>) : {};
+      return { done: false, note: await mcpCall(mcp[1], args) };
+    } catch (e) {
+      return { done: false, note: `Error: MCP call failed: ${String(e)}` };
+    }
   }
   const webfetch = content.match(/^WEBFETCH\s+(\S+)/im);
   if (webfetch) {
@@ -273,6 +397,56 @@ export async function execToolBlock(
   return { done: false, note: "" };
 }
 
+// ---- MCP runtime (module-cached; connects only when servers are configured) ----
+
+export interface McpRuntime {
+  tools: Array<McpTool & { server: string }>;
+  call: (name: string, args: Record<string, unknown>) => Promise<string>;
+}
+
+let mcpRuntime: McpRuntime | null = null;
+let mcpRuntimeKey: string | null = null;
+
+/** Connect configured MCP servers once and cache the tool list + caller. */
+export async function getMcpRuntime(config: RaConfig): Promise<McpRuntime> {
+  const servers = (config.mcp ?? {}) as Record<string, McpServerEntry>;
+  const key = JSON.stringify(servers);
+  if (mcpRuntime && mcpRuntimeKey === key) return mcpRuntime;
+  const list = Object.keys(servers).length ? await loadMcpTools(servers) : [];
+  mcpRuntime = {
+    tools: list,
+    call: async (name, args) => {
+      const dot = name.indexOf(".");
+      const server = dot === -1 ? name : name.slice(0, dot);
+      const tool = dot === -1 ? "" : name.slice(dot + 1);
+      const cfg = servers[server];
+      if (!cfg) throw new Error(`unknown MCP server: ${server}`);
+      const client = isHttpConfig(cfg) ? new McpHttpClient(cfg) : new McpClient(cfg);
+      try {
+        await client.start();
+        return await client.callTool(tool, args);
+      } finally {
+        await client.close();
+      }
+    },
+  };
+  mcpRuntimeKey = key;
+  return mcpRuntime;
+}
+
+// ---- Subagent tracking (display-only; set by the TUI, read by /tree) ----
+
+let activeTracker: SubagentTree | null = null;
+let agentNesting = 0;
+
+export function setActiveSubagentTracker(tree: SubagentTree | null): void {
+  activeTracker = tree;
+}
+
+export function getActiveSubagentTracker(): SubagentTree | null {
+  return activeTracker;
+}
+
 export async function runTaskAgent(
   role: string,
   task: string,
@@ -287,15 +461,39 @@ export async function runTaskAgent(
   let configured = (tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model;
   const airgap = isAirgapped(config, env);
   if (airgap) configured = localizeModel(configured, config.small_model ?? "ollama-lan/qwen3.8:latest");
+  const meta = loadAgentMeta(role);
+  // Frontmatter model override takes precedence over config/tier assignment —
+  // must be applied BEFORE the client is picked, or it never takes effect.
+  if (meta.model) configured = meta.model;
   emitGlobalHook("agent.turn.start", { role, task, model: configured });
   const { client, model } = await pickClientForModel(configured, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
-  const agentPerms = loadAgentPermissions(role);
-  const meta = loadAgentMeta(role);
+  const permDetail = loadAgentPermissionDetail(role);
+  const agentPerms = permDetail?.tools ?? null;
+  const bashPatterns = permDetail?.bashPatterns ?? [];
   const steps = meta.steps ?? maxSteps;
   const temperature = meta.temperature;
-  // Frontmatter model override takes precedence over config assignment
-  if (meta.model) configured = meta.model;
-  const system = `${loadAgentPrompt(role)}${loadProjectMemory(ctx.cwd)}\n${TOOL_HINT}`;
+  const mcpRt = await getMcpRuntime(config);
+  const hint = buildToolHint(meta.tools, mcpRt.tools);
+  const system = `${loadAgentPrompt(role)}${loadProjectMemory(ctx.cwd)}\n${hint}`;
+
+  const tracker = activeTracker;
+  const isRoot = agentNesting === 0;
+  agentNesting++;
+  if (tracker && isRoot) tracker.startRoot(role, task);
+  let rootOutput = "";
+  let errored = false;
+  try {
+    return await runAgentLoop();
+  } catch (e) {
+    errored = true;
+    if (tracker && isRoot) tracker.error(String(e));
+    throw e;
+  } finally {
+    agentNesting--;
+    if (tracker && isRoot && !errored) tracker.complete(rootOutput);
+  }
+
+  async function runAgentLoop(): Promise<TaskResult> {
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: system },
     { role: "user", content: `Task: ${task}\nProject cwd: ${ctx.cwd}` },
@@ -305,8 +503,15 @@ export async function runTaskAgent(
   let last = "";
   let usedModel = model;
   const spawn = async (subRole: string, subTask: string): Promise<string> => {
-    const r = await runTaskAgent(subRole, subTask, config, ctx, env, 4);
-    return r.output;
+    if (tracker) tracker.spawn(subRole, subTask);
+    try {
+      const r = await runTaskAgent(subRole, subTask, config, ctx, env, 4);
+      if (tracker) tracker.complete(r.output);
+      return r.output;
+    } catch (e) {
+      if (tracker) tracker.error(String(e));
+      throw e;
+    }
   };
   for (let i = 0; i < steps; i++) {
     const res = await client.nativeChat(usedModel, messages, { temperature });
@@ -316,10 +521,11 @@ export async function runTaskAgent(
     recordChatUsage(res.model, cloud, res.usage, { in: inChars, out: last.length }, ctx.cwd);
     messages.push({ role: "assistant", content: last });
 
-    const tool = await execToolBlock(ctx, last, config, agentPerms, spawn);
+    const tool = await execToolBlock(ctx, last, config, agentPerms, spawn, bashPatterns, mcpRt.call);
     if (tool.done) {
       emitGlobalHook("agent.turn.end", { role, model: res.model });
-      return { role, model: res.model, output: tool.note || last };
+      rootOutput = tool.note || last;
+      return { role, model: res.model, output: rootOutput };
     }
     if (tool.note) {
       messages.push({ role: "user", content: `Tool result:\n${tool.note}\nContinue. WRITE files if needed, then DONE.` });
@@ -336,14 +542,16 @@ export async function runTaskAgent(
         body = `<!DOCTYPE html><html><head><title>Todo</title></head><body><h1>Todo</h1></body></html>`;
       }
       tools.toolWrite(ctx, name, body);
-      const _r = { role, model: res.model, output: `Wrote ${name}\n${last}` };
-      emitGlobalHook("agent.turn.end", { role, model: _r.model });
-      return _r;
+      rootOutput = `Wrote ${name}\n${last}`;
+      emitGlobalHook("agent.turn.end", { role, model: res.model });
+      return { role, model: res.model, output: rootOutput };
     }
     break;
   }
   emitGlobalHook("agent.turn.end", { role, model: usedModel });
+  rootOutput = last;
   return { role, model: usedModel, output: last };
+  }
 }
 
 import { SubagentTree } from "./tui/tree.ts";

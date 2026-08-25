@@ -1,7 +1,7 @@
 {
   "$schema": "https://anubis.dev/config.json",
-  "model": "ollama-lan/qwen3:8b",
-  "small_model": "ollama/gemma:latest",
+  "model": "ollama-cloud/glm-5.2",
+  "small_model": "ollama-lan/qwen3.8:latest",
   "provider": {
     "ollama-cloud": {
       "npm": "@ai-sdk/openai-compatible",
@@ -40,8 +40,8 @@
         "baseURL": "http://192.168.1.251:11434/v1"
       },
       "models": {
-        "qwen3:8b": { "name": "Qwen3 8B (LAN primary)" },
-        "gemma:latest": { "name": "Gemma (LAN fallback)" }
+        "qwen3.8:latest": { "name": "Qwen3.8 27B (LAN primary)" },
+        "gemma4:12b": { "name": "Gemma4 12B (LAN fallback)" }
       }
     }
   },
@@ -60,13 +60,13 @@
     "papyrus"
   ],
   "agent": {
-    "thoth": { "model": "ollama-lan/qwen3:8b" },
-    "ptah": { "model": "ollama-lan/qwen3:8b" },
-    "maat": { "model": "ollama/gemma:latest" },
-    "sekhmet": { "model": "ollama/gemma:latest" },
-    "isis": { "model": "ollama-lan/qwen3:8b" },
-    "seshat": { "model": "ollama/gemma:latest" },
-    "horus": { "model": "ollama/gemma:latest" }
+    "thoth": { "model": "ollama-lan/qwen3.8:latest" },
+    "ptah": { "model": "ollama-cloud/glm-5.2" },
+    "maat": { "model": "ollama-lan/qwen3.8:latest" },
+    "sekhmet": { "model": "ollama-lan/qwen3.8:latest" },
+    "isis": { "model": "ollama-lan/qwen3.8:latest" },
+    "seshat": { "model": "ollama-lan/qwen3.8:latest" },
+    "horus": { "model": "ollama-lan/qwen3.8:latest" }
   },
   "moa": { "roles": ["thoth", "ptah", "maat", "sekhmet"], "parallel": true },
   "pipeline": { "stages": ["thoth", "ptah", "maat", "sekhmet", "ptah", "seshat"] }

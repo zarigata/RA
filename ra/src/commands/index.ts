@@ -315,9 +315,11 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       return true;
     }
     case "tree": {
+      // Prefer the live tracker (set by the TUI, populated by agent spawns);
+      // fall back to a transient session property for non-TUI callers.
+      const { getActiveSubagentTracker } = await import("../agent.ts");
       const { SubagentTree } = await import("../tui/tree.ts");
-      // The tree is stored on the session object as a transient property
-      const tree = (c.session as Session & { _subagentTree?: SubagentTree })._subagentTree;
+      const tree = getActiveSubagentTracker() ?? (c.session as Session & { _subagentTree?: SubagentTree })._subagentTree;
       if (!tree || !tree.hasTree) {
         c.reply("RA tree\n(no subagents spawned in this session)");
         return true;

@@ -20,7 +20,7 @@ export interface RaConfig extends RouterConfig {
     tool?: Record<string, "allow" | "ask" | "deny">;
     skill?: Record<string, "allow" | "ask" | "deny">;
   };
-  mcp?: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
+  mcp?: Record<string, { command: string; args?: string[]; env?: Record<string, string> } | { url: string; headers?: Record<string, string> }>;
   /** Air-gapped mode: 100% local operation, no cloud providers, no external fetches. */
   airgap?: boolean;
   /** UI theme/palette name (maps to a ColorPalette in ui.ts). */

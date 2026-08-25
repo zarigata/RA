@@ -367,3 +367,103 @@ describe("webfetch tool", () => {
     expect(out).not.toContain("<html");
   });
 });
+
+describe("buildToolHint (dynamic tool grammar)", () => {
+  test("full hint lists every built-in verb", async () => {
+    const { buildToolHint } = await import("../../ra/src/agent.ts");
+    const h = buildToolHint();
+    for (const verb of ["WRITE", "EDIT", "MULTIEDIT", "READ", "BASH", "WEBFETCH", "TASK", "DONE"]) {
+      expect(h).toContain(verb);
+    }
+    expect(h).not.toContain("MCP");
+  });
+
+  test("frontmatter tools whitelist filters verbs", async () => {
+    const { buildToolHint } = await import("../../ra/src/agent.ts");
+    const h = buildToolHint(["read", "glob", "grep", "done"]);
+    expect(h).toContain("READ");
+    expect(h).toContain("GLOB");
+    expect(h).not.toContain("WRITE");
+    expect(h).not.toContain("BASH");
+    expect(h).toContain("DONE");
+  });
+
+  test("MCP tools are advertised with server-qualified names", async () => {
+    const { buildToolHint } = await import("../../ra/src/agent.ts");
+    const h = buildToolHint(undefined, [
+      { name: "search", description: "search the web", server: "exa" },
+    ]);
+    expect(h).toContain("MCP <server.tool>");
+    expect(h).toContain("exa.search");
+    expect(h).toContain("search the web");
+  });
+});
+
+describe("nested bash permission maps", () => {
+  test("maat frontmatter collapses to bash=ask with patterns", async () => {
+    const { loadAgentPermissionDetail } = await import("../../ra/src/agent.ts");
+    const detail = loadAgentPermissionDetail("maat");
+    expect(detail).not.toBeNull();
+    expect(detail!.tools.edit).toBe("deny");
+    expect(detail!.tools.bash).toBe("ask");
+    const allow = detail!.bashPatterns.find((p) => p.pattern.startsWith("git diff"));
+    expect(allow?.level).toBe("allow");
+  });
+
+  test("resolveBashLevel honors patterns over the default", async () => {
+    const { resolveBashLevel, loadAgentPermissionDetail } = await import("../../ra/src/agent.ts");
+    const patterns = loadAgentPermissionDetail("maat")!.bashPatterns;
+    expect(resolveBashLevel("git diff HEAD~1", patterns, "ask")).toBe("allow");
+    expect(resolveBashLevel("rm -rf /", patterns, "ask")).toBe("ask");
+  });
+
+  test("flat permission blocks still parse unchanged", async () => {
+    const { loadAgentPermissions } = await import("../../ra/src/agent.ts");
+    const thoth = loadAgentPermissions("thoth");
+    expect(thoth?.edit).toBe("deny");
+    expect(thoth?.bash).toBe("deny");
+  });
+});
+
+describe("execToolBlock MCP verb", () => {
+  test("routes MCP calls through the injected caller", async () => {
+    const { execToolBlock } = await import("../../ra/src/agent.ts");
+    const calls: Array<[string, Record<string, unknown>]> = [];
+    const mcpCall = async (name: string, args: Record<string, unknown>) => {
+      calls.push([name, args]);
+      return "tool output";
+    };
+    const r = await execToolBlock({ cwd: "/tmp" }, 'MCP exa.search {"q": "hello"}', undefined, null, undefined, [], mcpCall);
+    expect(r.done).toBe(false);
+    expect(r.note).toBe("tool output");
+    expect(calls).toEqual([["exa.search", { q: "hello" }]]);
+  });
+
+  test("MCP denied by agent permissions", async () => {
+    const { execToolBlock } = await import("../../ra/src/agent.ts");
+    const r = await execToolBlock(
+      { cwd: "/tmp" },
+      "MCP exa.search {}",
+      undefined,
+      { mcp: "deny" },
+      undefined,
+      [],
+      async () => "should not run",
+    );
+    expect(r.note).toContain("not permitted");
+  });
+
+  test("bash pattern rules allow whitelisted commands", async () => {
+    const { execToolBlock } = await import("../../ra/src/agent.ts");
+    const cwd = mkdtempSync(join(tmpdir(), "ra-bashperm-"));
+    try {
+      const patterns = [{ pattern: "git diff*", level: "allow" as const }];
+      const ok = await execToolBlock({ cwd }, "BASH git diff --stat", undefined, { bash: "ask" }, undefined, patterns, undefined);
+      expect(ok.note).not.toContain("not permitted");
+      const blocked = await execToolBlock({ cwd }, "BASH rm -rf .", undefined, { bash: "ask" }, undefined, patterns, undefined);
+      expect(blocked.note).toContain("not permitted");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+});

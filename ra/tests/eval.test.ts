@@ -21,8 +21,23 @@ describe("eval harness", () => {
     expect(new Set(models).size).toBe(models.length);
   });
 
-  test("EVAL_TASKS has at least 3 tasks", () => {
-    expect(EVAL_TASKS.length).toBeGreaterThanOrEqual(3);
+  test("EVAL_TASKS has at least 20 tasks", () => {
+    expect(EVAL_TASKS.length).toBeGreaterThanOrEqual(20);
+  });
+
+  test("EVAL_TASKS cover multiple languages", () => {
+    const prompts = EVAL_TASKS.map((t) => t.prompt.toLowerCase());
+    expect(prompts.some((p) => p.includes("python"))).toBe(true);
+    expect(prompts.some((p) => p.includes("javascript") || p.includes(".js"))).toBe(true);
+    expect(prompts.some((p) => p.includes("html"))).toBe(true);
+  });
+
+  test("EVAL_TASKS all have verify functions", () => {
+    for (const task of EVAL_TASKS) {
+      expect(typeof task.verify).toBe("function");
+      expect(task.name.length).toBeGreaterThan(0);
+      expect(task.prompt.length).toBeGreaterThan(0);
+    }
   });
 
   test("formatEvalResults renders a table and pass rate", () => {

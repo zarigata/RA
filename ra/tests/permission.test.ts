@@ -21,6 +21,17 @@ describe("permission engine", () => {
     expect(canRunTool(cfg, "write")).toBe(false);
   });
 
+  test("ask with autoApprove proceeds", () => {
+    const cfg: RaConfig = { ...base, permission: { tool: { write: "ask" } } };
+    expect(canRunTool(cfg, "write", { autoApprove: true })).toBe(true);
+  });
+
+  test("ask with onAsk callback uses callback result", () => {
+    const cfg: RaConfig = { ...base, permission: { tool: { write: "ask" } } };
+    expect(canRunTool(cfg, "write", { onAsk: () => true })).toBe(true);
+    expect(canRunTool(cfg, "write", { onAsk: () => false })).toBe(false);
+  });
+
   test("restrictedTools lists non-allow tools", () => {
     const cfg: RaConfig = {
       ...base,

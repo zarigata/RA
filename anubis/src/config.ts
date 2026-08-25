@@ -23,6 +23,10 @@ export interface RaConfig extends RouterConfig {
   mcp?: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
   /** Air-gapped mode: 100% local operation, no cloud providers, no external fetches. */
   airgap?: boolean;
+  /** UI theme/palette name (maps to a ColorPalette in ui.ts). */
+  theme?: string;
+  /** Keybind overrides: maps key combo (e.g. "ctrl+p") to a command or action. */
+  keybinds?: Record<string, string>;
 }
 
 export function ensureRaDirs(): void {

@@ -12,6 +12,21 @@ import { classifyTier, tierModel } from "./tier.ts";
 import { canRunTool } from "./permission.ts";
 import { isAirgapped, localizeModel } from "./airgap.ts";
 
+/** Global hook registry — allows agent code to emit events without a PluginHost reference. */
+type GlobalHookFn = (input: Record<string, unknown>) => void;
+const globalHooks = new Map<string, GlobalHookFn[]>();
+
+export function onGlobalHook(event: string, fn: GlobalHookFn): void {
+  if (!globalHooks.has(event)) globalHooks.set(event, []);
+  globalHooks.get(event)!.push(fn);
+}
+
+export function emitGlobalHook(event: string, input: Record<string, unknown>): void {
+  for (const fn of globalHooks.get(event) ?? []) {
+    try { fn(input); } catch { /* ignore hook errors */ }
+  }
+}
+
 export interface TaskResult {
   role: string;
   model: string;
@@ -99,6 +114,10 @@ export function loadAgentPermissions(role: string): Record<string, "allow" | "as
 export interface AgentMeta {
   steps?: number;
   temperature?: number;
+  /** Override the model for this agent role. */
+  model?: string;
+  /** Restrict available tools (comma-separated list in frontmatter). */
+  tools?: string[];
 }
 
 /**
@@ -116,6 +135,10 @@ export function loadAgentMeta(role: string): AgentMeta {
   if (steps) out.steps = Number(steps[1]);
   const temp = fm[1].match(/^temperature:\s*([\d.]+)\s*$/m);
   if (temp) out.temperature = Number(temp[1]);
+  const model = fm[1].match(/^model:\s*(.+)\s*$/m);
+  if (model) out.model = model[1].trim();
+  const tools = fm[1].match(/^tools:\s*(.+)\s*$/m);
+  if (tools) out.tools = tools[1].split(",").map((t) => t.trim()).filter(Boolean);
   return out;
 }
 
@@ -264,11 +287,14 @@ export async function runTaskAgent(
   let configured = (tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model;
   const airgap = isAirgapped(config, env);
   if (airgap) configured = localizeModel(configured, config.small_model ?? "ollama-lan/qwen3.8:latest");
+  emitGlobalHook("agent.turn.start", { role, task, model: configured });
   const { client, model } = await pickClientForModel(configured, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
   const agentPerms = loadAgentPermissions(role);
   const meta = loadAgentMeta(role);
   const steps = meta.steps ?? maxSteps;
   const temperature = meta.temperature;
+  // Frontmatter model override takes precedence over config assignment
+  if (meta.model) configured = meta.model;
   const system = `${loadAgentPrompt(role)}${loadProjectMemory(ctx.cwd)}\n${TOOL_HINT}`;
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: system },
@@ -291,7 +317,10 @@ export async function runTaskAgent(
     messages.push({ role: "assistant", content: last });
 
     const tool = await execToolBlock(ctx, last, config, agentPerms, spawn);
-    if (tool.done) return { role, model: res.model, output: tool.note || last };
+    if (tool.done) {
+      emitGlobalHook("agent.turn.end", { role, model: res.model });
+      return { role, model: res.model, output: tool.note || last };
+    }
     if (tool.note) {
       messages.push({ role: "user", content: `Tool result:\n${tool.note}\nContinue. WRITE files if needed, then DONE.` });
       continue;
@@ -307,11 +336,21 @@ export async function runTaskAgent(
         body = `<!DOCTYPE html><html><head><title>Todo</title></head><body><h1>Todo</h1></body></html>`;
       }
       tools.toolWrite(ctx, name, body);
-      return { role, model: res.model, output: `Wrote ${name}\n${last}` };
+      const _r = { role, model: res.model, output: `Wrote ${name}\n${last}` };
+      emitGlobalHook("agent.turn.end", { role, model: _r.model });
+      return _r;
     }
     break;
   }
+  emitGlobalHook("agent.turn.end", { role, model: usedModel });
   return { role, model: usedModel, output: last };
+}
+
+import { SubagentTree } from "./tui/tree.ts";
+
+/** Track subagent spawns for TUI tree display. */
+export function createSubagentTracker(): SubagentTree {
+  return new SubagentTree();
 }
 
 export async function runOrchestratorTurn(

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { checkCommandFor, parseDiagnostics, formatDiagnostics, diagnoseFile } from "../src/diagnostics.ts";
+import { checkCommandFor, parseDiagnostics, formatDiagnostics, diagnoseFile, findLspServer, BUILTIN_LSP_SERVERS, hasLspServer, type LspServerConfig } from "../src/diagnostics.ts";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -40,5 +40,45 @@ describe("diagnostics", () => {
     } finally {
       rmSync(cwd, { recursive: true });
     }
+  });
+});
+
+describe("LSP server protocol", () => {
+  test("BUILTIN_LSP_SERVERS covers common languages", () => {
+    const exts = BUILTIN_LSP_SERVERS.flatMap((s) => s.extensions);
+    expect(exts).toContain("ts");
+    expect(exts).toContain("py");
+    expect(exts).toContain("go");
+    expect(exts).toContain("rs");
+  });
+
+  test("findLspServer finds TypeScript server", () => {
+    const server = findLspServer("foo.ts");
+    expect(server).not.toBeNull();
+    expect(server!.extensions).toContain("ts");
+  });
+
+  test("findLspServer finds Python server", () => {
+    const server = findLspServer("foo.py");
+    expect(server).not.toBeNull();
+    expect(server!.extensions).toContain("py");
+  });
+
+  test("findLspServer returns null for unknown extension", () => {
+    expect(findLspServer("foo.unknown")).toBeNull();
+  });
+
+  test("findLspServer with custom servers", () => {
+    const custom: LspServerConfig[] = [
+      { command: "my-lsp", extensions: ["xyz"] },
+    ];
+    expect(findLspServer("file.xyz", custom)).not.toBeNull();
+    expect(findLspServer("file.ts", custom)).toBeNull();
+  });
+
+  test("hasLspServer returns boolean for known types", () => {
+    // Just verify it doesn't throw
+    const result = hasLspServer("foo.ts");
+    expect(typeof result).toBe("boolean");
   });
 });

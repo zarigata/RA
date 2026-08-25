@@ -27,8 +27,9 @@ export interface EvalResult {
   cost: number;
 }
 
-/** A small, deterministic set of real coding tasks. */
+/** A comprehensive set of real coding tasks covering multiple languages and patterns. */
 export const EVAL_TASKS: EvalTask[] = [
+  // --- Python basics ---
   {
     name: "hello-function",
     prompt: "Write a Python function hello() that prints 'Hello, World!' and call it under __main__.",
@@ -46,11 +47,178 @@ export const EVAL_TASKS: EvalTask[] = [
     },
   },
   {
+    name: "factorial",
+    prompt: "Write a Python function factorial(n) that returns n! using recursion. Save in math_utils.py.",
+    verify: (cwd) => {
+      const p = join(cwd, "math_utils.py");
+      return existsSync(p) && /def factorial\(/.test(readFileSync(p, "utf-8"));
+    },
+  },
+  {
+    name: "fibonacci",
+    prompt: "Write a Python function fibonacci(n) that returns the n-th Fibonacci number. Save in fib.py.",
+    verify: (cwd) => {
+      const p = join(cwd, "fib.py");
+      return existsSync(p) && /def fibonacci\(/.test(readFileSync(p, "utf-8"));
+    },
+  },
+  {
+    name: "reverse-string",
+    prompt: "Write a Python function reverse_string(s) that returns the reversed string. Save in strings.py.",
+    verify: (cwd) => {
+      const p = join(cwd, "strings.py");
+      return existsSync(p) && /def reverse_string\(/.test(readFileSync(p, "utf-8"));
+    },
+  },
+  {
+    name: "palindrome",
+    prompt: "Write a Python function is_palindrome(s) that returns True if s reads the same forwards and backwards. Save in strings.py.",
+    verify: (cwd) => {
+      const p = join(cwd, "strings.py");
+      if (!existsSync(p)) return false;
+      const txt = readFileSync(p, "utf-8");
+      return /def is_palindrome\(/.test(txt);
+    },
+  },
+  {
+    name: "list-max",
+    prompt: "Write a Python function find_max(lst) that returns the maximum value in a list without using max(). Save in list_ops.py.",
+    verify: (cwd) => {
+      const p = join(cwd, "list_ops.py");
+      return existsSync(p) && /def find_max\(/.test(readFileSync(p, "utf-8"));
+    },
+  },
+  {
+    name: "count-vowels",
+    prompt: "Write a Python function count_vowels(s) that returns the number of vowels (a,e,i,o,u) in a string. Save in strings.py.",
+    verify: (cwd) => {
+      const p = join(cwd, "strings.py");
+      if (!existsSync(p)) return false;
+      return /def count_vowels\(/.test(readFileSync(p, "utf-8"));
+    },
+  },
+  // --- HTML/CSS ---
+  {
     name: "html-page",
     prompt: "Create an index.html page with a <h1>Hello</h1> heading.",
     verify: (cwd) => {
       const p = join(cwd, "index.html");
       return existsSync(p) && /<h1>hello<\/h1>/i.test(readFileSync(p, "utf-8"));
+    },
+  },
+  {
+    name: "html-form",
+    prompt: "Create an index.html with a form containing a text input and a submit button.",
+    verify: (cwd) => {
+      const p = join(cwd, "index.html");
+      if (!existsSync(p)) return false;
+      const txt = readFileSync(p, "utf-8");
+      return /<form/i.test(txt) && /<input/i.test(txt) && /submit/i.test(txt);
+    },
+  },
+  {
+    name: "css-styled-box",
+    prompt: "Create a box.html file with a div that has inline style background-color red and dimensions 200x200.",
+    verify: (cwd) => {
+      const p = join(cwd, "box.html");
+      if (!existsSync(p)) return false;
+      const txt = readFileSync(p, "utf-8");
+      return /<div/i.test(txt) && /red/i.test(txt) && /200/i.test(txt);
+    },
+  },
+  // --- JavaScript ---
+  {
+    name: "js-hello",
+    prompt: "Write a JavaScript function hello() that returns 'Hello, World!'. Save in hello.js.",
+    verify: (cwd) => {
+      const p = join(cwd, "hello.js");
+      return existsSync(p) && /function hello\(/.test(readFileSync(p, "utf-8"));
+    },
+  },
+  {
+    name: "js-array-sum",
+    prompt: "Write a JavaScript function sumArray(arr) that returns the sum of all elements. Save in arrays.js.",
+    verify: (cwd) => {
+      const p = join(cwd, "arrays.js");
+      return existsSync(p) && /function sumArray\(/.test(readFileSync(p, "utf-8"));
+    },
+  },
+  {
+    name: "js-filter-even",
+    prompt: "Write a JavaScript function filterEven(arr) that returns only even numbers from the array. Save in arrays.js.",
+    verify: (cwd) => {
+      const p = join(cwd, "arrays.js");
+      if (!existsSync(p)) return false;
+      return /function filterEven\(/.test(readFileSync(p, "utf-8"));
+    },
+  },
+  // --- TypeScript ---
+  {
+    name: "ts-interface",
+    prompt: "Write a TypeScript file types.ts defining an interface User with properties: id (number), name (string), email (string).",
+    verify: (cwd) => {
+      const p = join(cwd, "types.ts");
+      if (!existsSync(p)) return false;
+      const txt = readFileSync(p, "utf-8");
+      return /interface User/i.test(txt) && /id.*number/i.test(txt) && /name.*string/i.test(txt);
+    },
+  },
+  // --- Bug fix tasks ---
+  {
+    name: "fix-missing-print",
+    prompt: "The file hello.py contains a function hello() but it doesn't print anything. Fix it so it prints 'Hello, World!'.",
+    verify: (cwd) => {
+      const p = join(cwd, "hello.py");
+      if (!existsSync(p)) return false;
+      return /print.*hello/i.test(readFileSync(p, "utf-8"));
+    },
+  },
+  {
+    name: "fix-off-by-one",
+    prompt: "The file range.py has a function get_range(n) that returns range(0, n-1) but should return range(0, n). Fix the off-by-one bug.",
+    verify: (cwd) => {
+      const p = join(cwd, "range.py");
+      if (!existsSync(p)) return false;
+      return /range\(0,\s*n\)/.test(readFileSync(p, "utf-8"));
+    },
+  },
+  // --- File I/O ---
+  {
+    name: "write-readme",
+    prompt: "Create a README.md file with the title '# My Project' and a short description.",
+    verify: (cwd) => {
+      const p = join(cwd, "README.md");
+      return existsSync(p) && /^#\s+My Project/i.test(readFileSync(p, "utf-8"));
+    },
+  },
+  // --- JSON ---
+  {
+    name: "json-config",
+    prompt: "Create a config.json file with a JSON object containing 'name' and 'version' keys.",
+    verify: (cwd) => {
+      const p = join(cwd, "config.json");
+      if (!existsSync(p)) return false;
+      try {
+        const obj = JSON.parse(readFileSync(p, "utf-8"));
+        return typeof obj === "object" && "name" in obj && "version" in obj;
+      } catch { return false; }
+    },
+  },
+  // --- Algorithm ---
+  {
+    name: "bubble-sort",
+    prompt: "Write a Python function bubble_sort(arr) that sorts a list in ascending order using bubble sort. Save in sort.py.",
+    verify: (cwd) => {
+      const p = join(cwd, "sort.py");
+      return existsSync(p) && /def bubble_sort\(/.test(readFileSync(p, "utf-8"));
+    },
+  },
+  {
+    name: "binary-search",
+    prompt: "Write a Python function binary_search(arr, target) that returns the index of target or -1. Save in search.py.",
+    verify: (cwd) => {
+      const p = join(cwd, "search.py");
+      return existsSync(p) && /def binary_search\(/.test(readFileSync(p, "utf-8"));
     },
   },
 ];

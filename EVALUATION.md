@@ -295,13 +295,27 @@ project, don't bolt it on.
 
 ## 9. Changes made in this audit (Cycle 43)
 
-- Security: key leak fixed (file + history purge + test fixture swap).
+- Security: key leak fixed (file + full history purge + test fixture swap).
+  **Still requires: key rotation at ollama.com.**
 - Hygiene: 122 MB dead `node_modules` removed; stale 2026-08-15 docs archived;
   `INDEX.md` regenerated; `.zcode/` ignored.
 - Baseline: Cycle-42 WIP committed in 4 thematic commits (was 24 dirty files).
-- This document + live-test evidence (PTY logs, endpoint measurements).
-- Quick-win code fixes: see STATUS.md Cycle 43 entry for the applied subset of
-  §8 P0/P2 items.
+- This document + live-test evidence (PTY logs, endpoint measurements,
+  Terminal.app screenshot).
+- **Wiring fixes landed and verified live**: W1 (model override now applied
+  before client pick), W2+W3 (MCP tools connected, advertised in a dynamic
+  `buildToolHint` that also honors `tools:` whitelists, new `MCP` grammar
+  verb), W4 (nested bash permission maps parse + glob-rule enforcement),
+  W5 (subagent tree tracked and rendered — verified in a live session),
+  W10 (Ctrl+C keeps the TUI alive — reproduced before, verified after),
+  W11 (cost display annotates subscription-covered cloud models).
+- Config hygiene: legacy `anubis.json` aligned with `.251` reality; CI
+  localhost fallback documented.
+- Tests: +9 unit tests (161 ra now); full gate re-run green (330 total).
+- **Still on the roadmap** (not fixed this pass): W6 (LSP into DIAGNOSE),
+  W7 (hardcoded demo fallbacks), W8 (verb-regex routing), W9 (loop-level
+  retry), streaming, keep-alive/warm-up, mouse/alt-screen TUI, context
+  compaction — see §8.
 
 *Evaluator: GLM-5.3 (built-in to ZCode), edge session on this Mac, 2026-08-25.
 All live probes ran against the real `.251` LAN server and Ollama Cloud.*

@@ -5,21 +5,22 @@
 
 ## Current Cycle
 
-**Cycle 42 — Final cleanup and hardening.** Plan: wire global hooks to PluginHost, fix LspClient error handling, wire getActiveSession to TUI, add createSubagentTracker test, update gate to include new test files. Files: `ra/src/tui/app.ts`, `ra/src/diagnostics.ts`, `ra/tests/tree.test.ts`, `anubis/test.sh`.
+**Cycle 43 — Full system audit + wiring fixes.** Independent evaluation (see `EVALUATION.md`): endpoint health measured live, TUI driven through a real PTY, wiring bugs fixed (inert model override, MCP unwired, nested perms unparsed, dead subagent tree, Ctrl+C exit, $0 cost display). Security: leaked API key purged from git history — **rotate the key at ollama.com**. 122 MB dead node_modules removed; stale docs archived.
 
 ## Last Cycle Result
 
-**Cycle 42 — Cleanup complete.** Global agent hooks bridged to PluginHost. LspClient error handling for missing binaries. Active session pointer wired to TUI startup. Gate script updated with 3 new test files. All 321 tests pass (169 anubis + 152 ra). Full gate green. Build clean.
+**Cycle 43 — Audit complete, quick wins landed.** All 6 P0 wiring fixes verified live (Ctrl+C survival, /tree population, subscription cost annotation, nested permission parsing, dynamic TOOL_HINT with MCP advertising, frontmatter model override). Unit suites: 169 anubis + 161 ra pass (9 new tests). Full gate re-run green. Cycle 42 — cleanup complete, 321 tests, gate green.
 
 ## Smoke-Test Table
 
 | Date | Model | Host | Task | Latency | Pass/Fail | Notes |
 |------|-------|------|------|---------|-----------|-------|
-| 2026-08-22 | glm-5.2 | @cloud (Ollama Cloud) | fix-bug hello.py | ~1.8s/stage | ✅ PASS | full-dev pipeline thoth→ptah |
-| 2026-08-22 | qwen3.8:latest | @251 (LAN) | fix-bug hello.py (plan) | — | ✅ PASS | thoth plan stage |
-| 2026-08-22 | qwen3.8:latest | @251 (LAN) | chat completion | 28.6s | ✅ PASS | integration test |
+| 2026-08-25 | qwen3.8:latest | @251 (LAN) | "reply OK" (warm) | 2.2s | ✅ PASS | eval 1.45s (~24 tok/s); cold load 54s |
+| 2026-08-25 | glm-5.2 | @cloud | "reply OK" | 0.97s | ✅ PASS | thinking model — token-capped calls return empty content |
+| 2026-08-25 | gemma:latest | @local | "reply OK" | 26s cold / 1.1s eval | ✅ PASS | local ollama also proxies glm-5.2:cloud (2.5s) |
+| 2026-08-25 | qwen3.8 → glm-5.2 | @251 + @cloud | TUI live: hello.py via ptah | ~60s (cold) | ✅ PASS | PTY-driven session; correct file written |
+| 2026-08-25 | qwen3.8 | @251 | TUI live: chat "2+2" | ~5s | ✅ PASS | correct answer via small-model single-shot |
 | 2026-08-22 | glm-5.2 + qwen3.8 | @cloud + @251 | hello-world CLI (full-dev) | 39.2s | ✅ PASS | wrote hello.py, ran → "Hello, World!" |
-| 2026-08-22 | qwen3.8:latest | @251 (LAN) | list+summarize (reduced probe) | ~2s | ✅ PASS | correct file/purpose table |
 | 2026-08-22 | gemma:latest + glm-5.2 | @local + @cloud | hello-world CLI (fallback chain) | 16.9s | ✅ PASS | .251 down → thoth fell back to gemma@local, ptah used glm-5.2@cloud |
 
 ## Eval Harness Results (2026-08-23)
@@ -39,15 +40,15 @@ single pass — a genuine model-capability limit, not a code regression.
 
 | Model | Host | Role | Capability | Limits |
 |-------|------|------|------------|--------|
-| qwen3.8:latest | @251 LAN | thoth (plan), small | Plan, chat, code-gen | Local 8B — use for plan/meta, not heavy code |
+| qwen3.8:latest | @251 LAN | thoth (plan), small | Plan, chat, code-gen | 27B Q4_K_M, 262k ctx, tools/thinking/vision — good for plan/meta, not heavy code |
 | gemma:latest | @local fallback | maat/sekhmet/seshat/horus | Review, docs, fast tasks | Weakest — reduced probes only |
 | glm-5.2 | @cloud (Ollama Cloud) | ptah (code), BIG | Full code-gen | Requires `OLLAMA_API_KEY` |
 
 ## Known Capability Limits
 
 - **gemma (localhost)** — too weak for full code tasks; use for review/docs/reduced probes only. When `.251` is down and gemma is used for the code stage, it occasionally generates a `hello.py` that runs but doesn't print "hello", causing the `--verify` step to fail transiently. This is a model-quality flake, not a code regression (re-runs pass).
-- **qwen3.8 (.251)** — good for planning and moderate code; heavy implementation routed to cloud glm-5.2.
-- **No daemon** — sessions persist to disk but there is no background server yet (P1 gap).
+- **qwen3.8 (.251)** — good for planning and moderate code; heavy implementation routed to cloud glm-5.2. Cold model load is ~55s after idle (nothing sets `keep_alive` yet — see EVALUATION.md §2).
+- **Thinking models** — qwen3.8 and glm-5.2 return empty content when token-capped (reasoning consumes the budget); never cap tokens on these models.
 
 ## Environment
 

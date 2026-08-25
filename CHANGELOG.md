@@ -4,6 +4,28 @@ All notable user-facing changes to RA, grouped by version.
 
 ## [Unreleased]
 
+### Cycle 43 — audit & wiring (2026-08-25)
+
+### Fixed
+- **Security**: live `OLLAMA_API_KEY` removed from the repo and purged from all git history (was tracked in `OLLAMA.rtf` and as a fixture in `redact.test.ts`). Rotate the key at ollama.com to complete remediation.
+- Frontmatter `model:` override is now applied before client resolution — per-agent model overrides actually take effect (was silently inert).
+- Ctrl+C no longer kills the TUI: a SIGINT listener keeps readline open, matching the "Use /exit or Ctrl+D" message (reproduced and verified live).
+- Subagent tree wired end-to-end: the TUI registers a tracker, `runTaskAgent` records root/spawn/complete events, `/tree` renders the live tree (verified live).
+- Nested `bash:` permission maps in agent frontmatter (maat, sekhmet) now parse — glob pattern rules (`"git diff*": allow`) are enforced per command, with `"*"` as the default level.
+- Cost display: subscription-covered Ollama Cloud models show `subscription` instead of a misleading `$0.000000`; LAN/local models remain free.
+
+### Added
+- MCP tools are now wired into the agent loop: configured servers are connected once (module-cached), their tools are advertised in the tool hint, and a new `MCP <server.tool> <json>` grammar verb executes them (permission-gated).
+- `buildToolHint(allowed?, mcpTools?)` — the tool grammar now honors the frontmatter `tools:` whitelist and appends available MCP tools.
+- `getMcpRuntime`/`setActiveSubagentTracker`/`getActiveSubagentTracker`/`loadAgentPermissionDetail`/`resolveBashLevel` exports; 9 new unit tests covering all of the above.
+
+### Changed
+- Legacy `anubis/anubis.json` fallback config aligned with reality: small = `qwen3.8:latest` @ .251 (was `qwen3:8b`, which isn't served), review roles moved off localhost gemma.
+- 122 MB of dead `node_modules` removed (`.opencode/`, `anubis/.anubis/node_modules`); stale 2026-08-15 docs archived to `docs/archive/`; `INDEX.md` regenerated; `EVALUATION.md` added (full system audit + roadmap).
+- CI `/ra` workflow documents the intentional localhost probe fallback (cloud-only job).
+
+## [Cycle 42]
+
 ### Added
 - MCP OAuth 2.1 support: `McpOAuthManager` handles PKCE flow (code verifier/challenge generation, authorization URL building, token exchange). `McpHttpServerConfig` now accepts an `oauth` field. Bearer tokens resolved from env vars or manual flow.
 - Full LSP server protocol: `LspClient` class connects to language servers via JSON-RPC over stdio with Content-Length framing. `findLspServer` + `BUILTIN_LSP_SERVERS` for TypeScript, Python, Go, Rust. Supports `initialize`, `textDocument/didOpen`, `textDocument/diagnostic` (pull mode).

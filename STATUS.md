@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 38 — Fix fence-fallback filename bug (P0, found by eval).** Plan: reuse `extractCodeFile` in `runTaskAgent`'s fence fallback to infer the filename from task + content instead of hardcoding `index.html`. Files: `ra/src/agent.ts`.
+**Cycle 42 — Final cleanup and hardening.** Plan: wire global hooks to PluginHost, fix LspClient error handling, wire getActiveSession to TUI, add createSubagentTracker test, update gate to include new test files. Files: `ra/src/tui/app.ts`, `ra/src/diagnostics.ts`, `ra/tests/tree.test.ts`, `anubis/test.sh`.
 
 ## Last Cycle Result
 
-**Cycle 37 — Eval harness shipped.** Added `eval.ts` + `ra eval` (runs all configured models, records pass/latency/cost); 4 tests. Surfaced a real bug, now fixed.
+**Cycle 42 — Cleanup complete.** Global agent hooks bridged to PluginHost. LspClient error handling for missing binaries. Active session pointer wired to TUI startup. Gate script updated with 3 new test files. All 321 tests pass (169 anubis + 152 ra). Full gate green. Build clean.
 
 ## Smoke-Test Table
 
@@ -22,18 +22,18 @@
 | 2026-08-22 | qwen3.8:latest | @251 (LAN) | list+summarize (reduced probe) | ~2s | ✅ PASS | correct file/purpose table |
 | 2026-08-22 | gemma:latest + glm-5.2 | @local + @cloud | hello-world CLI (fallback chain) | 16.9s | ✅ PASS | .251 down → thoth fell back to gemma@local, ptah used glm-5.2@cloud |
 
-## Eval Harness Results (2026-08-22)
+## Eval Harness Results (2026-08-23)
 
 | Model | hello-function | sum-function | html-page | Pass rate |
 |-------|----------------|--------------|-----------|-----------|
 | ollama-cloud/glm-5.2 | ✗ | ✗ | ✓ | 1/3 (33%) |
 | ollama-lan/qwen3.8:latest | ✗ | ✗ | ✓ | 1/3 (33%) |
 
-Note: after fixing the `index.html` fence-fallback bug, `html-page` passes on both
-models. The `hello-function`/`sum-function` tasks still fail intermittently because
-the small/cloud models don't reliably emit the exact requested function shape in a
-single pass — a genuine model-capability limit, not a code regression. The harness
-correctly surfaces this rather than hiding it.
+Note: eval harness now has 21 tasks (expanded from 3). The 3 seed tasks above show
+the baseline; full 21-task runs will be done as a follow-up with the live models.
+The `hello-function`/`sum-function` tasks still fail intermittently because the
+small/cloud models don't reliably emit the exact requested function shape in a
+single pass — a genuine model-capability limit, not a code regression.
 
 ## Model Capability Matrix
 

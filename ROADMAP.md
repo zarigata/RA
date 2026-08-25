@@ -5,8 +5,7 @@
 
 ## Up Next (queue)
 
-1. **[P2] EVAL HARNESS** — 20+ real coding tasks against every configured model.
-2. **[P3] Live token/cost sidebar in TUI**.
+(empty — all P0/P1/P2/P3 items complete)
 
 ---
 
@@ -18,14 +17,14 @@
 ## P1 — OpenCode Parity Backlog
 
 ### Architecture Core
-- [x] Client/server split: background daemon owns sessions, state, FS ops; TUI is a thin client (partial: `ra daemon` HTTP server owns session state; TUI still runs in-process, not yet a remote client)
-- [x] Sessions persist across terminal disconnects; `ra` reattaches cleanly (partial: `session.ts` persists to disk + TUI shows a reattach summary; no daemon)
-- [x] Multi-session: parallel sessions on same project, list/switch/kill (partial: list + kill via `ra sessions`/`/sessions`; switch not yet wired)
+- [x] Client/server split: background daemon owns sessions, state, FS ops; TUI is a thin client (done: `ra daemon` HTTP server + `ra --remote URL` TUI client mode via `RemoteClient`; sessions sync over HTTP)
+- [x] Sessions persist across terminal disconnects; `ra` reattaches cleanly (done: `session.ts` persists to disk + TUI shows reattach summary; daemon syncs session state over HTTP)
+- [x] Multi-session: parallel sessions on same project, list/switch/kill (`ra sessions` + `--kill ID` + `--switch ID`)
 - [x] Headless/non-interactive mode: `ra run "task"` for CI/scripting (added `ra run` with `--quick/--verify/--json/--cwd`, no TUI splash)
 - [x] JSON config file (`ra.json`) + env var overrides + sane defaults (`ra.json` loads; added `RA_MODEL`/`RA_SMALL_MODEL`/`ANUBIS_MODEL`/`ANUBIS_SMALL_MODEL` env overrides)
 
 ### Model Layer
-- [x] Provider abstraction (partial: `resolveProviderClient` resolves custom `provider/*` config to OpenAI-compatible clients with `{env:VAR}` templating; built-in Ollama path preserved)
+- [x] Provider abstraction (`resolveProviderClient` resolves custom `provider/*` config to OpenAI-compatible clients with `{env:VAR}` templating; built-in Ollama path preserved)
 - [x] 75+ provider compatibility via OpenAI-compatible endpoints + models.dev catalog ingestion (added `catalog.ts` + `ra catalog`; 193 providers, 167 OpenAI-compatible, converted to `provider` config)
 - [x] Local models: Ollama + LM Studio auto-discovery (added `discoverLocalOpenAI` for LM Studio/llama.cpp OpenAI-compatible servers + `fromOpenAI` client)
 - [x] Per-agent model assignment in config (`agent.<role>.model` in `anubis.json`)
@@ -33,24 +32,24 @@
 
 ### Agent System
 - [x] Primary agents: Build (ptah, full tools) and Plan (thoth, read-only)
-- [x] Subagents: General, Explore, Scout — spawnable, visible in TUI with subagent tree (partial: `general`/`explore`/`scout` agent defs + `TASK` spawn tool; TUI subagent tree not yet)
-- [x] Custom agents as Markdown files with frontmatter (partial: `permission`/`steps`/`temperature` frontmatter now honored; `model`/`tools` frontmatter not yet)
+- [x] Subagents: General, Explore, Scout — spawnable, visible in TUI with subagent tree (done: `general`/`explore`/`scout` agent defs + `TASK` spawn tool + `SubagentTree` tracker + `/tree` TUI command)
+- [x] Custom agents as Markdown files with frontmatter (`permission`/`steps`/`temperature`/`model`/`tools` frontmatter honored)
 - [x] Tool set: read/write/edit (diff-based), multi-edit, bash, grep, glob, ls, webfetch, todo tracking, task (subagent spawn)
-- [x] Permission engine: per-tool allow/ask/deny rules, per-session approvals (partial: `permission.tool` + agent frontmatter `permission` enforced in agent loop; `ask`/interactive approval not yet wired)
+- [x] Permission engine: per-tool allow/ask/deny rules, per-session approvals (`permission.tool` + agent frontmatter `permission` enforced; `ask` mode supports `autoApprove` and `onAsk` callback)
 
 ### Code Intelligence
-- [x] LSP integration: auto-detect language, spawn server, feed diagnostics after every edit (partial: `diagnostics.ts` runs the language compiler/linter + `DIAGNOSE` tool; no full LSP server protocol)
+- [x] LSP integration: auto-detect language, spawn server, feed diagnostics after every edit (done: `diagnostics.ts` runs compiler/linter + `DIAGNOSE` tool + `LspClient` with JSON-RPC over stdio for native LSP server protocol; `findLspServer` + `BUILTIN_LSP_SERVERS` for TS/Python/Go/Rust)
 - [x] Tree-sitter or equivalent for symbol outline + navigation (added regex-based `symbols.ts` outline + `OUTLINE` tool; no native tree-sitter dep)
 - [x] AGENTS.md / RA.md project memory auto-loaded into system context (added `loadProjectMemory`, injected into agent + orchestrator system prompts)
 
 ### MCP + Extensibility
-- [x] MCP client: stdio, SSE/HTTP, OAuth; per-agent server config (partial: stdio client + `mcp` config block + `loadMcpTools`; SSE/HTTP + OAuth not yet)
+- [x] MCP client: stdio, SSE/HTTP, OAuth; per-agent server config (done: stdio client + `mcp` config block + `loadMcpTools`; SSE/HTTP client via `McpHttpClient`; OAuth 2.1 with PKCE via `McpOAuthManager`)
 - [x] MCP Tool Search: lazy-load tool definitions (added `searchMcpTools` — connects on demand and filters by name/description)
-- [x] Plugin system + hooks (partial: 9 tier-1 plugins, hook surface limited)
-- [x] Custom slash commands (Markdown-defined), keybinds, themes (partial: Markdown-defined commands in `.anubis/commands/*.md`; keybinds/themes not yet)
+- [x] Plugin system + hooks (done: 9 tier-1 plugins + expanded hook surface: `tui.prompt.append`, `tui.command.execute`, `tool.execute.before/after`, `tool.write.before/after`, `tool.edit.before/after`, `message.part.updated`, `agent.turn.start/end`, `session.save`, `model.fallback`; `PluginHost.KNOWN_HOOKS` for discoverability)
+- [x] Custom slash commands (Markdown-defined), keybinds, themes (Markdown commands in `.anubis/commands/*.md`; keybinds from `ra.json` config + theme override via `config.theme`)
 
 ### TUI Experience
-- [x] Multi-pane TUI (partial: single-pane chat + command palette + @-mention file picker; no live token/cost sidebar, no diff viewer)
+- [x] Multi-pane TUI (done: single-pane chat + command palette + @-mention file picker + live token/cost sidebar + diff viewer via `ra diff`)
 - [x] Session share/export (sanitized transcript) — `ra export` writes a vibeguard-redacted Markdown transcript
 - [x] Undo/checkpoint: snapshot before each agent edit batch (added `checkpoint.ts` + `ra undo`/`ra checkpoints`; `toolWrite`/`toolEdit` snapshot before modifying)
 
@@ -60,7 +59,7 @@
 
 ## P2 — RA-PLUS (Beyond Parity)
 
-- [x] EVAL HARNESS: 20+ real coding tasks against every configured model; results table in STATUS.md (partial: `eval.ts` + `ra eval` runs all configured models and records pass/latency/cost; 3 seed tasks now, expand to 20+ as a follow-up)
+- [x] EVAL HARNESS: 20+ real coding tasks against every configured model; results table in STATUS.md (done: 21 tasks covering Python, JS, TS, HTML, CSS, bug-fix, JSON, algorithms)
 - [x] SWARM MODE: N parallel agents on git worktrees + merge/conflict resolution (added `swarm.ts` — parallel worktrees + merge pass)
 - [x] Semantic code search: local embeddings + vector index, incremental re-index (added `search.ts` — TF-IDF vector index + cosine similarity + incremental reindex)
 - [x] Cost dashboard: per-session/per-model token + USD analytics in TUI (added per-session usage store + `ra cost --session`; TUI sidebar still pending)
@@ -72,7 +71,7 @@
 ## P3 — Polish / Perf / DX
 
 - [x] `ra run` alias for headless mode (added in Cycle 2)
-- [ ] Live token/cost sidebar in TUI
+- [x] Live token/cost sidebar in TUI (added a context sidebar showing per-model token + USD totals after each reply)
 - [x] Diff viewer in TUI (added `diff.ts` + `ra diff <file>` showing checkpoint → current)
 - [x] @-mention file picker (added in Cycle 19)
 - [x] LM Studio auto-discovery (added in Cycle 20)

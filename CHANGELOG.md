@@ -4,6 +4,31 @@ All notable user-facing changes to RA, grouped by version.
 
 ## [Unreleased]
 
+### Added
+- MCP OAuth 2.1 support: `McpOAuthManager` handles PKCE flow (code verifier/challenge generation, authorization URL building, token exchange). `McpHttpServerConfig` now accepts an `oauth` field. Bearer tokens resolved from env vars or manual flow.
+- Full LSP server protocol: `LspClient` class connects to language servers via JSON-RPC over stdio with Content-Length framing. `findLspServer` + `BUILTIN_LSP_SERVERS` for TypeScript, Python, Go, Rust. Supports `initialize`, `textDocument/didOpen`, `textDocument/diagnostic` (pull mode).
+- Expanded plugin hook surface: 12 hooks now available (`agent.turn.start/end`, `tool.write.before/after`, `tool.edit.before/after`, `session.save`, `model.fallback`, plus existing hooks). `PluginHost.KNOWN_HOOKS` for discoverability. `registeredHooks()` method.
+- Global hook registry in agent module (`onGlobalHook`/`emitGlobalHook`) for agent lifecycle events without requiring a PluginHost reference.
+- TUI remote client mode: `ra --remote <URL>` connects the TUI to a running `ra daemon` over HTTP. Sessions sync bidirectionally. `RA_REMOTE` env var also supported.
+- `RemoteClient` class for daemon communication (health check, load/append/list/delete sessions).
+- Subagent tree: `SubagentTree` class tracks spawned subagents with parent→child relationships, status (running/done/error), and depth. `/tree` TUI command renders the tree.
+- Session replay TUI command: `/replay list` shows the message timeline, `/replay N` jumps to step N, `/replay <keyword>` finds a step by content.
+- `/connect [URL]` TUI command to connect to a daemon from inside the TUI.
+- `createSubagentTracker()` exported from agent module for external use.
+- Active session pointer: TUI checks `getActiveSession()` on startup and switches to the active session's cwd if set (via `ra sessions --switch`).
+- LspClient error handling: throws descriptive error when LSP server binary is not found.
+- Gate script updated to include `tree.test.ts`, `remote.test.ts`, `plugins.test.ts`.
+
+### Added
+- Eval harness expanded from 3 to 21 tasks covering Python, JavaScript, TypeScript, HTML/CSS, bug-fix, JSON, and algorithm tasks.
+- Multi-session switch: `ra sessions --switch ID` switches the active session pointer (findSession, switchSession, getActiveSession added).
+- Custom agent frontmatter `model` and `tools` fields now parsed and honored (model overrides config assignment, tools restricts available tools).
+- Permission `ask` mode now supports `autoApprove` flag and `onAsk` callback for interactive approval (no longer hardcoded deny).
+- MCP HTTP/SSE client (`McpHttpClient`) for Streamable HTTP transport — connects to MCP servers via HTTP POST with SSE streaming support.
+- Keybinds support: `ra.json` `keybinds` field maps key combos (e.g. `ctrl+q`) to slash commands or actions.
+- Theme support: `ra.json` `theme` field overrides the color palette shown in the TUI splash.
+- `renderSplash` now accepts an optional theme override parameter.
+
 ### Fixed
 - `runTaskAgent`'s fenced-block fallback now infers the output filename from the task + content (via `extractCodeFile`) instead of always writing `index.html`.
 

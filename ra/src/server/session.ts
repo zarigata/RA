@@ -51,6 +51,43 @@ export function listSessions(): Session[] {
   return out.sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
 }
 
+/** Find a session by id. Returns the session or null. */
+export function findSession(id: string): Session | null {
+  const dir = join(RA_GLOBAL, "sessions");
+  if (!existsSync(dir)) return null;
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith(".json")) continue;
+    try {
+      const s = JSON.parse(readFileSync(join(dir, f), "utf-8")) as Session;
+      if (s.id === id) return s;
+    } catch {
+      /* skip corrupt session files */
+    }
+  }
+  return null;
+}
+
+/** Switch the "active" session by writing a pointer file. The TUI reads this on startup. */
+export function switchSession(id: string): Session | null {
+  const session = findSession(id);
+  if (!session) return null;
+  const pointerPath = join(RA_GLOBAL, "active-session.json");
+  writeFileSync(pointerPath, JSON.stringify({ id, cwd: session.cwd }, null, 2), "utf-8");
+  return session;
+}
+
+/** Read the active session pointer (if set). Returns the session or null. */
+export function getActiveSession(): Session | null {
+  const pointerPath = join(RA_GLOBAL, "active-session.json");
+  if (!existsSync(pointerPath)) return null;
+  try {
+    const { id } = JSON.parse(readFileSync(pointerPath, "utf-8"));
+    return findSession(id);
+  } catch {
+    return null;
+  }
+}
+
 /** Delete a session by id. Returns true if a file was removed. */
 export function deleteSession(id: string): boolean {
   const dir = join(RA_GLOBAL, "sessions");

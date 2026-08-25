@@ -73,7 +73,7 @@ Usage:
   ra status                  Snapshot: profile, last run, usage
   ra last [--json]           Show last full-dev run
   ra history [--json]        Recent full-dev runs
-  ra sessions [--kill ID]    List persisted sessions (or kill one)
+  ra sessions [--kill ID | --switch ID]  List persisted sessions (kill or switch)
   ra export [--cwd DIR] [--out FILE]  Export sanitized session transcript
   ra undo [--cwd DIR]        Restore the most recent edit checkpoint
   ra checkpoints [--cwd DIR] List pending edit checkpoints
@@ -103,12 +103,16 @@ Usage:
   ra doctor                  Health check
   ra selfcheck               Splash + ping + lanes + models (no LLM)
   ra benchmark init|smoke|run <name|all>
+  ra --remote <URL>          Connect TUI to a running daemon (or set RA_REMOTE env)
 
 Small models: 192.168.1.251 qwen3.8 (fallback: localhost gemma)
 BIG models: Ollama Cloud glm-5.2
 
 In TUI:
   /quick /again /plan /code /pipeline /help /simple on /status /files /show /result /lane /intent /prefer /summary /timings /verify /history /clear
+  /replay [list|N|keyword]   Session replay + time-travel
+  /connect [URL]             Connect to a daemon
+  /tree                      Show subagent tree
   Ctrl+P                     Command palette
   /exit                      Quit`);
   process.exit(0);
@@ -185,12 +189,25 @@ if (args[0] === "last") {
 }
 
 if (args[0] === "sessions") {
-  const { listSessions, formatSessions, deleteSession } = await import("./server/session.ts");
+  const { listSessions, formatSessions, deleteSession, switchSession, findSession } = await import("./server/session.ts");
   const killId = arg("--kill");
   if (killId) {
     const ok = deleteSession(killId);
     console.log(ok ? `RA session killed: ${killId}` : `RA session not found: ${killId}`);
     process.exit(ok ? 0 : 1);
+  }
+  const switchId = arg("--switch");
+  if (switchId) {
+    const session = switchSession(switchId);
+    if (session) {
+      console.log(`RA session switched: ${switchId}`);
+      console.log(`  cwd: ${session.cwd}`);
+      console.log(`  messages: ${session.messages.length}`);
+      process.exit(0);
+    } else {
+      console.log(`RA session not found: ${switchId}`);
+      process.exit(1);
+    }
   }
   console.log(formatSessions(listSessions()));
   process.exit(0);
@@ -226,9 +243,18 @@ if (args[0] === "ide") {
 
 if (args[0] === "daemon") {
   const { startDaemon } = await import("./server/daemon.ts");
-  const port = Number(arg("--port") ?? 4317);
-  const server = startDaemon({ port });
-  console.log(`RA daemon listening on http://127.0.0.1:${port} (pid ${process.pid})`);
+  // Internal bind. External port (e.g. 7788) is mapped at the proxy/tunnel layer.
+  const envPort = process.env.RA_DAEMON_PORT ? Number(process.env.RA_DAEMON_PORT) : NaN;
+  const port =
+    Number(arg("--port")) ||
+    (Number.isFinite(envPort) && envPort > 0 ? envPort : 8080);
+  const host = arg("--host") ?? process.env.RA_DAEMON_HOST ?? "0.0.0.0";
+  const server = startDaemon({ port, host });
+  // Print both the loopback URL (TUI clients) and the LAN URL (browser/dashboard).
+  const lanHost = host === "0.0.0.0" ? "127.0.0.1" : host;
+  console.log(`RA daemon listening on http://${lanHost}:${port} (bind ${host}, pid ${process.pid})`);
+  console.log("  Internal: http://127.0.0.1:8080");
+  console.log("  External: map 7788 → 8080 at the reverse-proxy layer (nginx/cloudflared/SSH -L)");
   console.log("  GET  /            web dashboard");
   console.log("  GET  /health");
   console.log("  GET  /sessions");
@@ -611,6 +637,7 @@ if (task) {
 }
 
 const cwd = arg("--project") ?? process.cwd();
+const remoteUrl = args.includes("--remote") ? arg("--remote") : process.env.RA_REMOTE ?? null;
 if (args.length > 0) {
   const first = args[0]!;
   if (!first.startsWith("-")) {
@@ -618,4 +645,4 @@ if (args.length > 0) {
     process.exit(1);
   }
 }
-await startTui({ cwd });
+await startTui({ cwd, remoteUrl });

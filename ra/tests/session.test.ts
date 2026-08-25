@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadSession, saveSession, appendMessage, listSessions, deleteSession, formatSessions, exportSession, formatReattach } from "../src/server/session.ts";
+import { loadSession, saveSession, appendMessage, listSessions, deleteSession, findSession, switchSession, getActiveSession, formatSessions, exportSession, formatReattach } from "../src/server/session.ts";
 import { RA_GLOBAL } from "../../anubis/src/config.ts";
 
 describe("session persistence", () => {
@@ -82,6 +82,40 @@ describe("session persistence", () => {
       expect(deleteSession(id)).toBe(false);
     } finally {
       rmSync(file, { force: true });
+    }
+  });
+
+  test("findSession + switchSession + getActiveSession", () => {
+    const dir = join(RA_GLOBAL, "sessions");
+    mkdirSync(dir, { recursive: true });
+    const id = `test-switch-${Date.now()}`;
+    const file = join(dir, `${id}.json`);
+    writeFileSync(
+      file,
+      JSON.stringify({ id, cwd: "/tmp/switch-test", messages: [{ role: "user", content: "x", ts: 1 }], simpleMode: false, created: Date.now() }),
+    );
+    const pointerFile = join(RA_GLOBAL, "active-session.json");
+    try {
+      // findSession
+      const found = findSession(id);
+      expect(found).not.toBeNull();
+      expect(found!.id).toBe(id);
+
+      // switchSession
+      const switched = switchSession(id);
+      expect(switched).not.toBeNull();
+      expect(switched!.cwd).toBe("/tmp/switch-test");
+
+      // getActiveSession
+      const active = getActiveSession();
+      expect(active).not.toBeNull();
+      expect(active!.id).toBe(id);
+
+      // findSession returns null for unknown id
+      expect(findSession("nonexistent-id-12345")).toBeNull();
+    } finally {
+      rmSync(file, { force: true });
+      rmSync(pointerFile, { force: true });
     }
   });
 });

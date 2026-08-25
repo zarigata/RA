@@ -6,10 +6,17 @@ import { loadSession, saveSession, appendMessage, listSessions, deleteSession, t
 
 export interface DaemonOptions {
   port?: number;
+  /** Bind address. Defaults to env `RA_DAEMON_HOST`, then `0.0.0.0` so the page
+   *  is reachable behind a reverse proxy (external 7788 → internal 8080). */
   host?: string;
 }
 
-const DEFAULT_PORT = 4317;
+/** Internal port the daemon binds on. External port (e.g. 7788) is mapped at the
+ *  proxy/tunnel layer (nginx, cloudflared, SSH -L, etc.). */
+const DEFAULT_PORT = 8080;
+/** Default bind host. `0.0.0.0` accepts traffic on every interface so the page
+ *  is reachable through the external→internal port mapping. */
+const DEFAULT_HOST = "0.0.0.0";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -24,8 +31,9 @@ function readBody(req: Request): Promise<Record<string, unknown>> {
 
 /** Start the daemon HTTP server. Returns the server handle. */
 export function startDaemon(opts: DaemonOptions = {}) {
-  const port = opts.port ?? DEFAULT_PORT;
-  const host = opts.host ?? "127.0.0.1";
+  const envPort = process.env.RA_DAEMON_PORT ? Number(process.env.RA_DAEMON_PORT) : NaN;
+  const port = opts.port ?? (Number.isFinite(envPort) && envPort > 0 ? envPort : DEFAULT_PORT);
+  const host = opts.host ?? process.env.RA_DAEMON_HOST ?? DEFAULT_HOST;
 
   const server = Bun.serve({
     port,

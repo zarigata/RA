@@ -6,8 +6,8 @@ import { RA_VERSION } from "./version.ts";
 export const APP_NAME = "RA";
 export const APP_TAGLINE = "Relic Agent — Mixture-of-Agents Terminal Dev";
 
-export function renderSplash(): string {
-  const palette = getPalette(DEFAULT_UI_CONFIG.palette);
+export function renderSplash(themeOverride?: string): string {
+  const palette = getPalette(themeOverride ?? DEFAULT_UI_CONFIG.palette);
   const banner = [
     `${HIEROGLYPHS.ANUBIS}  ${APP_NAME}  ${HIEROGLYPHS.ANUBIS}`,
     APP_TAGLINE,

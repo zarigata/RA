@@ -16,6 +16,11 @@ describe("RA TUI branding", () => {
     expect(renderSplash()).toContain("RA prefer small@251");
   });
 
+  test("splash accepts theme override", () => {
+    const splash = renderSplash("pharaonic");
+    expect(splash).toContain("theme: Pharaonic");
+  });
+
   test("splash shows version", async () => {
     const { RA_VERSION } = await import("../src/version.ts");
     expect(renderSplash()).toContain(RA_VERSION);

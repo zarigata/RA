@@ -1,40 +1,78 @@
 import * as readline from "node:readline";
 import { renderSplash, APP_NAME } from "../../../anubis/src/tui.ts";
+import { getPalette, DEFAULT_UI_CONFIG, type UiConfig } from "../../../anubis/src/ui.ts";
 import { loadRaConfig, ensureRaDirs, applyProjectOverride, applyEnvOverrides } from "../../../anubis/src/config.ts";
 import { ANUBIS_HOME } from "../paths.ts";
 import { loadEnv } from "../../../anubis/src/env.ts";
-import { loadSession, saveSession, appendMessage, formatReattach } from "../server/session.ts";
+import { loadSession, saveSession, appendMessage, formatReattach, getActiveSession } from "../server/session.ts";
+import { RemoteClient } from "../server/remote.ts";
+import { SubagentTree } from "./tree.ts";
 import { PluginHost } from "../plugins/host.ts";
 import { dispatchCommand, PALETTE_COMMANDS } from "../commands/index.ts";
-import { runOrchestratorTurn } from "../agent.ts";
+import { runOrchestratorTurn, onGlobalHook } from "../agent.ts";
 import { expandMentions } from "../tools/index.ts";
+import { loadUsage, buildReport, formatReport } from "../../../anubis/src/cost.ts";
 
 export interface TuiOptions {
   cwd: string;
   headless?: boolean;
+  remoteUrl?: string | null;
 }
 
 export async function startTui(opts: TuiOptions): Promise<void> {
   ensureRaDirs();
   loadEnv(ANUBIS_HOME);
   const config = applyEnvOverrides(applyProjectOverride(loadRaConfig(ANUBIS_HOME), opts.cwd));
-  const session = loadSession(opts.cwd);
+  // Check for active session pointer (set by `ra sessions --switch`)
+  const activeSession = getActiveSession();
+  if (activeSession && !opts.remoteUrl) {
+    opts.cwd = activeSession.cwd;
+  }
+  const remote = opts.remoteUrl ? new RemoteClient({ url: opts.remoteUrl }) : null;
+  const remoteOk = remote ? await remote.health() : false;
+  const session = remoteOk ? await remote.loadSession(opts.cwd) : loadSession(opts.cwd);
+  const subagentTree = new SubagentTree();
   const plugins = new PluginHost();
   await plugins.load(config.plugin ?? []);
 
+  // Bridge agent global hooks to the plugin host
+  onGlobalHook("agent.turn.start", (input) => { void plugins.emit("agent.turn.start", input, {}); });
+  onGlobalHook("agent.turn.end", (input) => { void plugins.emit("agent.turn.end", input, {}); });
+
   const ctx = { cwd: opts.cwd };
+  const costSidebar = (): string => {
+    const report = buildReport(loadUsage());
+    if (!report.length) return "";
+    const total = report.reduce((s, r) => s + r.cost, 0);
+    const tokens = report.reduce((s, r) => s + r.inputTokens + r.outputTokens, 0);
+    const top = report
+      .slice(0, 3)
+      .map((r) => `  ${r.model}: ${r.inputTokens + r.outputTokens} tok · $${r.cost.toFixed(4)}`)
+      .join("\n");
+    return `\x1b[2m╭ context ─────────────\n${top}\n  TOTAL: ${tokens} tok · $${total.toFixed(4)}\n╰─\x1b[0m`;
+  };
   const reply = (text: string) => {
-    appendMessage(session, "assistant", text);
+    if (remoteOk) {
+      void remote!.appendMessage(session, "assistant", text);
+    } else {
+      appendMessage(session, "assistant", text);
+    }
     if (!opts.headless) {
       console.log(`\n\x1b[33mRA\x1b[0m\n${text}\n`);
+      const sidebar = costSidebar();
+      if (sidebar) console.log(sidebar);
+      if (subagentTree.hasTree) {
+        console.log(`\x1b[2m${subagentTree.render()}\x1b[0m`);
+      }
     }
   };
 
   if (!opts.headless) {
     console.clear();
-    console.log(renderSplash());
+    console.log(renderSplash(config.theme));
+    const remoteTag = remoteOk ? ` · connected to ${opts.remoteUrl}` : "";
     console.log(
-      `\x1b[2mProject: ${opts.cwd} | Profile: ${config.profile ?? "default"} | Ctrl+P palette | /help\x1b[0m\n`,
+      `\x1b[2mProject: ${opts.cwd} | Profile: ${config.profile ?? "default"} | Ctrl+P palette | /help${remoteTag}\x1b[0m\n`,
     );
     if (session.messages.length === 0) {
       const { loadLastRun, formatLaneLine, formatIntentLine } = await import("../../../anubis/src/last-run.ts");
@@ -70,9 +108,13 @@ export async function startTui(opts: TuiOptions): Promise<void> {
   if (process.stdin.isTTY) {
     readline.emitKeypressEvents(process.stdin, rl);
     process.stdin.setRawMode(true);
+    // Keybinds from config (default: ctrl+p → palette)
+    const keybinds: Record<string, string> = { "ctrl+p": "palette", ...config.keybinds };
     process.stdin.on("keypress", (_str, key) => {
       if (!key) return;
-      if (key.ctrl && key.name === "p") {
+      const combo = (key.ctrl ? "ctrl+" : "") + key.name;
+      const action = keybinds[combo];
+      if (action === "palette" || (key.ctrl && key.name === "p")) {
         paletteOpen = !paletteOpen;
         if (paletteOpen) {
           console.log("\n\x1b[36m── Command Palette (type number) ──\x1b[0m");
@@ -82,6 +124,13 @@ export async function startTui(opts: TuiOptions): Promise<void> {
           rl.setPrompt(`\x1b[32m${APP_NAME}\x1b[0m › `);
         }
         rl.prompt();
+        return;
+      }
+      // Custom keybind actions: map to slash commands
+      if (action && action.startsWith("/")) {
+        queue.push(action);
+        void drain();
+        return;
       }
       if (key.ctrl && key.name === "c") {
         console.log("\nUse /exit or Ctrl+D to quit");
@@ -103,12 +152,12 @@ export async function startTui(opts: TuiOptions): Promise<void> {
         paletteOpen = false;
         rl.setPrompt(`\x1b[32m${APP_NAME}\x1b[0m › `);
         const cmd = PALETTE_COMMANDS[parseInt(input, 10) - 1];
-        if (cmd) await handleInput(cmd, config, session, plugins, ctx, reply);
+        if (cmd) await handleInput(cmd, config, session, plugins, ctx, reply, remote, remoteOk, subagentTree);
         continue;
       }
       paletteOpen = false;
       rl.setPrompt(`\x1b[32m${APP_NAME}\x1b[0m › `);
-      await handleInput(input, config, session, plugins, ctx, reply);
+      await handleInput(input, config, session, plugins, ctx, reply, remote, remoteOk, subagentTree);
     }
     busy = false;
     rl.prompt();
@@ -138,8 +187,15 @@ async function handleInput(
   plugins: PluginHost,
   ctx: { cwd: string },
   reply: (t: string) => void,
+  remote: RemoteClient | null,
+  remoteOk: boolean,
+  _subagentTree: SubagentTree,
 ): Promise<void> {
-  appendMessage(session, "user", input);
+  if (remoteOk) {
+    void remote!.appendMessage(session, "user", input);
+  } else {
+    appendMessage(session, "user", input);
+  }
 
   if (input.trim().startsWith("/")) {
     const handled = await dispatchCommand(input.trim(), { config, session, plugins, ctx, reply });

@@ -271,6 +271,60 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       c.reply(formatDiscovery(found));
       return true;
     }
+    case "replay": {
+      const { replayTimeline, replayTranscript, replayUpTo, findStep } = await import("../server/replay.ts");
+      const steps = replayTimeline(c.session);
+      if (!steps.length) { c.reply("RA replay\n(no messages in this session)"); return true; }
+      if (arg === "list" || !arg) {
+        const lines = ["RA replay", ""];
+        for (const s of steps) {
+          const preview = s.content.slice(0, 80) + (s.content.length > 80 ? "…" : "");
+          lines.push(`  ${s.index}. [${s.role}] ${preview}`);
+        }
+        c.reply(lines.join("\n"));
+        return true;
+      }
+      const n = parseInt(arg, 10);
+      if (!isNaN(n) && n >= 0 && n < steps.length) {
+        const transcript = replayTranscript(c.session, n);
+        c.reply(`RA replay (up to step ${n})\n${transcript}`);
+        return true;
+      }
+      // Try finding by keyword
+      const idx = findStep(c.session, (m) => m.content.toLowerCase().includes(arg.toLowerCase()));
+      if (idx >= 0) {
+        const transcript = replayTranscript(c.session, idx);
+        c.reply(`RA replay (found at step ${idx})\n${transcript}`);
+        return true;
+      }
+      c.reply(`RA replay\nNo step matching "${arg}" found. Use /replay list to see all steps.`);
+      return true;
+    }
+    case "connect": {
+      // Default to the local daemon on the internal port (8080). External
+      // 7788 → internal 8080 mapping happens at the proxy layer.
+      const url = arg || process.env.RA_REMOTE || "http://127.0.0.1:8080";
+      const { RemoteClient } = await import("../server/remote.ts");
+      const client = new RemoteClient({ url });
+      const ok = await client.health();
+      if (ok) {
+        c.reply(`RA connect\nConnected to daemon at ${url}`);
+      } else {
+        c.reply(`RA connect\nCannot reach daemon at ${url}. Is 'ra daemon' running on 8080?`);
+      }
+      return true;
+    }
+    case "tree": {
+      const { SubagentTree } = await import("../tui/tree.ts");
+      // The tree is stored on the session object as a transient property
+      const tree = (c.session as Session & { _subagentTree?: SubagentTree })._subagentTree;
+      if (!tree || !tree.hasTree) {
+        c.reply("RA tree\n(no subagents spawned in this session)");
+        return true;
+      }
+      c.reply(tree.render());
+      return true;
+    }
     case "models": {
       const { formatRaModels } = await import("../../../anubis/src/models-list.ts");
       const env = loadEnv(ANUBIS_HOME);
@@ -382,4 +436,5 @@ export const PALETTE_COMMANDS = [
   "/help", "/plan", "/code", "/quick", "/again", "/review", "/moa", "/pipeline",
   "/roles", "/models", "/cost", "/status", "/files", "/show", "/result", "/lane", "/intent", "/prefer", "/summary", "/timings", "/verify", "/history", "/ls", "/doctor", "/selfcheck", "/lanes", "/home", "/which", "/clear", "/lan-scan",
   "/simple on", "/simple off", "/palette",
+  "/replay list", "/connect", "/tree",
 ];

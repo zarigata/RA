@@ -54,8 +54,9 @@ ra daemon          # session server (:8080); TUI attaches via --remote URL
 ## Docs map
 
 - `README.md` — front door, install
+- `PLAN.md` — **RA 2.0 master plan** (phases 0–4 from the 2026-08-25 competitive audit)
 - `STATUS.md` — per-cycle log + smoke results (source of truth for state)
-- `ROADMAP.md` — P0–P3 backlog
+- `ROADMAP.md` — legacy P0–P3 backlog (superseded by PLAN.md)
 - `CHANGELOG.md` — feature log
 - `DECISIONS.md` — ADRs D-001…D-030
 - `ANUBIS-SPEC.md`, `BUILD/` — original build spec (historical)

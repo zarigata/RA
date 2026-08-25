@@ -15,31 +15,51 @@ import { ANUBIS_HOME } from "../paths.ts";
 import { listDir } from "../tools/index.ts";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
 
 export interface CustomCommand {
   name: string;
   description: string;
   prompt: string;
+  /** Role that runs the command (default: anubis). */
+  agent?: string;
 }
 
 const CUSTOM_COMMANDS_DIR = join(ANUBIS_HOME, ".anubis", "commands");
 
+/** Search order for custom commands: project, user, legacy repo dir. */
+export function customCommandDirs(cwd?: string): string[] {
+  return [
+    join(cwd ?? process.cwd(), ".ra", "commands"),
+    join(homedir(), ".ra", "commands"),
+    CUSTOM_COMMANDS_DIR,
+  ];
+}
+
 /** Load custom slash commands from Markdown files with frontmatter. */
-export function loadCustomCommands(dir = CUSTOM_COMMANDS_DIR): CustomCommand[] {
-  if (!existsSync(dir)) return [];
+export function loadCustomCommands(dirs: string | string[] = customCommandDirs()): CustomCommand[] {
+  const list = Array.isArray(dirs) ? dirs : [dirs];
   const out: CustomCommand[] = [];
-  for (const f of readdirSync(dir)) {
-    if (!f.endsWith(".md")) continue;
-    try {
-      const raw = readFileSync(join(dir, f), "utf-8");
-      const fm = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-      if (!fm) continue;
-      const name = fm[1].match(/^name:\s*(.+)$/m)?.[1]?.trim();
-      const description = fm[1].match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
-      const prompt = fm[2].trim();
-      if (name && prompt) out.push({ name, description, prompt });
-    } catch {
-      /* skip malformed command file */
+  const seen = new Set<string>();
+  for (const dir of list) {
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith(".md")) continue;
+      try {
+        const raw = readFileSync(join(dir, f), "utf-8");
+        const fm = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+        if (!fm) continue;
+        const name = fm[1].match(/^name:\s*(.+)$/m)?.[1]?.trim();
+        const description = fm[1].match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
+        const agent = fm[1].match(/^agent:\s*(.+)$/m)?.[1]?.trim();
+        const prompt = fm[2].trim();
+        if (name && prompt && !seen.has(name)) {
+          seen.add(name);
+          out.push({ name, description, prompt, agent });
+        }
+      } catch {
+        /* skip malformed command file */
+      }
     }
   }
   return out;
@@ -327,6 +347,15 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       c.reply(tree.render());
       return true;
     }
+    case "todos": {
+      const { listTodos, formatTodos, toolTodo } = await import("../tools/index.ts");
+      if (/^(done|rm)\s+\d+/.test(arg)) {
+        c.reply(`RA todos\n${toolTodo(c.ctx, arg)}`);
+        return true;
+      }
+      c.reply(`RA todos\n${formatTodos(listTodos(c.ctx))}\n\n/todos done <id> to complete · the agent manages items via TODO add/done`);
+      return true;
+    }
     case "models": {
       const { formatRaModels } = await import("../../../anubis/src/models-list.ts");
       const env = loadEnv(ANUBIS_HOME);
@@ -382,10 +411,21 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       return runFullDev(arg, c.config.pipeline?.stages ?? DEFAULT_PIPELINE_STAGES, c);
     default: {
       // Custom slash commands (Markdown-defined)
-      const custom = loadCustomCommands().find((cc) => cc.name === slashCmd);
+      const custom = loadCustomCommands(customCommandDirs(c.ctx.cwd)).find((cc) => cc.name === slashCmd);
       if (custom) {
         const env = loadEnv(ANUBIS_HOME);
-        const result = await runTaskAgent("anubis", `${custom.prompt}\n\nUser input: ${arg || "(none)"}`, c.config, c.ctx, env);
+        // $ARGUMENTS / $1..$N substitution from the user's input.
+        let prompt = custom.prompt;
+        const hasPlaceholders = /\$ARGUMENTS|\$\d/.test(prompt);
+        if (hasPlaceholders) {
+          const words = arg.split(/\s+/).filter(Boolean);
+          prompt = prompt
+            .replace(/\$ARGUMENTS/g, arg)
+            .replace(/\$(\d+)/g, (_, n) => words[Number(n) - 1] ?? "");
+        } else if (arg) {
+          prompt += `\n\nUser input: ${arg}`;
+        }
+        const result = await runTaskAgent(custom.agent ?? "anubis", prompt, c.config, c.ctx, env);
         c.reply(`## ${custom.name}\n${result.output}`);
         return true;
       }
@@ -429,14 +469,21 @@ async function runMoa(task: string, c: CommandContext): Promise<boolean> {
   const env = loadEnv(ANUBIS_HOME);
   c.reply(`MOA parallel: ${roles.join(", ")}`);
   const results = await Promise.all(roles.map((r) => runTaskAgent(r, task, c.config, c.ctx, env)));
-  const agg = buildAggregatePrompt(task, results.map((r) => ({ role: r.role, model: r.model, output: r.output })));
-  c.reply(agg);
+  // Synthesize via the small model (Phase 0.6); fall back to the raw
+  // aggregation prompt only if synthesis itself fails.
+  try {
+    const { aggregateMoa } = await import("../agent.ts");
+    c.reply(await aggregateMoa(task, results, c.config));
+  } catch (e) {
+    const agg = buildAggregatePrompt(task, results.map((r) => ({ role: r.role, model: r.model, output: r.output })));
+    c.reply(`${agg}\n\n(aggregation model unavailable: ${String(e)})`);
+  }
   return true;
 }
 
 export const PALETTE_COMMANDS = [
   "/help", "/plan", "/code", "/quick", "/again", "/review", "/moa", "/pipeline",
-  "/roles", "/models", "/cost", "/status", "/files", "/show", "/result", "/lane", "/intent", "/prefer", "/summary", "/timings", "/verify", "/history", "/ls", "/doctor", "/selfcheck", "/lanes", "/home", "/which", "/clear", "/lan-scan",
+  "/roles", "/models", "/cost", "/status", "/files", "/show", "/result", "/lane", "/intent", "/prefer", "/summary", "/timings", "/verify", "/history", "/ls", "/doctor", "/selfcheck", "/lanes", "/home", "/which", "/clear", "/lan-scan", "/todos",
   "/simple on", "/simple off", "/palette",
   "/replay list", "/connect", "/tree",
 ];

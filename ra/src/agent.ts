@@ -13,6 +13,7 @@ import { canRunTool } from "./permission.ts";
 import { isAirgapped, localizeModel } from "./airgap.ts";
 import { loadMcpTools, McpClient, McpHttpClient, isHttpConfig } from "./mcp.ts";
 import type { McpServerEntry, McpTool } from "./mcp.ts";
+import { pickOllamaEndpoint, pickModel } from "../../anubis/src/ollama.ts";
 
 /** Global hook registry — allows agent code to emit events without a PluginHost reference. */
 type GlobalHookFn = (input: Record<string, unknown>) => void;
@@ -434,6 +435,49 @@ export async function getMcpRuntime(config: RaConfig): Promise<McpRuntime> {
   return mcpRuntime;
 }
 
+// ---- Streaming + interruption plumbing ----
+
+let activeStreamRenderer: ((token: string) => void) | null = null;
+let activeAbort: AbortController | null = null;
+
+/** Install a token renderer (the TUI prints tokens as they arrive). */
+export function setActiveStreamRenderer(fn: ((token: string) => void) | null): void {
+  activeStreamRenderer = fn;
+}
+
+/** Abort the in-flight model turn (Phase 1 wires this to Esc). */
+export function abortActiveTurn(): boolean {
+  if (activeAbort) {
+    activeAbort.abort();
+    return true;
+  }
+  return false;
+}
+
+/** Transient failures worth one automatic retry (timeouts, resets, 5xx). */
+export function isTransientError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return (
+    /timeout/i.test(msg) ||
+    /econnreset|econnrefused|socket hang up/i.test(msg) ||
+    /\b(?:50[0234])\b/.test(msg) ||
+    /fetch failed/i.test(msg)
+  );
+}
+
+/** One retry with backoff on transient errors; permanent errors pass through. */
+export async function withRetry<T>(fn: () => Promise<T>, retries = 1, delayMs = 600): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (retries > 0 && isTransientError(e)) {
+      await new Promise((r) => setTimeout(r, delayMs));
+      return withRetry(fn, retries - 1, delayMs * 2);
+    }
+    throw e;
+  }
+}
+
 // ---- Subagent tracking (display-only; set by the TUI, read by /tree) ----
 
 let activeTracker: SubagentTree | null = null;
@@ -514,7 +558,21 @@ export async function runTaskAgent(
     }
   };
   for (let i = 0; i < steps; i++) {
-    const res = await client.nativeChat(usedModel, messages, { temperature });
+    // Stream only at the root turn — subagent/parallel outputs would interleave.
+    const renderer = activeStreamRenderer && agentNesting === 1 ? activeStreamRenderer : undefined;
+    const keepAlive = env.OLLAMA_KEEP_ALIVE ?? "30m";
+    activeAbort = new AbortController();
+    const signal = activeAbort;
+    const chat = () =>
+      renderer
+        ? client.nativeChatStream(usedModel, messages, { temperature, keepAlive, signal: signal.signal, onToken: renderer })
+        : client.nativeChat(usedModel, messages, { temperature, keepAlive });
+    let res: Awaited<ReturnType<typeof client.nativeChat>>;
+    try {
+      res = await withRetry(chat);
+    } finally {
+      if (activeAbort === signal) activeAbort = null;
+    }
     usedModel = res.model;
     last = res.content;
     const inChars = messages.reduce((n, m) => n + m.content.length, 0);
@@ -624,4 +682,71 @@ export async function runOrchestratorTurn(
     out: res.content.length,
   }, ctx.cwd);
   return res.content;
+}
+
+// ---- MoA aggregation (Phase 0.6) ----
+
+export interface MoAResult {
+  role: string;
+  model: string;
+  output: string;
+}
+
+const FILE_RE = /(?:[\w.-]+\/)*[\w.-]+\.(?:ts|tsx|js|jsx|py|go|rs|md|json|html|css|ya?ml)\b/g;
+
+/**
+ * Heuristic disagreement detection across role outputs: conflicting file
+ * targets, or some roles erroring while others succeed. Pure — unit-tested.
+ */
+export function surfaceDisagreements(results: MoAResult[]): string[] {
+  const notes: string[] = [];
+  const fileSets = results.map((r) => ({
+    role: r.role,
+    files: [...new Set((r.output.match(FILE_RE) ?? []).map((f) => f.replace(/^\.\//, "")))],
+    errored: /\b(error|failed|cannot|unable)\b/i.test(r.output),
+  }));
+  const allFiles = new Set(fileSets.flatMap((f) => f.files));
+  const contested = [...allFiles].filter((file) => {
+    const touchers = fileSets.filter((f) => f.files.includes(file)).map((f) => f.role);
+    return touchers.length > 0 && touchers.length < results.length && results.length > 1;
+  });
+  for (const file of contested.slice(0, 5)) {
+    const touchers = fileSets.filter((f) => f.files.includes(file)).map((f) => f.role);
+    notes.push(`${file}: only ${touchers.join(", ")} considered it`);
+  }
+  const errored = fileSets.filter((f) => f.errored).map((f) => f.role);
+  const ok = fileSets.filter((f) => !f.errored).map((f) => f.role);
+  if (errored.length && ok.length) {
+    notes.push(`${errored.join(", ")} reported failures while ${ok.join(", ")} succeeded`);
+  }
+  return notes;
+}
+
+/** Synthesize MOA role outputs into one answer via the small model. */
+export async function aggregateMoa(task: string, results: MoAResult[], config: RaConfig): Promise<string> {
+  const env = loadEnv(ANUBIS_HOME);
+  const client = await pickOllamaEndpoint(env);
+  const model = pickModel(config.small_model ?? config.model, client.availableModels);
+  const { buildAggregatePrompt } = await import("../../anubis/src/aggregator.ts");
+  const prompt = buildAggregatePrompt(
+    task,
+    results.map((r) => ({ role: r.role, model: r.model, output: r.output })),
+  );
+  const res = await client.nativeChat(model, [
+    {
+      role: "system",
+      content:
+        "You are the RA Mixture-of-Agents aggregator. Merge the role outputs into one coherent, correct answer to the task. Resolve conflicts by preferring the most defensible output. Be concise; do not mention the aggregation process.",
+    },
+    { role: "user", content: prompt },
+  ]);
+  recordChatUsage(res.model, client.kind === "cloud", res.usage, {
+    in: prompt.length,
+    out: res.content.length,
+  });
+  const disagreements = surfaceDisagreements(results);
+  const notes = disagreements.length
+    ? `\n\nDisagreements:\n${disagreements.map((d) => `- ${d}`).join("\n")}`
+    : "";
+  return `## MoA synthesis (${res.model})\n${res.content}${notes}`;
 }

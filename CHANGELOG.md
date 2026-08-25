@@ -4,6 +4,19 @@ All notable user-facing changes to RA, grouped by version.
 
 ## [Unreleased]
 
+### Cycle 44 — RA 2.0 Phase 0: trustworthy engine
+
+### Added
+- **Streaming** — tokens render live as models generate them (`nativeChatStream`: native Ollama NDJSON + cloud/OpenAI SSE, pure parsers unit-tested). Subagent/parallel turns stream only at the root to avoid interleaving. The TUI suppresses the duplicated final body when it already streamed. Verified live: 61 progressive reads per turn.
+- **Latency hygiene** — `keep_alive` (default 30m, `OLLAMA_KEEP_ALIVE` override) on every native call; `ra warm [--model]` pre-loads the small model on `.251`; TUI fires a background warm-up on start. Kills the ~55s cold-load surprise.
+- **MoA aggregation, real** — `/moa` now synthesizes role outputs through the small model and surfaces disagreements (conflicting file targets, mixed success/failure) instead of printing the raw aggregation prompt.
+- **Custom commands, fixed** — loaded from project `.ra/commands/*.md` + `~/.ra/commands/*.md` (legacy repo dir still honored); `$ARGUMENTS` and `$1..$N` substitution; `agent:` frontmatter picks the executing role.
+- **`/todos`** — user-visible checklist (☑/☐) with `/todos done <id>`; TODO tool gains `rm`.
+- `withRetry`/`isTransientError` (one retry with backoff on timeouts/resets/5xx, wired into the agent loop), `abortActiveTurn` plumbing (Esc interrupt arrives in Phase 1), `warmOllama`, `parseOllamaStreamLine`/`parseSSEFrame`/`keepAliveMs` exports.
+- 22 new unit tests (ra/tests/phase0.test.ts + anubis/tests/stream.test.ts); gate updated.
+
+## [Cycle 43]
+
 ### Cycle 43 — audit & wiring (2026-08-25)
 
 ### Fixed

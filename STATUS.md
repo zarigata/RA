@@ -5,11 +5,11 @@
 
 ## Current Cycle
 
-**Cycle 43 — Full system audit + wiring fixes.** Independent evaluation (see `EVALUATION.md`): endpoint health measured live, TUI driven through a real PTY, wiring bugs fixed (inert model override, MCP unwired, nested perms unparsed, dead subagent tree, Ctrl+C exit, $0 cost display). Security: leaked API key purged from git history — **rotate the key at ollama.com**. 122 MB dead node_modules removed; stale docs archived.
+**Cycle 44 — RA 2.0 Phase 0 (trustworthy engine).** Master plan written (`PLAN.md`, from the Claude Code/OpenCode/Crush/aider/Codex competitive audit). Landed: streaming everywhere (native NDJSON + cloud SSE, TUI token render, root-turn only), keep_alive 30m default + `ra warm` + TUI background warm-up, loop-level retry on transient errors, real MoA aggregation with disagreement surfacing, custom commands fixed (project `.ra/commands` + `~/.ra/commands`, `$ARGUMENTS`/`$N`, `agent:` frontmatter), `/todos` UI + TODO rm op.
 
 ## Last Cycle Result
 
-**Cycle 43 — Audit complete, quick wins landed.** All 6 P0 wiring fixes verified live (Ctrl+C survival, /tree population, subscription cost annotation, nested permission parsing, dynamic TOOL_HINT with MCP advertising, frontmatter model override). Unit suites: 169 anubis + 161 ra pass (9 new tests). Full gate re-run green. Cycle 42 — cleanup complete, 321 tests, gate green.
+**Cycle 44 — Phase 0 core landed.** Live-verified: `ra warm` loads qwen3.8 in 55s (cold) then 30m residency; PTY test shows 61 progressive token reads per turn (was: silent wait + single dump); ra 172 + anubis 179 unit tests pass (22 new); full gate green. Remaining Phase 0: compaction, honest-eval stub removal, selfheal wiring. Cycle 43 — audit + wiring fixes, 330 tests green.
 
 ## Smoke-Test Table
 

@@ -219,11 +219,30 @@ export function toolTodo(ctx: ToolContext, command: string): string {
     saveTodos(ctx, todos);
     return `Completed todo #${id}: ${item.text}`;
   }
+  if (op === "rm") {
+    const id = Number(arg);
+    const idx = todos.findIndex((t) => t.id === id);
+    if (idx === -1) return `Error: no todo #${arg}`;
+    const [removed] = todos.splice(idx, 1);
+    saveTodos(ctx, todos);
+    return `Removed todo #${id}: ${removed.text}`;
+  }
   if (op === "list" || op === "") {
     if (!todos.length) return "(no todos)";
     return todos.map((t) => `${t.done ? "[x]" : "[ ]"} #${t.id} ${t.text}`).join("\n");
   }
-  return `Error: unknown TODO op '${op}' (use add/done/list)`;
+  return `Error: unknown TODO op '${op}' (use add/done/rm/list)`;
+}
+
+/** Read the project todo list (for the /todos TUI command). */
+export function listTodos(ctx: ToolContext): TodoItem[] {
+  return loadTodos(ctx);
+}
+
+/** Render the todo list as a user-facing checklist. */
+export function formatTodos(todos: TodoItem[]): string {
+  if (!todos.length) return "(no todos — the agent adds them via TODO add)";
+  return todos.map((t) => `${t.done ? "\u2611" : "\u2610"} #${t.id} ${t.text}`).join("\n");
 }
 
 /**

@@ -153,6 +153,22 @@ if (args.includes("--roles") || args[0] === "roles") {
   process.exit(0);
 }
 
+if (args[0] === "warm") {
+  // Phase 0.2 — load the small model on the LAN box so the next turn is warm.
+  const cfg = loadRaConfig(ANUBIS_HOME);
+  const env = loadEnv(ANUBIS_HOME);
+  const keepAlive = env.OLLAMA_KEEP_ALIVE ?? "30m";
+  const { warmOllama } = await import("../../anubis/src/ollama.ts");
+  try {
+    const r = await warmOllama(env, arg("--model") ?? cfg.small_model, keepAlive);
+    console.log(`RA warm\n✓ ${r.model} loaded in ${(r.ms / 1000).toFixed(1)}s (keep_alive ${keepAlive})`);
+  } catch (e) {
+    console.error(`RA warm failed: ${String(e)}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
 if (args[0] === "status") {
   const { loadLastRun } = await import("../../anubis/src/last-run.ts");
   const { formatRaStatus } = await import("../../anubis/src/ra-status.ts");

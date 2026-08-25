@@ -88,7 +88,7 @@ echo "▶ bun test (anubis)"
 bun test
 
 echo "▶ bun test (ra runtime)"
-bun test ../ra/tests/runtime.test.ts ../ra/tests/benchmark-artifacts.test.ts ../ra/tests/run-command.test.ts ../ra/tests/session.test.ts ../ra/tests/permission.test.ts ../ra/tests/custom-commands.test.ts ../ra/tests/subagents.test.ts ../ra/tests/checkpoint.test.ts ../ra/tests/symbols.test.ts ../ra/tests/mcp.test.ts ../ra/tests/daemon.test.ts ../ra/tests/diagnostics.test.ts ../ra/tests/airgap.test.ts ../ra/tests/selfheal.test.ts ../ra/tests/diff.test.ts ../ra/tests/search.test.ts ../ra/tests/replay.test.ts ../ra/tests/swarm.test.ts ../ra/tests/ide.test.ts ../ra/tests/eval.test.ts ../ra/tests/tree.test.ts ../ra/tests/remote.test.ts ../ra/tests/plugins.test.ts
+bun test ../ra/tests/runtime.test.ts ../ra/tests/benchmark-artifacts.test.ts ../ra/tests/run-command.test.ts ../ra/tests/session.test.ts ../ra/tests/permission.test.ts ../ra/tests/custom-commands.test.ts ../ra/tests/subagents.test.ts ../ra/tests/checkpoint.test.ts ../ra/tests/symbols.test.ts ../ra/tests/mcp.test.ts ../ra/tests/daemon.test.ts ../ra/tests/diagnostics.test.ts ../ra/tests/airgap.test.ts ../ra/tests/selfheal.test.ts ../ra/tests/diff.test.ts ../ra/tests/search.test.ts ../ra/tests/replay.test.ts ../ra/tests/swarm.test.ts ../ra/tests/ide.test.ts ../ra/tests/eval.test.ts ../ra/tests/tree.test.ts ../ra/tests/remote.test.ts ../ra/tests/plugins.test.ts ../ra/tests/phase0.test.ts
 
 echo "▶ ra doctor"
 "${RA_BIN[@]}" doctor | tee /tmp/ra-doctor.txt

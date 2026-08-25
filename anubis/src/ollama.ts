@@ -25,6 +25,91 @@ export interface ChatResult {
   usage: ChatUsage | null;
 }
 
+export interface StreamChatOptions {
+  timeoutMs?: number;
+  temperature?: number;
+  /** Ollama keep-alive for the loaded model (e.g. "30m") — native servers only. */
+  keepAlive?: string;
+  /** External abort (Esc-to-interrupt plumbing). */
+  signal?: AbortSignal;
+  /** Called per generated token chunk as it arrives. */
+  onToken?: (token: string) => void;
+}
+
+/**
+ * Parse one NDJSON line from a native Ollama /api/chat stream.
+ * Returns null for blank/keepalive lines. Pure — unit-tested.
+ */
+export function parseOllamaStreamLine(
+  line: string,
+): { token: string; done: boolean; model?: string; usage?: ChatUsage } | null {
+  const l = line.trim();
+  if (!l) return null;
+  let j: {
+    message?: { content?: string };
+    done?: boolean;
+    model?: string;
+    eval_count?: number;
+    prompt_eval_count?: number;
+  };
+  try {
+    j = JSON.parse(l);
+  } catch {
+    return null;
+  }
+  const usage =
+    j.done && (j.eval_count != null || j.prompt_eval_count != null)
+      ? {
+          prompt_tokens: j.prompt_eval_count ?? 0,
+          completion_tokens: j.eval_count ?? 0,
+          total_tokens: (j.prompt_eval_count ?? 0) + (j.eval_count ?? 0),
+        }
+      : undefined;
+  return {
+    token: j.message?.content ?? "",
+    done: j.done === true,
+    model: j.model,
+    usage,
+  };
+}
+
+/**
+ * Parse one SSE frame from an OpenAI-compatible /chat/completions stream.
+ * `frame` is the payload after "data: " (may be "[DONE]"). Pure — unit-tested.
+ */
+export function parseSSEFrame(
+  frame: string,
+): { token: string; model?: string; usage?: ChatUsage; done?: boolean } | null {
+  const f = frame.trim();
+  if (!f) return null;
+  if (f === "[DONE]") return { token: "", done: true };
+  let j: {
+    model?: string;
+    choices?: Array<{ delta?: { content?: string } }>;
+    usage?: ChatUsage;
+  };
+  try {
+    j = JSON.parse(f);
+  } catch {
+    return null;
+  }
+  return {
+    token: j.choices?.[0]?.delta?.content ?? "",
+    model: j.model,
+    usage: j.usage,
+  };
+}
+
+/** Split `keepAlive` like "30m" / "1h" / "600s" into Ollama's milliseconds form. */
+export function keepAliveMs(keepAlive?: string): number | undefined {
+  if (!keepAlive) return undefined;
+  const m = keepAlive.trim().match(/^(\d+)\s*(ms|s|m|h)?$/i);
+  if (!m) return undefined;
+  const n = Number(m[1]);
+  const unit = (m[2] ?? "s").toLowerCase();
+  return unit === "ms" ? n : unit === "s" ? n * 1000 : unit === "m" ? n * 60_000 : n * 3_600_000;
+}
+
 export class OllamaClient {
   availableModels: string[] = [];
 
@@ -138,7 +223,7 @@ export class OllamaClient {
   async nativeChat(
     model: string,
     messages: ChatMessage[],
-    opts: { timeoutMs?: number; temperature?: number } = {},
+    opts: { timeoutMs?: number; temperature?: number; keepAlive?: string } = {},
   ): Promise<ChatResult> {
     if (this.cfg.kind === "cloud" || this.cfg.openaiCompat) return this.chat(model, messages, opts);
     const base = this.cfg.baseURL.replace(/\/v1$/, "");
@@ -155,6 +240,7 @@ export class OllamaClient {
           model,
           messages,
           stream: false,
+          ...(opts.keepAlive ? { keep_alive: opts.keepAlive } : {}),
           ...(opts.temperature != null ? { options: { temperature: opts.temperature } } : {}),
         }),
       });
@@ -178,6 +264,137 @@ export class OllamaClient {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("abort") || msg.includes("Timeout") || (e as { name?: string })?.name === "TimeoutError") {
         throw new Error(`nativeChat timeout after ${timeoutMs}ms model=${model}`);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Streaming chat — same contract as nativeChat, but tokens are delivered to
+   * `opts.onToken` as they arrive. Native servers use /api/chat NDJSON;
+   * cloud/OpenAI-compat uses /chat/completions SSE. Pure parsers above are
+   * shared with the unit tests.
+   */
+  async nativeChatStream(model: string, messages: ChatMessage[], opts: StreamChatOptions = {}): Promise<ChatResult> {
+    if (this.cfg.kind === "cloud" || this.cfg.openaiCompat) return this.chatStream(model, messages, opts);
+    const base = this.cfg.baseURL.replace(/\/v1$/, "");
+    const timeoutMs = opts.timeoutMs ?? 180_000;
+    const ka = keepAliveMs(opts.keepAlive);
+    const ctrl = new AbortController();
+    if (opts.signal) opts.signal.addEventListener("abort", () => ctrl.abort(), { once: true });
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let content = "";
+    let usage: ChatUsage | null = null;
+    let usedModel = model;
+    try {
+      const res = await fetch(`${base}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: true,
+          ...(ka != null ? { keep_alive: ka } : {}),
+          ...(opts.temperature != null ? { options: { temperature: opts.temperature } } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error(`nativeChatStream ${res.status}: ${await res.text()}`);
+      const reader = res.body!.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          const part = parseOllamaStreamLine(line);
+          if (!part) continue;
+          if (part.model) usedModel = part.model;
+          if (part.usage) usage = part.usage;
+          if (part.token) {
+            content += part.token;
+            opts.onToken?.(part.token);
+          }
+        }
+      }
+      if (buf.trim()) {
+        const part = parseOllamaStreamLine(buf);
+        if (part?.token) {
+          content += part.token;
+          opts.onToken?.(part.token);
+        }
+        if (part?.usage) usage = part.usage;
+      }
+      return { content, model: usedModel, usage };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("abort") || msg.includes("Timeout") || (e as { name?: string })?.name === "TimeoutError") {
+        throw new Error(`nativeChatStream timeout after ${timeoutMs}ms model=${model}`);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** SSE streaming for OpenAI-compatible endpoints (Ollama Cloud, LM Studio). */
+  async chatStream(model: string, messages: ChatMessage[], opts: StreamChatOptions = {}): Promise<ChatResult> {
+    const timeoutMs = opts.timeoutMs ?? 180_000;
+    const ctrl = new AbortController();
+    if (opts.signal) opts.signal.addEventListener("abort", () => ctrl.abort(), { once: true });
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let content = "";
+    let usage: ChatUsage | null = null;
+    let usedModel = model;
+    try {
+      const res = await fetch(`${this.cfg.baseURL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.cfg.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: true,
+          ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error(`chatStream ${res.status}: ${await res.text()}`);
+      const reader = res.body!.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const frames = buf.split("\n\n");
+        buf = frames.pop() ?? "";
+        for (const frame of frames) {
+          for (const line of frame.split("\n")) {
+            if (!line.startsWith("data:")) continue;
+            const part = parseSSEFrame(line.slice(5));
+            if (!part) continue;
+            if (part.model) usedModel = part.model;
+            if (part.usage) usage = part.usage;
+            if (part.token) {
+              content += part.token;
+              opts.onToken?.(part.token);
+            }
+          }
+        }
+      }
+      return { content, model: usedModel, usage };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("abort") || msg.includes("Timeout") || (e as { name?: string })?.name === "TimeoutError") {
+        throw new Error(`chatStream timeout after ${timeoutMs}ms model=${model}`);
       }
       throw e;
     } finally {
@@ -416,4 +633,29 @@ function hostTag(baseURL: string, kind: "cloud" | "local"): string {
   if (baseURL.includes("192.168.1.251")) return "251";
   if (/localhost|127\.0\.0\.1/.test(baseURL)) return "local";
   return "lan";
+}
+
+/**
+ * Warm up a small model on the LAN box so the first real turn doesn't pay the
+ * cold-load cost (~55s for qwen3.8). An empty-prompt generate loads the model
+ * and keeps it resident per keepAlive ("30m" default).
+ */
+export async function warmOllama(
+  env: Record<string, string | undefined>,
+  preferredModel?: string,
+  keepAlive = "30m",
+): Promise<{ model: string; ms: number; loaded: boolean }> {
+  const client = await pickOllamaEndpoint(env);
+  const model = pickModel(preferredModel ?? "ollama-lan/qwen3.8:latest", client.availableModels);
+  const base = client.baseURL.replace(/\/v1$/, "");
+  const ka = keepAliveMs(keepAlive);
+  const t0 = Date.now();
+  const res = await fetch(`${base}/api/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, prompt: "", keep_alive: ka ?? 1_800_000 }),
+  });
+  if (!res.ok) throw new Error(`warm ${res.status}: ${await res.text()}`);
+  await res.json();
+  return { model, ms: Date.now() - t0, loaded: true };
 }

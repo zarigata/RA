@@ -9,7 +9,7 @@ import { RemoteClient } from "../server/remote.ts";
 import { SubagentTree } from "./tree.ts";
 import { PluginHost } from "../plugins/host.ts";
 import { dispatchCommand, PALETTE_COMMANDS } from "../commands/index.ts";
-import { runOrchestratorTurn, onGlobalHook, setActiveSubagentTracker, getActiveSubagentTracker } from "../agent.ts";
+import { runOrchestratorTurn, onGlobalHook, setActiveSubagentTracker, getActiveSubagentTracker, setActiveStreamRenderer } from "../agent.ts";
 import { expandMentions } from "../tools/index.ts";
 import { loadUsage, buildReport, formatReport, formatCost } from "../../../anubis/src/cost.ts";
 
@@ -41,6 +41,16 @@ export async function startTui(opts: TuiOptions): Promise<void> {
   onGlobalHook("agent.turn.start", (input) => { void plugins.emit("agent.turn.start", input, {}); });
   onGlobalHook("agent.turn.end", (input) => { void plugins.emit("agent.turn.end", input, {}); });
 
+  // Phase 0.1 — stream tokens live. The final reply body is suppressed when
+  // it matches what already streamed (only the footer/sidebar reprints).
+  let streamedThisTurn = "";
+  if (!opts.headless) {
+    setActiveStreamRenderer((tok) => {
+      streamedThisTurn += tok;
+      process.stdout.write(tok);
+    });
+  }
+
   const ctx = { cwd: opts.cwd };
   const costSidebar = (): string => {
     const report = buildReport(loadUsage());
@@ -60,7 +70,15 @@ export async function startTui(opts: TuiOptions): Promise<void> {
       appendMessage(session, "assistant", text);
     }
     if (!opts.headless) {
-      console.log(`\n\x1b[33mRA\x1b[0m\n${text}\n`);
+      const norm = (s: string) => s.replace(/\s+/g, " ");
+      const streamed = streamedThisTurn;
+      streamedThisTurn = "";
+      const bodyAlreadyStreamed = streamed.length > 40 && norm(text).includes(norm(streamed).slice(0, 200));
+      if (bodyAlreadyStreamed) {
+        console.log(`\n\x1b[33mRA\x1b[0m \x1b[2m(streamed above)\x1b[0m\n`);
+      } else {
+        console.log(`\n\x1b[33mRA\x1b[0m\n${text}\n`);
+      }
       const sidebar = costSidebar();
       if (sidebar) console.log(sidebar);
       if (subagentTree.hasTree) {
@@ -92,6 +110,12 @@ export async function startTui(opts: TuiOptions): Promise<void> {
       // Reattach: surface the prior conversation so the user has context.
       console.log(`\x1b[36m${formatReattach(session)}.\x1b[0m\n  /history to review · /clear to reset\n`);
     }
+    // Phase 0.2 — background warm-up: load the small model on .251 so the
+    // first turn doesn't pay the ~55s cold-load. Fire-and-forget.
+    const warmEnv = loadEnv(ANUBIS_HOME);
+    void import("../../../anubis/src/ollama.ts").then(({ warmOllama }) =>
+      warmOllama(warmEnv, config.small_model, warmEnv.OLLAMA_KEEP_ALIVE ?? "30m").catch(() => {})
+    );
   }
 
   if (opts.headless) return;
@@ -179,6 +203,7 @@ export async function startTui(opts: TuiOptions): Promise<void> {
   rl.on("close", () => {
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
     setActiveSubagentTracker(null);
+    setActiveStreamRenderer(null);
     saveSession(session);
   });
 

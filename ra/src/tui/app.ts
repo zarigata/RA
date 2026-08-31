@@ -591,9 +591,26 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
 
   // ---------- keys ----------
   let pending = "";
+  let escTimer: ReturnType<typeof setTimeout> | null = null;
   stdin.on("data", (chunk: string) => {
     const { keys, pending: rest } = decodeKeys(chunk.toString("utf-8"), pending);
     pending = rest;
+    // A lone ESC is ambiguous: it either starts a sequence or is the Escape
+    // key. If no continuation arrives quickly, deliver it as Escape.
+    if (pending === "\x1b") {
+      if (!escTimer) {
+        escTimer = setTimeout(() => {
+          escTimer = null;
+          if (pending === "\x1b") {
+            pending = "";
+            handleKey({ type: "escape" });
+          }
+        }, 50);
+      }
+    } else if (escTimer) {
+      clearTimeout(escTimer);
+      escTimer = null;
+    }
     for (const key of keys) handleKey(key);
   });
 

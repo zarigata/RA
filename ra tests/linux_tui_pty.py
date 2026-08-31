@@ -43,6 +43,8 @@ if "RA shortcuts" not in t:
 try: os.killpg(p.pid, signal.SIGKILL)
 except Exception: pass
 if failures:
+    tail = re.sub(rb'\x1b\[[0-9;?]*[a-zA-Z]', b'', buf[-2500:]).decode('utf-8', errors='replace')
     print("LINUX-TUI FAIL:", "; ".join(failures), flush=True)
+    print("LAST FRAME:", repr(tail[-600:]), flush=True)
     sys.exit(1)
 print("LINUX-TUI OK: splash, welcome, / palette, ? shortcuts — all rendered", flush=True)

@@ -44,6 +44,17 @@ export function resolveBackend(opts: {
   return { backend: "unavailable", unsandboxed: false };
 }
 
+let bwrapNetNsProbe: boolean | undefined;
+/** Whether --unshare-net works here (needs loopback setup rights, e.g. absent on CI runners). Cached. */
+export function bwrapNetNsAvailable(bwrapPath: string): boolean {
+  if (bwrapNetNsProbe !== undefined) return bwrapNetNsProbe;
+  try {
+    const r = spawnSync(bwrapPath, ["--dev", "/dev", "--ro-bind", "/", "/", "--unshare-net", "/bin/true"], { timeout: 8000, stdio: "ignore" });
+    bwrapNetNsProbe = r.status === 0;
+  } catch { bwrapNetNsProbe = false; }
+  return bwrapNetNsProbe;
+}
+
 let bwrapPathCache: string | null | undefined;
 function findBwrap(): string | null {
   if (bwrapPathCache !== undefined) return bwrapPathCache;
@@ -200,16 +211,17 @@ function prepareCommand(context: CommandContext, args: string[], options: Launch
   const env = commandEnvironment(scratch, options.env);
   let command = args;
   if (settings.backend === "Linux bubblewrap" && settings.bwrapPath) {
+    const netIsolated = settings.network === "deny" && bwrapNetNsAvailable(settings.bwrapPath);
     const bwrap: string[] = [settings.bwrapPath,
       "--dev", "/dev", "--proc", "/proc",
       "--ro-bind", "/", "/",
-      "--tmpfs", "/tmp",
       "--clearenv", "--die-with-parent"];
     if (settings.mode === "workspace-write") bwrap.push("--bind", cwd, cwd);
     bwrap.push("--bind", scratch, scratch);
-    if (settings.network === "deny") bwrap.push("--unshare-net");
+    if (netIsolated) bwrap.push("--unshare-net");
     for (const [k, v] of Object.entries(env)) bwrap.push("--setenv", k, v);
     command = [...bwrap, ...args];
+    settings.network = settings.network === "deny" && !netIsolated ? "shared (netns unavailable)" : settings.network;
   } else if (!settings.unsandboxed) {
     const path = join(scratch, "policy.sb");
     writeFileSync(path, profile(cwd, scratch, settings.mode, settings.network, env, gitWrite, commandReadRoots(tool, args)), { mode: 0o600 });

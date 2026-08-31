@@ -27,7 +27,7 @@ export function resolveBackend(opts: {
   mode: "workspace-write" | "read-only" | "off";
   consent: boolean;
   hasSeatbelt: boolean;
-  hasBwrap: boolean;
+  bwrapPath?: string | null;
 }): ResolvedBackend {
   if (opts.mode === "off") return { backend: "disabled", unsandboxed: true };
   if (opts.platform === "darwin") {
@@ -36,7 +36,7 @@ export function resolveBackend(opts: {
     return { backend: "unavailable", unsandboxed: false };
   }
   if (opts.platform === "linux") {
-    if (opts.hasBwrap) return { backend: "Linux bubblewrap", unsandboxed: false, bwrapPath: opts.hasBwrap };
+    if (opts.bwrapPath) return { backend: "Linux bubblewrap", unsandboxed: false, bwrapPath: opts.bwrapPath };
     if (opts.consent) return { backend: "disabled", unsandboxed: true };
     return { backend: "unavailable", unsandboxed: false };
   }
@@ -69,7 +69,7 @@ export function sandboxSettings(context: CommandContext) {
     mode,
     consent,
     hasSeatbelt: process.platform === "darwin" && existsSync("/usr/bin/sandbox-exec"),
-    hasBwrap: process.platform === "linux" && !!findBwrap(),
+    bwrapPath: process.platform === "linux" ? findBwrap() : null,
   });
   return {
     mode,

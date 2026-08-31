@@ -53,6 +53,25 @@ Configure chains per model or as a default in your `RA_CONFIG` JSON:
 
 Without overrides, the existing `mac-weak` configuration uses LAN Qwen with local Gemma fallback and a cloud implementation model. Set `RA_CONFIG` to an absolute JSON configuration path to keep custom provider, role, permission, and pipeline settings outside the installation.
 
+## The TUI
+
+Run `ra` in a terminal and you get a full-screen workspace:
+
+- **Header** — logo, version, profile, and the small/big models in play.
+- **Conversation** — markdown-rendered replies (headings, lists, bordered code blocks), live token streaming with a spinner, cost sidebar after each turn, subagent tree.
+- **Input box** — bordered, with a cursor; type `/` and the **unified palette** fuzzy-searches *everything at once*: commands (built-in and custom), agents (pick one to delegate directly), project files (inserted as `@` references), sessions, models (switch big/small per session), and themes. Keyboard (`↑↓` select, `enter` run, `tab` insert, `esc` close) and **mouse** both work — click a row to run it, wheel to scroll history.
+- **Footer** — clickable key chips plus cwd, git branch, and current theme.
+
+### Customization
+
+`~/.ra/tui.json` persists your choices:
+
+```json
+{ "theme": "nord", "mouse": true, "scrollSpeed": 3 }
+```
+
+`/theme` (or type `/the` and pick from the palette) switches live among the palettes — pharaonic, obsidian, nord, sunset, emerald, cyberpunk, monochrome, and more. Keybinds remain configurable in `ra.json` (`keybinds`).
+
 ## Daily use
 
 | Task | Command |

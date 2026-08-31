@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-ra.73 — 2026-08-31
+
+- Full-screen terminal UI (opencode-inspired) when `ra` runs in a real terminal: alternate-screen layout with a live header (logo, profile, small/big models, busy state), markdown-rendered conversation (headings, lists, bordered code blocks), streaming tokens with a spinner status, cost sidebar, subagent tree, bordered input box, and a clickable key-chip footer with cwd, git branch, and theme.
+- Unified "/" palette — pressing `/` (or ctrl+p) searches EVERYTHING at once with fuzzy matching and match highlighting: built-in and custom commands, agents (direct `agent:<name>` delegation), project files (inserted as @references), sessions, models (per-session big/small switching, catalog from the live cloud), and themes. Keyboard (↑↓, enter, tab, esc, pgup/pgdn) and mouse (click a row to run, wheel to scroll).
+- Mouse support: SGR click/drag/wheel decoding; palette rows and footer are clickable; wheel scrolls history.
+- Themes: 8 palettes, `/theme` or palette-filtered picker, persisted to `~/.ra/tui.json` (`theme`, `mouse`, `scrollSpeed` customization keys).
+- New zero-dependency TUI cores, unit-covered (`ra/tests/tui.test.ts`, 18 cases): fuzzy matcher, SGR mouse/key decoders with bracketed paste, markdown renderer, palette engine. Pipes keep the legacy readline UI; bare `ra` without a terminal still refuses clearly (scenario 17 contract).
+- Installed-user UI acceptance: `ra tests/ui_acceptance.py` scenarios 66–73 (header/layout, fuzzy theme select, mouse theme click, mouse command click, file insert, streaming markdown, theme persistence across restart, non-TTY refusal).
+
 ## 1.0.0-ra.72 — 2026-08-30
 
 - Add explicit user-configured model fallback chains with visible attribution. Provider failures (timeouts, 5xx, stream errors, unknown model) retry down the configured chain — per-model or default entries in `RA_CONFIG` `fallbacks`, or `RA_FALLBACK` / `RA_SMALL_FALLBACK` environment variables.

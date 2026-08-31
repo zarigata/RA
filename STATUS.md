@@ -5,6 +5,19 @@
 
 ## Current Cycle
 
+**2026-08-31 — Full-screen TUI with unified "/" palette (RA 1.0.0-ra.73).**
+`ra` in a terminal now opens an opencode-inspired workspace: header with
+models/profile, markdown-rendered streaming conversation, cost sidebar,
+bordered input, clickable key-chip footer. Pressing `/` fuzzy-searches
+EVERYTHING — commands, custom commands, agents, project files, sessions,
+models, and themes — with mouse clicks (SGR) and wheel scrolling. Themes
+persist to `~/.ra/tui.json` (`theme`, `mouse`, `scrollSpeed`). Zero new
+runtime dependencies; pipes keep the legacy readline UI. Installed-user
+acceptance: **8/8 in one batch** ([`ra tests/RESULTS.md`](ra%20tests/RESULTS.md),
+`evidence/ui-73/`), unit suite **380/0** (18 new TUI cases), gate green.
+Research basis: opencode's TUI (palette, mouse default, themes, layout)
+captured live plus its published keybind/theme docs.
+
 **2026-08-30 — Fallbacks, competitive evidence, tool hardening (RA 1.0.0-ra.72).**
 Provider failures now walk an explicit user-configured fallback chain
 (`RA_CONFIG` `fallbacks` / `RA_FALLBACK` / `RA_SMALL_FALLBACK`) with visible

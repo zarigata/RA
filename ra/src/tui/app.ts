@@ -1,272 +1,606 @@
+// tui/app.ts — RA full-screen terminal UI (opencode-inspired).
+// Alt-screen renderer with a unified fuzzy "/" palette (commands, agents,
+// files, sessions, models, themes), SGR mouse support, live streaming,
+// markdown rendering, and persisted customization (~/.ra/tui.json).
+// Non-TTY stdin falls back to the legacy readline interface.
+
 import * as readline from "node:readline";
-import { renderSplash, APP_NAME } from "../../../anubis/src/tui.ts";
-import { getPalette, DEFAULT_UI_CONFIG, type UiConfig } from "../../../anubis/src/ui.ts";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
+import { execSync } from "node:child_process";
+import { APP_NAME } from "../../../anubis/src/tui.ts";
+import { RA_VERSION } from "../../../anubis/src/version.ts";
+import { getPalette, listPalettes, type ColorPalette } from "../../../anubis/src/ui.ts";
 import { loadRaConfig, ensureRaDirs, applyProjectOverride, applyEnvOverrides } from "../../../anubis/src/config.ts";
 import { ANUBIS_HOME } from "../paths.ts";
 import { loadEnv } from "../../../anubis/src/env.ts";
-import { loadSession, saveSession, appendMessage, formatReattach, getActiveSession } from "../server/session.ts";
+import { loadSession, saveSession, appendMessage, formatReattach, getActiveSession, switchSession, listSessions } from "../server/session.ts";
 import { RemoteClient } from "../server/remote.ts";
 import { SubagentTree } from "./tree.ts";
 import { PluginHost } from "../plugins/host.ts";
-import { dispatchCommand, PALETTE_COMMANDS } from "../commands/index.ts";
-import { runOrchestratorTurn, onGlobalHook, setActiveSubagentTracker, getActiveSubagentTracker, setActiveStreamRenderer, abortActiveTurn } from "../agent.ts";
+import { dispatchCommand, PALETTE_COMMANDS, loadCustomCommands, customCommandDirs } from "../commands/index.ts";
+import { runOrchestratorTurn, runTaskAgent, onGlobalHook, setActiveSubagentTracker, getActiveSubagentTracker, setActiveStreamRenderer, abortActiveTurn } from "../agent.ts";
 import { expandMentions } from "../tools/index.ts";
-import { loadUsage, buildReport, formatReport, formatCost } from "../../../anubis/src/cost.ts";
+import { loadUsage, buildReport, formatCost } from "../../../anubis/src/cost.ts";
+import { startLegacyTui, type TuiOptions } from "./legacy.ts";
+import { highlightMatches } from "./fuzzy.ts";
+import { searchPalette, groupRows, collectProjectFiles, type PaletteEntry, type PaletteRow } from "./palette.ts";
+import { renderMarkdown, visibleWidth, truncateVisible } from "./markdown.ts";
+import { decodeKeys, type Key } from "./keys.ts";
+import { MOUSE_ENTER, MOUSE_EXIT, ALT_ENTER, ALT_EXIT, PASTE_ENTER, PASTE_EXIT, SYNC_BEGIN, SYNC_END, CURSOR_HIDE, CURSOR_SHOW, fg as hexFg, bg as hexBg } from "./mouse.ts";
 
-export interface TuiOptions {
-  cwd: string;
-  headless?: boolean;
-  remoteUrl?: string | null;
+export type { TuiOptions };
+
+interface Prefs { theme?: string; mouse?: boolean; scrollSpeed?: number }
+const TUI_PREFS = join(homedir(), ".ra", "tui.json");
+function loadPrefs(): Prefs {
+  try { return JSON.parse(readFileSync(TUI_PREFS, "utf-8")) as Prefs; } catch { return {}; }
 }
+function savePrefs(p: Prefs): void {
+  try { writeFileSync(TUI_PREFS, JSON.stringify(p, null, 2) + "\n"); } catch { /* read-only home */ }
+}
+
+type Segment = { kind: "user" | "assistant" | "info" | "activity"; text: string };
+const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 export async function startTui(opts: TuiOptions): Promise<void> {
   ensureRaDirs();
   loadEnv(ANUBIS_HOME);
-  // Check for active session pointer (set by `ra sessions --switch`)
   const activeSession = getActiveSession();
-  if (activeSession && !opts.remoteUrl) {
-    opts.cwd = activeSession.cwd;
-  }
+  if (activeSession && !opts.remoteUrl) opts.cwd = activeSession.cwd;
+  if (!process.stdin.isTTY || process.env.RA_LEGACY_TUI === "1") return startLegacyTui(opts);
+  await startFullscreen(opts);
+}
+
+async function startFullscreen(opts: TuiOptions): Promise<void> {
   const config = applyEnvOverrides(applyProjectOverride(loadRaConfig(ANUBIS_HOME), opts.cwd));
   const remote = opts.remoteUrl ? new RemoteClient({ url: opts.remoteUrl }) : null;
   const remoteOk = remote ? await remote.health() : false;
   const session = remoteOk ? await remote.loadSession(opts.cwd) : loadSession(opts.cwd);
   const subagentTree = new SubagentTree();
-  // Make the tree visible to agent.ts (spawn tracking) and /tree (rendering).
   setActiveSubagentTracker(subagentTree);
   const plugins = new PluginHost();
   await plugins.load(config.plugin ?? []);
-
-  // Bridge agent global hooks to the plugin host
   onGlobalHook("agent.turn.start", (input) => { void plugins.emit("agent.turn.start", input, {}); });
   onGlobalHook("agent.turn.end", (input) => { void plugins.emit("agent.turn.end", input, {}); });
 
-  // Phase 0.1 — stream tokens live. The final reply body is suppressed when
-  // it matches what already streamed (only the footer/sidebar reprints).
-  let streamedThisTurn = "";
-  if (!opts.headless) {
-    setActiveStreamRenderer((tok) => {
-      streamedThisTurn += tok;
-      process.stdout.write(tok);
-    });
-  }
+  const prefs = loadPrefs();
+  const themeId = { current: prefs.theme ?? config.theme ?? "pharaonic" };
+  let palette: ColorPalette = getPalette(themeId.current);
+  const mouseOn = prefs.mouse !== false;
+  const scrollSpeed = Math.max(1, prefs.scrollSpeed ?? 3);
+  const mdStyle = { accent: (s: string) => sty.accent(s), muted: (s: string) => sty.muted(s), strong: (s: string) => sty.strong(s), error: (s: string) => sty.err(s) };
 
-  const ctx = { cwd: opts.cwd, get history() { return session.messages.slice(0, -1).slice(-8).map(m => ({ role: m.role, content: m.content.slice(-3000) })); } };
-  const costSidebar = (): string => {
-    const report = buildReport(loadUsage());
-    if (!report.length) return "";
-    const total = report.reduce((s, r) => s + r.cost, 0);
-    const tokens = report.reduce((s, r) => s + r.inputTokens + r.outputTokens, 0);
-    const top = report
-      .slice(0, 3)
-      .map((r) => `  ${r.model}: ${r.inputTokens + r.outputTokens} tok · ${formatCost(r.model, r.cost)}`)
-      .join("\n");
-    return `\x1b[2m╭ context ─────────────\n${top}\n  TOTAL: ${tokens} tok · $${total.toFixed(4)}\n╰─\x1b[0m`;
-  };
-  const reply = (text: string) => {
-    if (remoteOk) {
-      void remote!.appendMessage(session, "assistant", text);
-    } else {
-      appendMessage(session, "assistant", text);
-    }
-    if (!opts.headless) {
-      const norm = (s: string) => s.replace(/\s+/g, " ");
-      const streamed = streamedThisTurn;
-      streamedThisTurn = "";
-      const bodyAlreadyStreamed = streamed.length > 40 && norm(text).includes(norm(streamed).slice(0, 200));
-      if (bodyAlreadyStreamed) {
-        console.log(`\n\x1b[33mRA\x1b[0m \x1b[2m(streamed above)\x1b[0m\n`);
-      } else {
-        console.log(`\n\x1b[33mRA\x1b[0m\n${text}\n`);
-      }
-      const sidebar = costSidebar();
-      if (sidebar) console.log(sidebar);
-      if (subagentTree.hasTree) {
-        console.log(`\x1b[2m${subagentTree.render()}\x1b[0m`);
-      }
-    }
+  const sty = {
+    accent: (s: string) => `${hexFg(palette.accent)}${s}\x1b[0m`,
+    strong: (s: string) => `\x1b[1m${hexFg(palette.foreground)}${s}\x1b[0m`,
+    muted: (s: string) => `\x1b[2m${hexFg(palette.muted)}${s}\x1b[0m`,
+    ok: (s: string) => `${hexFg(palette.success)}${s}\x1b[0m`,
+    warn: (s: string) => `${hexFg(palette.warning)}${s}\x1b[0m`,
+    user: (s: string) => `\x1b[1m${hexFg(palette.accent)}${s}\x1b[0m`,
+    bar: (s: string) => `${hexBg(palette.accent)}${hexFg(palette.background)}${s}\x1b[0m`,
+    chip: (s: string) => `\x1b[2m${hexFg(palette.muted)}${s}\x1b[0m`,
   };
 
-  if (!opts.headless) {
-    console.clear();
-    console.log(renderSplash(config.theme));
-    const remoteTag = remoteOk ? ` · connected to ${opts.remoteUrl}` : "";
-    console.log(
-      `\x1b[2mProject: ${opts.cwd} | Profile: ${config.profile ?? "default"} | Ctrl+P palette | /help${remoteTag}\x1b[0m\n`,
-    );
-    if (session.messages.length === 0) {
-      const { loadLastRun, formatLaneLine, formatIntentLine } = await import("../../../anubis/src/last-run.ts");
-      const last = loadLastRun();
-      const lastLines =
-        last?.timings?.length
-          ? `\n  ${formatLaneLine(last)}\n  ${formatIntentLine(last)}${
-              last.ms != null ? `\n  elapsed: ${(last.ms / 1000).toFixed(1)}s` : ""
-            }`
-          : "";
-      console.log(
-        `\x1b[36mWelcome to RA.\x1b[0m New here? Try:\n  /simple on\n  /quick write a hello world function\n  /again  (re-run last full-dev)\n  /verify  (re-check last artifacts)\n  /palette\n  small: ${config.small_model} · code: ${config.model}${lastLines}\n`,
-      );
-    } else {
-      // Reattach: surface the prior conversation so the user has context.
-      console.log(`\x1b[36m${formatReattach(session)}.\x1b[0m\n  /history to review · /clear to reset\n`);
-    }
-    // Phase 0.2 — background warm-up: load the small model on .251 so the
-    // first turn doesn't pay the ~55s cold-load. Fire-and-forget.
-    const warmEnv = loadEnv(ANUBIS_HOME);
-    if (!config.small_model?.startsWith("ollama-cloud/")) void import("../../../anubis/src/ollama.ts").then(({ warmOllama }) =>
-      warmOllama(warmEnv, config.small_model, warmEnv.OLLAMA_KEEP_ALIVE ?? "30m").catch(() => {})
-    );
-  }
-
-  if (opts.headless) return;
-
-  let paletteOpen = false;
+  // ---------- state ----------
+  const segments: Segment[] = [];
+  const editor = { text: "", cursor: 0 };
+  let scrollOffset = 0;
   let busy = false;
-  const queue: string[] = [];
+  let statusText = "";
+  let spinnerFrame = 0;
+  let streaming: Segment | null = null;
+  let streamedThisTurn = "";
+  let paletteOpen = false;
+  let paletteViaSlash = false;
+  let paletteRows: PaletteRow[] = [];
+  let paletteSelected = 0;
+  let paletteScroll = 0;
+  let projectFiles: string[] = [];
+  let modelCatalog: string[] = [];
+  let rowHitbox = new Map<number, number>();
+  let exiting = false;
+  const ctx = {
+    cwd: opts.cwd,
+    get history() { return session.messages.slice(0, -1).slice(-8).map((m) => ({ role: m.role, content: m.content.slice(-3000) })); },
+  };
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: true,
-    prompt: `\x1b[32m${APP_NAME}\x1b[0m › `,
-  });
-
-  if (process.stdin.isTTY) {
-    readline.emitKeypressEvents(process.stdin, rl);
-    process.stdin.setRawMode(true);
-    // Keybinds from config (default: ctrl+p → palette)
-    const keybinds: Record<string, string> = { "ctrl+p": "palette", ...config.keybinds };
-    process.stdin.on("keypress", (_str, key) => {
-      if (!key) return;
-      if (key.name === "escape" && busy) {
-        if (abortActiveTurn()) console.log("\nCancelling…");
-        queue.length = 0;
-        return;
-      }
-      const combo = (key.ctrl ? "ctrl+" : "") + key.name;
-      const action = keybinds[combo];
-      if (action === "palette" || (key.ctrl && key.name === "p")) {
-        paletteOpen = !paletteOpen;
-        if (paletteOpen) {
-          console.log("\n\x1b[36m── Command Palette (type number) ──\x1b[0m");
-          PALETTE_COMMANDS.forEach((c, i) => console.log(`  ${i + 1}. ${c}`));
-          rl.setPrompt("palette › ");
-        } else {
-          rl.setPrompt(`\x1b[32m${APP_NAME}\x1b[0m › `);
-        }
-        rl.prompt();
-        return;
-      }
-      // Custom keybind actions: map to slash commands
-      if (action && action.startsWith("/")) {
-        queue.push(action);
-        void drain();
-        return;
-      }
-      if (key.ctrl && key.name === "c") {
-        console.log("\nUse /exit or Ctrl+D to quit");
-      }
-    });
-  }
-
-  async function drain(): Promise<void> {
-    if (busy) return;
-    busy = true;
-    while (queue.length) {
-      const input = queue.shift()!;
-      if (input === "/exit" || input === "exit") {
-        saveSession(session);
-        rl.close();
-        process.exit(0);
-      }
-      if (paletteOpen && /^\d+$/.test(input)) {
-        paletteOpen = false;
-        rl.setPrompt(`\x1b[32m${APP_NAME}\x1b[0m › `);
-        const cmd = PALETTE_COMMANDS[parseInt(input, 10) - 1];
-        if (cmd) {
-          try { await handleInput(cmd, config, session, plugins, ctx, reply, remote, remoteOk, subagentTree); }
-          catch (e) { reply(`Error: ${String(e)}`); }
-        }
-        continue;
-      }
-      paletteOpen = false;
-      rl.setPrompt(`\x1b[32m${APP_NAME}\x1b[0m › `);
-      try {
-        await handleInput(input, config, session, plugins, ctx, reply, remote, remoteOk, subagentTree);
-      } catch (e) { reply(`Error: ${String(e)}`); }
+  // ---------- output ----------
+  const push = (kind: Segment["kind"], text: string) => { segments.push({ kind, text }); scrollOffset = 0; };
+  const reply = (text: string) => {
+    if (remoteOk) void remote!.appendMessage(session, "assistant", text);
+    else appendMessage(session, "assistant", text);
+    const norm = (s: string) => s.replace(/\s+/g, " ");
+    const streamed = streamedThisTurn;
+    streamedThisTurn = "";
+    streaming = null;
+    if (streamed.length > 40 && norm(text).includes(norm(streamed).slice(0, 200))) {
+      push("info", "↳ streamed above");
+    } else {
+      push("assistant", text);
     }
-    busy = false;
-    rl.prompt();
-  }
+    const report = buildReport(loadUsage());
+    if (report.length) {
+      const total = report.reduce((s, r) => s + r.cost, 0);
+      const tokens = report.reduce((s, r) => s + r.inputTokens + r.outputTokens, 0);
+      const top = report.slice(0, 3).map((r) => `  ${r.model}: ${r.inputTokens + r.outputTokens} tok · ${formatCost(r.model, r.cost)}`).join("\n");
+      push("info", `context ──\n${top}\n  TOTAL: ${tokens} tok · $${total.toFixed(4)}`);
+    }
+    if (subagentTree.hasTree) push("info", subagentTree.render());
+    statusText = "";
+    scheduleRender();
+  };
 
-  rl.prompt();
-  rl.on("line", (line) => {
-    const input = line.trim();
-    if (!input) {
-      rl.prompt();
+  // ---------- palette sources ----------
+  const commandEntries = (): PaletteEntry[] => {
+    const builtIn: PaletteEntry[] = PALETTE_COMMANDS.map((c) => ({
+      label: c,
+      category: "command",
+      detail: c === "/palette" ? "open this palette" : c === "/quick" ? "plan + implement a task" : c === "/moa" ? "multiple agents, one synthesis" : undefined,
+      action: { type: "command", command: c },
+    }));
+    let custom: PaletteEntry[] = [];
+    try {
+      custom = loadCustomCommands(customCommandDirs(opts.cwd)).map((cc) => ({
+        label: `/${cc.name}`,
+        category: "custom" as const,
+        detail: (cc as { description?: string }).description ?? `custom command · agent: ${(cc as { agent?: string }).agent ?? "anubis"}`,
+        action: { type: "command" as const, command: `/${cc.name}` },
+      }));
+    } catch { /* no custom dirs */ }
+    return [...builtIn, ...custom];
+  };
+  const agentEntries = (): PaletteEntry[] => Object.entries(config.agent ?? {}).map(([name, a]) => ({
+    label: `agent:${name}`,
+    category: "agent" as const,
+    detail: `delegate directly to ${name}${(a as { model?: string }).model ? ` · ${(a as { model?: string }).model}` : ""}`,
+    action: { type: "insert" as const, text: `agent:${name} ` },
+  }));
+  const themeEntries = (): PaletteEntry[] => listPalettes().map((p) => ({
+    label: `theme:${p.name.toLowerCase()}`,
+    category: "theme" as const,
+    detail: `${p.name} · accent ${p.accent}`,
+    action: { type: "theme" as const, theme: p.name.toLowerCase() },
+  }));
+  const modelEntries = (): PaletteEntry[] => {
+    const models = [...new Set([config.model, config.small_model, ...modelCatalog].filter(Boolean))] as string[];
+    return models.flatMap((m) => [
+      { label: `model:${m}`, category: "model" as const, detail: "use as implementation model", action: { type: "model" as const, slot: "big" as const, model: m } },
+      { label: `model-small:${m}`, category: "model" as const, detail: "use as planning model", action: { type: "model" as const, slot: "small" as const, model: m } },
+    ]);
+  };
+  const sessionEntries = (): PaletteEntry[] => {
+    try {
+      return listSessions().slice(0, 20).map((s) => ({
+        label: `session:${(s as { id?: string }).id ?? (s as { cwd?: string }).cwd}`,
+        category: "session" as const,
+        detail: (s as { cwd?: string }).cwd ?? "",
+        action: { type: "session" as const, id: String((s as { id?: string }).id ?? (s as { cwd?: string }).cwd) },
+      }));
+    } catch { return []; }
+  };
+  const allEntries = (): PaletteEntry[] => [
+    ...commandEntries(),
+    ...agentEntries(),
+    ...themeEntries(),
+    ...modelEntries(),
+    ...sessionEntries(),
+    ...projectFiles.map((f) => ({ label: f, category: "file" as const, detail: "insert @file reference", action: { type: "insert" as const, text: `@${f} ` } })),
+    { label: "/exit", category: "command", detail: "quit RA", action: { type: "exit" as const } },
+  ];
+  const refreshPalette = () => {
+    paletteRows = searchPalette(editor.text, allEntries(), 40);
+    paletteSelected = Math.min(paletteSelected, Math.max(0, paletteRows.length - 1));
+    paletteScroll = Math.min(paletteScroll, paletteSelected);
+  };
+  const applyTheme = (id: string) => {
+    palette = getPalette(id);
+    themeId.current = id;
+    savePrefs({ ...prefs, theme: id });
+    push("info", `theme → ${id} (saved)`);
+  };
+
+  void collectProjectFiles(opts.cwd).then((f) => { projectFiles = f; if (paletteOpen) { refreshPalette(); scheduleRender(); } }).catch(() => {});
+  void (async () => {
+    try {
+      const key = process.env.OLLAMA_API_KEY;
+      if (!key) return;
+      const res = await fetch("https://ollama.com/api/tags", { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(6000) });
+      const j = await res.json() as { models?: Array<{ name: string }> };
+      modelCatalog = (j.models ?? []).map((m) => m.name);
+      if (paletteOpen) { refreshPalette(); scheduleRender(); }
+    } catch { /* offline */ }
+  })();
+
+  // ---------- screen ----------
+  let screenWidth = process.stdout.columns ?? 100;
+  let screenHeight = process.stdout.rows ?? 30;
+  const fit = (width: number, s: string) => { const v = visibleWidth(s); return v > width ? truncateVisible(s, width) : s + " ".repeat(width - v); };
+
+  const gitBranch = (): string => {
+    try {
+      return execSync("git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD", { cwd: opts.cwd, timeout: 1500, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    } catch { return ""; }
+  };
+  let branchCache = "";
+  let branchAt = 0;
+  const branch = (): string => {
+    if (Date.now() - branchAt > 10_000) { branchCache = gitBranch(); branchAt = Date.now(); }
+    return branchCache;
+  };
+  const short = (model?: string): string => {
+    if (!model) return "?";
+    const bare = model.includes("/") ? model.split("/").pop()! : model;
+    return bare.length > 24 ? bare.slice(0, 23) + "…" : bare;
+  };
+
+  const renderViewportLines = (width: number): string[] => {
+    const lines: string[] = [];
+    for (const seg of segments) {
+      if (seg.kind === "user") {
+        lines.push("");
+        lines.push(sty.user("  ▸ you"));
+        for (const l of renderMarkdown(seg.text, mdStyle, width - 4)) lines.push(`    ${l}`);
+      } else if (seg.kind === "assistant") {
+        lines.push("");
+        lines.push(sty.ok("  ◆ RA"));
+        for (const l of renderMarkdown(seg.text, mdStyle, width - 4)) lines.push(`  ${l}`);
+      } else if (seg.kind === "info") {
+        lines.push("");
+        for (const l of seg.text.split("\n")) lines.push(sty.muted(`  ${l}`));
+      } else {
+        lines.push(sty.warn(`  ⚠ ${seg.text}`));
+      }
+    }
+    if (streaming) {
+      lines.push("");
+      lines.push(sty.ok("  ◆ RA"));
+      for (const l of renderMarkdown(streaming.text + "▌", mdStyle, width - 4)) lines.push(`  ${l}`);
+    }
+    return lines;
+  };
+
+  const render = () => {
+    const W = screenWidth, H = screenHeight;
+    const out: string[] = [];
+
+    // header bar
+    const cwdShort = opts.cwd.replace(/^\/Users\/[^/]+/, "~");
+    const busyTag = busy ? `  ● ${statusText || "busy"}` : "";
+    const header = ` 𓃡 ${APP_NAME} ${RA_VERSION}  ·  ${config.profile ?? "default"}  ·  small ${short(config.small_model)} · big ${short(config.model)}${busyTag}`;
+    out.push(sty.bar(fit(W, header)));
+
+    if (paletteOpen) {
+      // palette overlay
+      const title = ` search everything — commands · agents · files · models · sessions · themes `;
+      out.push(sty.accent(`╭${"─".repeat(Math.max(0, W - 2))}╮`));
+      out.push(sty.accent("│") + fit(W - 2, sty.strong(title)) + sty.accent("│"));
+      out.push(sty.accent(`├${"─".repeat(Math.max(0, W - 2))}┤`));
+      const rows = groupRows(paletteRows);
+      const maxRows = Math.max(3, H - 12);
+      const start = Math.max(0, Math.min(paletteScroll, rows.length - maxRows));
+      const visible = rows.slice(start, start + maxRows);
+      rowHitbox = new Map();
+      let idx = -1;
+      for (const r of visible) {
+        if (r.kind === "header") { out.push(sty.muted(fit(W, ` ${r.label.toUpperCase()}`))); continue; }
+        idx++;
+        const selected = idx === paletteSelected;
+        const marker = selected ? sty.accent("▌") : " ";
+        const label = highlightMatches(r.row.entry.label, r.row.indices, `\x1b[1m${hexFg(palette.foreground)}`, "\x1b[0m");
+        const detail = r.row.entry.detail ? sty.muted(` — ${truncateVisible(r.row.entry.detail, Math.max(10, W - visibleWidth(r.row.entry.label) - 14))}`) : "";
+        out.push(fit(W - 1, ` ${marker}${selected ? label : r.row.entry.label && label}${detail}`));
+        rowHitbox.set(out.length, idx);   // 1-based screen y of this row
+      }
+      if (!paletteRows.length) out.push(sty.muted(fit(W, "  no matches — keep typing")));
+      out.push(sty.muted(fit(W, `  ↑↓ select · enter run · tab insert · esc close · mouse clickable (${paletteRows.length})`)));
+      out.push(sty.accent(`╰${"─".repeat(Math.max(0, W - 2))}╯`));
+    } else {
+      const vLines = renderViewportLines(W);
+      const maxVisible = Math.max(4, H - 6);
+      const from = Math.max(0, vLines.length - maxVisible - scrollOffset);
+      const visible = vLines.slice(from, from + maxVisible);
+      for (let i = 0; i < maxVisible; i++) out.push(fit(W, visible[i] ?? ""));
+      scrollOffset = Math.min(scrollOffset, Math.max(0, vLines.length - maxVisible));
+    }
+
+    // input box
+    const label = busy ? ` ⣿ ${SPINNER[spinnerFrame % SPINNER.length]} ${statusText || "working…"} ` : ` ${APP_NAME} › type / to search everything `;
+    const cursorAt = Math.min(editor.cursor, editor.text.length);
+    const before = editor.text.slice(0, cursorAt);
+    const at = editor.text.slice(cursorAt, cursorAt + 1) || " ";
+    const after = editor.text.slice(cursorAt + 1);
+    const inputLine = `${sty.accent(before)}${hexBg(palette.accent)}${hexFg(palette.background)}${at}\x1b[0m${sty.accent(after)}`;
+    out.push(sty.accent(`╭${label}${"─".repeat(Math.max(0, W - visibleWidth(label) - 2))}╮`));
+    out.push(sty.accent("│") + fit(W - 2, inputLine) + sty.accent("│"));
+    out.push(sty.accent(`╰${"─".repeat(Math.max(0, W - 2))}╯`));
+
+    // footer chips
+    const chips: Array<[string, string]> = [
+      ["/", "everything"],
+      ["ctrl+p", "palette"],
+      ["tab", "complete"],
+      ["esc", busy ? "cancel" : "close"],
+      ["ctrl+d", "quit"],
+    ];
+    let chipLine = " ";
+    for (const [k, v] of chips) chipLine += sty.bar(` ${k} `) + sty.chip(` ${v} `);
+    const right = `${cwdShort}${branch() ? ` · ⑂ ${branch()}` : ""} · ${themeId.current}`;
+    out.push(fit(Math.max(0, W - visibleWidth(right) - 1), chipLine) + sty.muted(right));
+
+    while (out.length < H) out.push("");
+    const frame = SYNC_BEGIN + "\x1b[H" + out.slice(0, H).map((l) => fit(W, l) + "\x1b[K").join("\n") + SYNC_END;
+    process.stdout.write(frame);
+  };
+
+  let renderScheduled = false;
+  const scheduleRender = () => {
+    if (renderScheduled) return;
+    renderScheduled = true;
+    setTimeout(() => { renderScheduled = false; try { render(); } catch { /* mid-resize */ } }, 24);
+  };
+
+  // ---------- history seeding ----------
+  if (session.messages.length === 0) {
+    push("info", [
+      `Welcome to ${APP_NAME}.`,
+      `  /                search EVERYTHING — commands · agents · files · models · themes`,
+      `  /quick <task>    plan + implement`,
+      `  /moa <task>      multiple agents, one synthesis`,
+      `  agent:<name> …   delegate to one agent directly`,
+      `  /theme           switch look (persisted to ~/.ra/tui.json)`,
+      `small: ${config.small_model} · code: ${config.model}`,
+    ].join("\n"));
+  } else {
+    push("info", formatReattach(session) + "\n/history to review · /clear to reset");
+  }
+  void (async () => {
+    const { loadLastRun, formatLaneLine, formatIntentLine } = await import("../../../anubis/src/last-run.ts");
+    const last = loadLastRun();
+    if (last?.timings?.length) { push("info", `${formatLaneLine(last)} · ${formatIntentLine(last)}`); scheduleRender(); }
+  })();
+
+  // ---------- palette actions ----------
+  const openPalette = (query: string) => {
+    paletteOpen = true;
+    paletteViaSlash = query.startsWith("/");
+    editor.text = query;
+    editor.cursor = editor.text.length;
+    paletteSelected = 0;
+    paletteScroll = 0;
+    refreshPalette();
+    scheduleRender();
+  };
+  const closePalette = () => {
+    paletteOpen = false;
+    if (paletteViaSlash && editor.text.startsWith("/")) { editor.text = ""; editor.cursor = 0; }
+    paletteViaSlash = false;
+    scheduleRender();
+  };
+  const insertAtCursor = (t: string) => editor.text.slice(0, editor.cursor) + t + editor.text.slice(editor.cursor);
+
+  const quit = () => {
+    saveSession(session);
+    stdout.write(MOUSE_EXIT + PASTE_EXIT + CURSOR_SHOW + ALT_EXIT);
+    stdin.setRawMode(false);
+    setActiveSubagentTracker(null);
+    setActiveStreamRenderer(null);
+    process.exit(0);
+  };
+
+  const activateRow = (idx: number) => {
+    const row = paletteRows[idx];
+    if (!row) return;
+    const a = row.entry.action;
+    closePalette();
+    if (a.type === "exit") { quit(); return; }
+    if (a.type === "command") { void submit(a.command); return; }
+    if (a.type === "insert") { editor.text = insertAtCursor(a.text); editor.cursor += a.text.length; scheduleRender(); return; }
+    if (a.type === "theme") { applyTheme(a.theme); scheduleRender(); return; }
+    if (a.type === "model") {
+      if (a.slot === "big") config.model = a.model; else config.small_model = a.model;
+      push("info", `${a.slot} model → ${a.model} (this session)`);
+      scheduleRender();
       return;
     }
-    queue.push(input);
-    void drain();
-  });
+    if (a.type === "session") {
+      try {
+        switchSession(a.id);
+        push("info", `session pointer → ${a.id}. Restart ra to open it.`);
+      } catch (e) { push("activity", `session switch failed: ${String(e)}`); }
+      scheduleRender();
+    }
+  };
 
-  rl.on("close", () => {
-    if (process.stdin.isTTY) process.stdin.setRawMode(false);
+  // ---------- submit ----------
+  const submit = async (raw: string) => {
+    const input = raw.trim();
+    editor.text = ""; editor.cursor = 0; scrollOffset = 0;
+    if (!input) return;
+    if (input === "/exit" || input === "exit" || input === "/quit") { quit(); return; }
+    if (input === "/palette") { openPalette(""); return; }
+    if (input === "/themes" || input === "/theme") { openPalette("theme:"); return; }
+    push("user", input);
+    render();
+    if (remoteOk) void remote!.appendMessage(session, "user", input);
+    else appendMessage(session, "user", input);
+    busy = true;
+    try {
+      const agentM = /^agent:([a-z0-9_-]+)\s*([\s\S]*)$/i.exec(input);
+      if (agentM) {
+        const role = agentM[1].toLowerCase();
+        statusText = `${role} working…`;
+        scheduleRender();
+        const result = await runTaskAgent(role, agentM[2].trim() || `Introduce yourself as the ${role} agent in one short paragraph.`, config, { cwd: opts.cwd, filesWritten: [] }, loadEnv(ANUBIS_HOME));
+        streamedThisTurn = "";
+        reply(result.output);
+      } else if (input.startsWith("/")) {
+        const handled = await dispatchCommand(input, { config, session, plugins, ctx, reply });
+        if (handled) saveSession(session);
+        else push("activity", `unknown command ${input} — press / to search`);
+      } else {
+        const enhanced = await plugins.appendPrompt(input);
+        const withFiles = expandMentions(enhanced, opts.cwd);
+        statusText = "orchestrating…";
+        scheduleRender();
+        const out = await runOrchestratorTurn(withFiles, config, ctx);
+        streamedThisTurn = "";
+        reply(out);
+      }
+    } catch (e) {
+      streamedThisTurn = "";
+      streaming = null;
+      reply(`Error: ${String(e)}`);
+    } finally {
+      busy = false;
+      statusText = "";
+      scheduleRender();
+      saveSession(session);
+    }
+  };
+
+  // ---------- streaming ----------
+  let streamTimer: ReturnType<typeof setTimeout> | null = null;
+  setActiveStreamRenderer((tok) => {
+    streamedThisTurn += tok;
+    if (!streaming) streaming = { kind: "assistant", text: tok };
+    else streaming.text += tok;
+    if (!statusText) statusText = "responding…";
+    if (!streamTimer) streamTimer = setTimeout(() => { streamTimer = null; render(); }, 40);
+  });
+  const spinnerTimer = setInterval(() => {
+    if (!busy) return;
+    spinnerFrame++;
+    render();
+  }, 140);
+
+  // ---------- terminal ----------
+  const stdin = process.stdin;
+  const stdout = process.stdout;
+  stdin.setRawMode(true);
+  stdin.resume();
+  stdout.write(ALT_ENTER + CURSOR_HIDE + PASTE_ENTER + (mouseOn ? MOUSE_ENTER : ""));
+  const onResize = () => { screenWidth = stdout.columns ?? screenWidth; screenHeight = stdout.rows ?? screenHeight; render(); };
+  stdout.on("resize", onResize);
+  const cleanup = () => {
+    clearInterval(spinnerTimer);
+    stdout.removeListener("resize", onResize);
+    stdout.write(MOUSE_EXIT + PASTE_EXIT + CURSOR_SHOW + ALT_EXIT);
+    stdin.setRawMode(false);
     setActiveSubagentTracker(null);
     setActiveStreamRenderer(null);
     saveSession(session);
+  };
+  process.on("exit", cleanup);
+
+  // ---------- keys ----------
+  let pending = "";
+  stdin.on("data", (chunk: string) => {
+    const { keys, pending: rest } = decodeKeys(chunk.toString("utf-8"), pending);
+    pending = rest;
+    for (const key of keys) handleKey(key);
   });
 
-  // Without a SIGINT listener, readline closes the interface on Ctrl+C and
-  // the process exits — the refusal message below would be a lie. Registering
-  // this handler keeps the app alive; Ctrl+D / /exit still quit cleanly.
-  rl.on("SIGINT", () => {
-    rl.prompt();
-  });
-}
-
-async function handleInput(
-  input: string,
-  config: ReturnType<typeof loadRaConfig>,
-  session: ReturnType<typeof loadSession>,
-  plugins: PluginHost,
-  ctx: { cwd: string },
-  reply: (t: string) => void,
-  remote: RemoteClient | null,
-  remoteOk: boolean,
-  _subagentTree: SubagentTree,
-): Promise<void> {
-  if (remoteOk) {
-    void remote!.appendMessage(session, "user", input);
-  } else {
-    appendMessage(session, "user", input);
-  }
-
-  if (input.trim().startsWith("/")) {
-    const handled = await dispatchCommand(input.trim(), { config, session, plugins, ctx, reply });
-    if (handled) {
-      saveSession(session);
-      return;
+  function handleKey(k: Key): void {
+    switch (k.type) {
+      case "mouse": {
+        const ev = k.event;
+        if (ev.kind === "wheel-up" || ev.kind === "wheel-down") {
+          const dir = ev.kind === "wheel-up" ? -1 : 1;
+          if (!paletteOpen) scrollOffset = Math.max(0, scrollOffset + dir * scrollSpeed * 3);
+          render();
+          return;
+        }
+        if (ev.kind !== "press" || ev.button !== "left") return;
+        const hit = rowHitbox.get(ev.y);
+        if (paletteOpen) {
+          if (hit !== undefined) activateRow(hit);
+          else if (ev.y < screenHeight - 3) closePalette();
+          return;
+        }
+        return;
+      }
+      case "ctrl":
+        if (k.name === "d") { quit(); return; }
+        if (k.name === "c") {
+          if (busy) { if (abortActiveTurn()) statusText = "cancelling…"; }
+          else { editor.text = ""; editor.cursor = 0; }
+          scheduleRender();
+          return;
+        }
+        if (k.name === "p") { if (paletteOpen) closePalette(); else openPalette(""); return; }
+        if (k.name === "l") { segments.length = 0; scheduleRender(); return; }
+        if (k.name === "u") { editor.text = ""; editor.cursor = 0; scheduleRender(); return; }
+        return;
+      case "escape":
+        if (paletteOpen) { closePalette(); return; }
+        if (busy) { if (abortActiveTurn()) statusText = "cancelling…"; scheduleRender(); return; }
+        editor.text = ""; editor.cursor = 0; scheduleRender();
+        return;
+      case "enter":
+        if (paletteOpen) { activateRow(paletteSelected); return; }
+        { const t = editor.text; editor.text = ""; editor.cursor = 0; void submit(t); }
+        return;
+      case "tab": {
+        if (!paletteOpen || !paletteRows[paletteSelected]) return;
+        const label = paletteRows[paletteSelected].entry.label;
+        if (/^(agent:|\/)/.test(label)) {
+          editor.text = label + " ";
+          editor.cursor = editor.text.length;
+          refreshPalette();
+        } else {
+          editor.text = insertAtCursor(label);
+          editor.cursor += label.length;
+          closePalette();
+          return;
+        }
+        render();
+        return;
+      }
+      case "shifttab":
+        if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); paletteScroll = Math.min(paletteScroll, paletteSelected); render(); }
+        return;
+      case "up":
+        if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); if (paletteSelected < paletteScroll) paletteScroll = paletteSelected; render(); return; }
+        scrollOffset += 3; render(); return;
+      case "down":
+        if (paletteOpen) { paletteSelected = Math.min(paletteRows.length - 1, paletteSelected + 1); if (paletteSelected >= paletteScroll + 12) paletteScroll = paletteSelected - 11; render(); return; }
+        scrollOffset = Math.max(0, scrollOffset - 3); render(); return;
+      case "pgup": scrollOffset += screenHeight - 6; render(); return;
+      case "pgdn": scrollOffset = Math.max(0, scrollOffset - (screenHeight - 6)); render(); return;
+      case "home": editor.cursor = 0; render(); return;
+      case "end": editor.cursor = editor.text.length; render(); return;
+      case "left": editor.cursor = Math.max(0, editor.cursor - 1); render(); return;
+      case "right": editor.cursor = Math.min(editor.text.length, editor.cursor + 1); render(); return;
+      case "backspace":
+        if (editor.cursor > 0) { editor.text = editor.text.slice(0, editor.cursor - 1) + editor.text.slice(editor.cursor); editor.cursor--; }
+        if (paletteOpen) refreshPalette();
+        render();
+        return;
+      case "delete":
+        editor.text = editor.text.slice(0, editor.cursor) + editor.text.slice(editor.cursor + 1);
+        if (paletteOpen) refreshPalette();
+        render();
+        return;
+      case "paste": {
+        const t = k.text.replace(/\n+/g, " ");
+        editor.text = insertAtCursor(t);
+        editor.cursor += t.length;
+        if (paletteOpen) refreshPalette();
+        render();
+        return;
+      }
+      case "text":
+        editor.text = insertAtCursor(k.text);
+        editor.cursor += k.text.length;
+        if (!paletteOpen && editor.text.startsWith("/") && !editor.text.includes(" ")) { paletteViaSlash = true; paletteOpen = true; }
+        if (paletteOpen) refreshPalette();
+        render();
+        return;
     }
   }
 
-  // Local file commands take paths, not prompts; plugin instructions must not
-  // become part of a filename (or shell-like listing argument).
-  const direct = /^(?:read\s|ls(?:\s|$)|list$)/.test(input);
-  const enhanced = direct ? input : await plugins.appendPrompt(input);
-
-  if (session.simpleMode && !input.startsWith("/")) {
-    reply("Try /plan first, then /code — or type /help");
-    return;
-  }
-
-  try {
-    // @-mention file picker: inline referenced files into the prompt.
-    const withFiles = expandMentions(enhanced, ctx.cwd);
-    const out = await runOrchestratorTurn(withFiles, config, ctx);
-    reply(out);
-  } catch (e) {
-    reply(`Error: ${String(e)}`);
-  }
-  saveSession(session);
+  render();
+  process.on("SIGINT", () => { if (busy) abortActiveTurn(); else quit(); });
 }

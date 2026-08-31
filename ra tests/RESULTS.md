@@ -1,6 +1,25 @@
-# RA installed-user acceptance — 2026-08-30
+# RA installed-user acceptance — 2026-08-30/31
 
-For the subsequent .70 team features and regression run, see [AGENT_RESULTS.md](AGENT_RESULTS.md). This report preserves the .69 results, records the .71 coding regression, and the .72 fallback feature.
+For the subsequent .70 team features and regression run, see [AGENT_RESULTS.md](AGENT_RESULTS.md). This report preserves the .69 results, records the .71 coding regression, the .72 fallback feature, and the .73 TUI overhaul.
+
+## .73 full-screen TUI (RA 1.0.0-ra.73, 2026-08-31)
+
+`ra` in a real terminal now opens an opencode-style full-screen workspace: header bar (logo, version, profile, small/big models), markdown-rendered conversation with live streaming and a spinner, cost sidebar, bordered input box, and a clickable key-chip footer with cwd, git branch, and theme. Pressing `/` (or ctrl+p) opens the **unified palette**, which fuzzy-searches everything at once — commands (built-in + custom), agents (direct delegation), project files (inserted as `@` references), sessions, models (per-session switching), and themes — with match highlighting, keyboard control, and SGR mouse support (click rows, wheel scroll). Themes persist to `~/.ra/tui.json` alongside `mouse` and `scrollSpeed` customization. Zero new runtime dependencies; pipes keep the legacy readline UI and bare `ra` without a terminal still refuses clearly.
+
+**Installed-user acceptance: 8/8 in one uninterrupted batch** (`ui_acceptance.py`, live Ollama Cloud for the streaming scenario):
+
+| Scenario | Result | Seconds | Evidence |
+|---|---|---:|---|
+| 66-tui-header-palette | PASS | 11.29 | [JSON](evidence/ui-73/66-tui-header-palette.json) |
+| 67-fuzzy-theme-enter | PASS | 11.27 | [JSON](evidence/ui-73/67-fuzzy-theme-enter.json) |
+| 68-mouse-click-theme | PASS | 11.20 | [JSON](evidence/ui-73/68-mouse-click-theme.json) |
+| 69-mouse-click-command | PASS | 13.77 | [JSON](evidence/ui-73/69-mouse-click-command.json) |
+| 70-file-insert-tab | PASS | 11.89 | [JSON](evidence/ui-73/70-file-insert-tab.json) |
+| 71-streaming-markdown | PASS | 47.24 | [JSON](evidence/ui-73/71-streaming-markdown.json) |
+| 72-theme-persist-restart | PASS | 12.11 | [JSON](evidence/ui-73/72-theme-persist-restart.json) |
+| 73-legacy-pipe-mode | PASS | 6.15 | [JSON](evidence/ui-73/73-legacy-pipe-mode.json) |
+
+Unit suite: **380/0** across 58 files (18 new TUI cases covering the fuzzy matcher, SGR mouse/key decoding, markdown rendering, and the palette engine). Earlier runs retained two real bugs found and fixed during development: a missing object brace that crashed startup, and a palette highlight call passing closures where escape strings were required.
 
 ## .72 explicit model fallbacks (RA 1.0.0-ra.72, 2026-08-30)
 

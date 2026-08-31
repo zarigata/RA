@@ -66,6 +66,7 @@ export async function startTui(opts: TuiOptions): Promise<void> {
 }
 
 async function startFullscreen(opts: TuiOptions): Promise<void> {
+  try { writeFileSync("/tmp/ra-key-trace.log", `START pid=${process.pid} build=${RA_VERSION}\n`, { flag: "a" }); } catch {}
   const config = applyEnvOverrides(applyProjectOverride(loadRaConfig(ANUBIS_HOME), opts.cwd));
   const remote = opts.remoteUrl ? new RemoteClient({ url: opts.remoteUrl }) : null;
   const remoteOk = remote ? await remote.health() : false;
@@ -589,31 +590,6 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
 
   const closeMenu = () => { if (modal?.kind === "menu") modal = null; scheduleRender(); };
 
-  // ---------- keys ----------
-  let pending = "";
-  let escTimer: ReturnType<typeof setTimeout> | null = null;
-  stdin.on("data", (chunk: string) => {
-    const { keys, pending: rest } = decodeKeys(chunk.toString("utf-8"), pending);
-    pending = rest;
-    // A lone ESC is ambiguous: it either starts a sequence or is the Escape
-    // key. If no continuation arrives quickly, deliver it as Escape.
-    if (pending === "\x1b") {
-      if (!escTimer) {
-        escTimer = setTimeout(() => {
-          escTimer = null;
-          if (pending === "\x1b") {
-            pending = "";
-            handleKey({ type: "escape" });
-          }
-        }, 50);
-      }
-    } else if (escTimer) {
-      clearTimeout(escTimer);
-      escTimer = null;
-    }
-    for (const key of keys) handleKey(key);
-  });
-
   function handleKey(k: Key): void {
     switch (k.type) {
       case "osc":
@@ -902,9 +878,27 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   }
 
   function wireKeys(): void {
+    let pending = "";
+    let escTimer: ReturnType<typeof setTimeout> | null = null;
     stdin.on("data", (chunk: string) => {
       const { keys, pending: rest } = decodeKeys(chunk.toString("utf-8"), pending);
       pending = rest;
+      // A lone ESC is ambiguous: it either starts a sequence or is the Escape
+      // key. If no continuation arrives quickly, deliver it as Escape.
+      if (pending === "\x1b") {
+        if (!escTimer) {
+          escTimer = setTimeout(() => {
+            escTimer = null;
+            if (pending === "\x1b") {
+              pending = "";
+              handleKey({ type: "escape" });
+            }
+          }, 50);
+        }
+      } else if (escTimer) {
+        clearTimeout(escTimer);
+        escTimer = null;
+      }
       for (const key of keys) handleKey(key);
     });
   }

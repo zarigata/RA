@@ -5,6 +5,16 @@
 
 ## Current Cycle
 
+**2026-08-31 — Linux execution + CI acceptance (RA 1.0.0-ra.75).**
+RA now runs beyond macOS: bubblewrap command isolation on Linux with an
+end-to-end capability probe, honest degradation (filesystem-only or
+consent-based unsandboxed), and fail-closed errors with instructions.
+`.github/workflows/linux-acceptance.yml` verifies on every push: an Ubuntu
+container runner installs RA, completes a real Ollama Cloud coding task
+(plan → implement → verify), asserts the fail-closed and consent contracts,
+and drives the full-screen TUI through a PTY. CI iterations caught three real
+bugs (boolean bwrapPath, userns-forbidden loopback, double stdin key wiring).
+
 **2026-08-31 — Splash, context menus, onboarding (RA 1.0.0-ra.74).**
 Startup splash with a gradient ASCII logo over a tiled background, automatic
 light/dark theme detection (OSC 11), right-click context menus with Themes/

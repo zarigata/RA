@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0-ra.75 — 2026-08-31
+
+- Linux command execution: bubblewrap backend (`--ro-bind /`, workspace+scratch binds, clearenv + allowlisted setenv, optional `--unshare-net`), with an end-to-end capability probe — where user namespaces are forbidden (e.g. GitHub Actions runners), RA degrades honestly to filesystem-only isolation or, with explicit consent (`RA_ALLOW_UNSANDBOXED=1` / `sandbox.allow_unsandboxed`), runs unsandboxed; otherwise it fails closed with install instructions. macOS Seatbelt behavior unchanged.
+- `.github/workflows/linux-acceptance.yml`: on every push to main, an Ubuntu container runner installs RA, runs one real Ollama Cloud coding task end-to-end (plan → implement → verify), asserts the fail-closed contract and consent execution, and drives the full-screen TUI through a real PTY (splash, welcome, `/` palette, `?` shortcuts). First runs caught and fixed three real Linux/TUI bugs: a boolean `bwrapPath` reaching `spawn`, userns-forbidden loopback setup, and double stdin key wiring that double-processed every keystroke (also fixed a lone-ESC/`?` merge via the classic 50 ms escape disambiguation timer).
+
 ## 1.0.0-ra.74 — 2026-08-31
 
 - Startup splash: gradient ASCII "RA" logo composited over a dim tiled background; any key skips; window title set; OSC 11 background detection auto-picks a light or dark theme on first run.

@@ -24,13 +24,12 @@ t = re.sub(rb'\x1b\[[0-9;?]*[a-zA-Z]', b'', buf).decode('utf-8', errors='replace
 failures = []
 if "press any key" not in t and "R E L I C" not in t:
     failures.append("splash missing")
-os.write(master, b"x"); drain(4)
+os.write(master, b"x"); drain(3)
+os.write(master, b"\x1b"); drain(1)   # Esc finishes onboarding if it is up
+os.write(master, b"\x1b"); drain(1)
 t = re.sub(rb'\x1b\[[0-9;?]*[a-zA-Z]', b'', buf).decode('utf-8', errors='replace')
 if "Welcome to RA" not in t and "pick a look" not in t:
     failures.append("welcome/onboarding missing")
-if "pick a look" in t:
-    os.write(master, b"\r"); drain(2.5)
-    os.write(master, b"x"); drain(2.5)
 os.write(master, b"/"); drain(3)
 t = re.sub(rb'\x1b\[[0-9;?]*[a-zA-Z]', b'', buf).decode('utf-8', errors='replace')
 if "search everything" not in t:

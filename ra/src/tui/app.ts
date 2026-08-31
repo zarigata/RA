@@ -695,7 +695,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (k.name === "u") { editor.text = ""; editor.cursor = 0; scheduleRender(); return; }
         return;
       case "escape":
-        if (modal) { if (modal.kind !== "onboard") modal = null; scheduleRender(); return; }
+        if (modal) { if (modal.kind === "onboard") finishOnboarding(); else modal = null; scheduleRender(); return; }
         if (paletteOpen) { closePalette(); return; }
         if (busy) { if (abortActiveTurn()) statusText = "cancelling…"; scheduleRender(); return; }
         editor.text = ""; editor.cursor = 0; scheduleRender();
@@ -719,7 +719,8 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
             const prefixes = ["/quick ", "/moa ", ""];
             const prefix = prefixes[modal.selected] ?? "";
             finishOnboarding();
-            if (prefix) void submit(prefix + "make a tiny colorful index.html that prints hello from RA");
+            if (prefix) { editor.text = prefix; editor.cursor = editor.text.length; }
+            scheduleRender();
             return;
           }
           scheduleRender();
@@ -811,15 +812,12 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
             openPalette("/");
             return;
           }
-          if (modal.kind === "onboard" && modal.step === 0) {
-            const themes = listPalettes().map((p) => p.name.toLowerCase());
-            setTheme(themes[modal.selected] ?? themeId.current, true);
-            modal = { kind: "onboard", step: 1, selected: 0 };
-            scheduleRender();
+          if (modal.kind === "onboard") {
+            // Any other key finishes the wizard without touching the editor.
+            finishOnboarding();
             return;
           }
           modal = null;
-          if (!onboarded) { onboarded = true; savePrefs({ ...prefs, onboarded: true, theme: themeId.current }); }
           scheduleRender();
           return;
         }

@@ -53,6 +53,11 @@ class Session:
         s.drain(wait)
     def last(s):
         return clean(s.buf)
+    def last_frame(s):
+        """Only the most recent painted frame — no stale history."""
+        marker = b'\x1b[?2026h'
+        i = s.buf.rfind(marker)
+        return clean(s.buf[i:] if i >= 0 else s.buf)
     def kill(s):
         try: os.killpg(s.p.pid, signal.SIGKILL)
         except Exception: pass
@@ -81,8 +86,13 @@ def tui_home_and_palette(s):
     check('𓃡 RA' in s.last() or 'RA 1.0.0' in s.last(), 'header missing')
     check('type / to search everything' in s.last(), 'input box hint missing')
     check('everything' in s.last() and 'palette' in s.last(), 'footer chips missing')
+    # first-run wizard may be up: finish it so the palette is reachable
+    if 'pick a look' in s.last():
+        s.send(b'\r', 2.0)
+    if 'what do you want to do first' in s.last():
+        s.send(b'x', 2.0)
     s.send(b'/', 2.5)
-    t = s.last()
+    t = s.last_frame()
     check('search everything' in t, 'palette title missing')
     check('COMMANDS' in t, 'commands group missing')
     s.send(b'\x1b', 1.5)  # close palette
@@ -107,7 +117,7 @@ def tui_mouse_click_theme(s):
     s.send(b'/theme:', 2.5)
     check('theme:' in s.last(), 'theme filter missing')
     # the first visible palette row (y=6) is a theme entry; read its id from the screen
-    m = re.search(r'theme:([a-z0-9-]+)', s.last())
+    m = re.search(r'theme:([a-z0-9-]+)', s.last_frame())
     check(m, 'no theme row visible on screen')
     expected = m.group(1)
     s.send(b'\x1b[<0;20;6M', 0.4)
@@ -121,7 +131,7 @@ def tui_mouse_click_command(s):
     check('search everything' in t, 'palette not open')
     # find /help row: type "hel" to filter, then click first row
     s.send(b'hel', 2.0)
-    check('/help' in s.last(), '/help not in filtered rows')
+    check('/help' in s.last_frame(), '/help not in filtered rows')
     s.send(b'\x1b[<0;20;6M', 0.3)
     s.send(b'\x1b[<0;20;6m', 2.5)
     check('RA — commands:' in s.last(), 'help output missing after click')
@@ -160,6 +170,43 @@ def tui_legacy_pipe_mode(s=None):
     check(p.returncode != 0, 'non-TTY ra should refuse')
     check('interactive mode needs a terminal' in (p.stderr + p.stdout), 'refusal message missing')
 
+def tui_splash_onboarding(s):
+    prefs = base / 'home' / '.ra' / 'tui.json'
+    if prefs.exists(): prefs.unlink()
+    s2 = Session()
+    s2.drain(0.8)
+    t = s2.last()
+    check('press any key' in t, 'splash hint missing')
+    check(chr(0x2588) in t, 'splash logo blocks missing')
+    s2.send(b'x', 3.0)   # skip splash; any key advances onboarding step 1 -> 2
+    t = s2.last()
+    check('pick a look' in t, 'onboarding step 1 missing')
+    s2.send(b'\r', 2.5)  # confirm theme
+    check('what do you want to do first' in s2.last(), 'onboarding step 2 missing')
+    s2.send(b'x', 2.5)   # finish onboarding
+    check(json.loads(prefs.read_text()).get('onboarded') is True, 'onboarded flag not persisted')
+    s2.kill()
+
+def tui_question_shortcuts(s):
+    s.send(b'?', 2.0)
+    check('RA shortcuts' in s.last_frame(), 'shortcuts overlay missing on ?')
+    check('right-click' in s.last_frame(), 'shortcuts missing context-menu entry')
+    s.send(b'x', 2.0)
+    check('RA shortcuts' not in s.last_frame(), 'shortcuts did not close')
+
+def tui_context_menu(s):
+    s.send(b'\x1b[<2;15;10M', 0.4); s.send(b'\x1b[<2;15;10m', 2.0)
+    t = s.last_frame()
+    check('Search everything' in t, 'context menu missing')
+    check('Themes' in t, 'themes submenu missing')
+    # the menu anchors at the right-click: title y11, first entry y12, Themes y13
+    s.send(b'\x1b[<0;30;13M', 0.3); s.send(b'\x1b[<0;30;13m', 2.0)
+    check('theme:' in s.last_frame(), 'themes submenu did not open')
+    # submenu opens centered at y4: title y5, first theme row y7
+    prefs = base / 'home' / '.ra' / 'tui.json'
+    s.send(b'\x1b[<0;30;7M', 0.3); s.send(b'\x1b[<0;30;7m', 2.0)
+    check(prefs.exists() and json.loads(prefs.read_text()).get('theme'), 'theme not persisted from menu')
+
 scenario('66-tui-header-palette', tui_home_and_palette)
 scenario('67-fuzzy-theme-enter', tui_fuzzy_themes_enter)
 scenario('68-mouse-click-theme', tui_mouse_click_theme)
@@ -168,5 +215,8 @@ scenario('70-file-insert-tab', tui_file_insert)
 scenario('71-streaming-markdown', tui_streaming_turn)
 scenario('72-theme-persist-restart', tui_theme_persists_restart)
 scenario('73-legacy-pipe-mode', tui_legacy_pipe_mode)
+scenario('74-splash-onboarding', tui_splash_onboarding)
+scenario('75-question-shortcuts', tui_question_shortcuts)
+scenario('76-context-menu', tui_context_menu)
 print(f"UI acceptance: {sum(o['status']=='PASS' for o in outcomes)}/{len(outcomes)} passed", flush=True)
 sys.exit(2 if not outcomes else 1 if any(o['status'] != 'PASS' for o in outcomes) else 0)

@@ -138,3 +138,56 @@ describe("unified palette", () => {
     expect(rows[0].entry.action).toEqual({ type: "insert", text: "agent:ptah " });
   });
 });
+
+describe("splash art", () => {
+  test("logo renders gradient rows over tiled background", () => {
+    const { renderSplashFrame, LOGO } = require("../src/tui/splash.ts");
+    const lines = renderSplashFrame({ width: 80, height: 24, accent: "#fbbf24", accent2: "#22c55e", muted: "#888888", version: "1.0.0-ra.73" });
+    expect(lines).toHaveLength(24);
+    const joined = lines.join("\n");
+    for (const row of LOGO) expect(joined).toContain(row.trim().slice(0, 6));
+    expect(joined).toContain("R E L I C");
+    expect(joined).toContain("press any key");
+  });
+
+  test("OSC color reply parsing and luminance", () => {
+    const { parseOscColorReply, luminance } = require("../src/tui/splash.ts");
+    const reply = "\x1b]11;rgb:1c1c/1c1c/1c1c\x07";
+    expect(parseOscColorReply(reply)).toBe("#1c1c1c");
+    expect(luminance("#000000")).toBeLessThan(0.1);
+    expect(luminance("#ffffff")).toBeGreaterThan(0.9);
+  });
+});
+
+describe("menu overlays", () => {
+  const st = { accent: (s: string) => s, strong: (s: string) => s, muted: (s: string) => s, bar: (s: string) => s };
+  test("menu paints a clamped box with click hitboxes", () => {
+    const { renderMenuOverlay } = require("../src/tui/overlays.ts");
+    const base = Array.from({ length: 20 }, () => "");
+    const frame = renderMenuOverlay({ base, screenW: 80, screenH: 20, x: 200, y: 2, title: "RA", entries: [{ label: "Themes", submenu: [] }, { label: "Quit", run: { type: "exit" } }], selected: 0, style: st });
+    const hitRows = [...frame.hitbox.keys()];
+    expect(hitRows.length).toBe(2);
+    expect(Math.max(...hitRows)).toBeLessThan(20);
+    const rowText = frame.lines.find((l: { y: number }) => l.y === hitRows[0])?.text ?? "";
+    expect(rowText).toContain("Themes");
+  });
+
+  test("shortcuts overlay lists keybinds", () => {
+    const { renderShortcutsOverlay } = require("../src/tui/overlays.ts");
+    const lines = renderShortcutsOverlay({ screenW: 90, screenH: 30, style: st, themeName: "obsidian" });
+    const joined = lines.join("\n");
+    expect(joined).toContain("search everything");
+    expect(joined).toContain("right-click");
+    expect(joined).toContain("obsidian");
+  });
+
+  test("onboarding wizard has clickable theme and action steps", () => {
+    const { renderOnboardingOverlay } = require("../src/tui/overlays.ts");
+    const step0 = renderOnboardingOverlay({ screenW: 90, screenH: 30, style: st, step: 0, themes: [{ id: "obsidian", name: "Obsidian" }, { id: "nord", name: "Nord" }], selectedTheme: 0, version: "1" });
+    expect(step0.themeHit.size).toBe(2);
+    expect(step0.lines.join("\n")).toContain("pick a look");
+    const step1 = renderOnboardingOverlay({ screenW: 90, screenH: 30, style: st, step: 1, themes: [], selectedTheme: 0, version: "1" });
+    expect(step1.actionHit.size).toBe(3);
+    expect(step1.lines.join("\n")).toContain("what do you want to do first");
+  });
+});

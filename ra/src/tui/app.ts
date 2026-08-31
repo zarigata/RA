@@ -1,7 +1,8 @@
 // tui/app.ts — RA full-screen terminal UI (opencode-inspired).
-// Alt-screen renderer with a unified fuzzy "/" palette (commands, agents,
-// files, sessions, models, themes), SGR mouse support, live streaming,
-// markdown rendering, and persisted customization (~/.ra/tui.json).
+// Startup splash with a gradient ASCII logo over a tiled background, unified
+// fuzzy "/" palette (commands, agents, files, sessions, models, themes),
+// right-click context menus, "?" shortcuts overlay, first-run onboarding,
+// SGR mouse support, markdown rendering, and customization (~/.ra/tui.json).
 // Non-TTY stdin falls back to the legacy readline interface.
 
 import * as readline from "node:readline";
@@ -29,10 +30,12 @@ import { searchPalette, groupRows, collectProjectFiles, type PaletteEntry, type 
 import { renderMarkdown, visibleWidth, truncateVisible } from "./markdown.ts";
 import { decodeKeys, type Key } from "./keys.ts";
 import { MOUSE_ENTER, MOUSE_EXIT, ALT_ENTER, ALT_EXIT, PASTE_ENTER, PASTE_EXIT, SYNC_BEGIN, SYNC_END, CURSOR_HIDE, CURSOR_SHOW, fg as hexFg, bg as hexBg } from "./mouse.ts";
+import { renderSplashFrame, parseOscColorReply, luminance, OSC_TITLE, OSC_QUERY_BG } from "./splash.ts";
+import { renderMenuOverlay, renderShortcutsOverlay, renderOnboardingOverlay, type MenuEntry } from "./overlays.ts";
 
 export type { TuiOptions };
 
-interface Prefs { theme?: string; mouse?: boolean; scrollSpeed?: number }
+interface Prefs { theme?: string; mouse?: boolean; scrollSpeed?: number; onboarded?: boolean }
 const TUI_PREFS = join(homedir(), ".ra", "tui.json");
 function loadPrefs(): Prefs {
   try { return JSON.parse(readFileSync(TUI_PREFS, "utf-8")) as Prefs; } catch { return {}; }
@@ -43,6 +46,15 @@ function savePrefs(p: Prefs): void {
 
 type Segment = { kind: "user" | "assistant" | "info" | "activity"; text: string };
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const TIPS = [
+  "press / to search EVERYTHING — commands, files, agents, models, themes",
+  "right-click anywhere for the context menu",
+  "? shows every shortcut",
+  "agent:ptah <task> delegates straight to the coder agent",
+  "@src/app.ts attaches a file to your prompt",
+  "/theme re-skins RA instantly — it stays after restart",
+  "/moa asks several agents and synthesizes one answer",
+];
 
 export async function startTui(opts: TuiOptions): Promise<void> {
   ensureRaDirs();
@@ -65,10 +77,36 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   onGlobalHook("agent.turn.start", (input) => { void plugins.emit("agent.turn.start", input, {}); });
   onGlobalHook("agent.turn.end", (input) => { void plugins.emit("agent.turn.end", input, {}); });
 
+  const stdin = process.stdin;
+  const stdout = process.stdout;
   const prefs = loadPrefs();
-  const themeId = { current: prefs.theme ?? config.theme ?? "pharaonic" };
+  let onboarded = prefs.onboarded === true;
+  let savedTheme = prefs.theme;
+  stdin.setRawMode(true);
+  stdin.resume();
+  stdout.write(ALT_ENTER + CURSOR_HIDE + PASTE_ENTER + (prefs.mouse !== false ? MOUSE_ENTER : "") + OSC_TITLE(`RA — ${opts.cwd}`));
+
+  // Detect the terminal background (OSC 11) so a light terminal gets a light
+  // theme by default. Best effort with a short timeout.
+  if (!savedTheme) {
+    stdout.write(OSC_QUERY_BG);
+    savedTheme = await new Promise<string | null>((resolve) => {
+      const timer = setTimeout(() => { stdin.removeListener("data", onBg); resolve(null); }, 500);
+      const onBg = (chunk: string) => {
+        const hexColor = parseOscColorReply(chunk);
+        if (hexColor) {
+          clearTimeout(timer);
+          stdin.removeListener("data", onBg);
+          resolve(luminance(hexColor) > 0.55 ? "papyrus" : "pharaonic");
+        }
+      };
+      stdin.on("data", onBg);
+    });
+  }
+
+  const themeId = { current: savedTheme ?? config.theme ?? "pharaonic" };
   let palette: ColorPalette = getPalette(themeId.current);
-  const mouseOn = prefs.mouse !== false;
+  let previewing = false;
   const scrollSpeed = Math.max(1, prefs.scrollSpeed ?? 3);
   const mdStyle = { accent: (s: string) => sty.accent(s), muted: (s: string) => sty.muted(s), strong: (s: string) => sty.strong(s), error: (s: string) => sty.err(s) };
 
@@ -78,9 +116,9 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     muted: (s: string) => `\x1b[2m${hexFg(palette.muted)}${s}\x1b[0m`,
     ok: (s: string) => `${hexFg(palette.success)}${s}\x1b[0m`,
     warn: (s: string) => `${hexFg(palette.warning)}${s}\x1b[0m`,
-    user: (s: string) => `\x1b[1m${hexFg(palette.accent)}${s}\x1b[0m`,
     bar: (s: string) => `${hexBg(palette.accent)}${hexFg(palette.background)}${s}\x1b[0m`,
     chip: (s: string) => `\x1b[2m${hexFg(palette.muted)}${s}\x1b[0m`,
+    user: (s: string) => `\x1b[1m${hexFg(palette.accent)}${s}\x1b[0m`,
   };
 
   // ---------- state ----------
@@ -100,7 +138,14 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   let projectFiles: string[] = [];
   let modelCatalog: string[] = [];
   let rowHitbox = new Map<number, number>();
-  let exiting = false;
+  let modal:
+    | null
+    | { kind: "menu"; x: number; y: number; title: string; entries: MenuEntry[]; selected: number }
+    | { kind: "shortcuts" }
+    | { kind: "onboard"; step: 0 | 1; selected: number } = null;
+  let menuHitbox = new Map<number, number>();
+  let onboardHit = { theme: new Map<number, string>(), action: new Map<number, string>() };
+  let tipIndex = 0;
   const ctx = {
     cwd: opts.cwd,
     get history() { return session.messages.slice(0, -1).slice(-8).map((m) => ({ role: m.role, content: m.content.slice(-3000) })); },
@@ -108,6 +153,9 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
 
   // ---------- output ----------
   const push = (kind: Segment["kind"], text: string) => { segments.push({ kind, text }); scrollOffset = 0; };
+  const tip = () => {
+    if (!onboarded || session.simpleMode) push("info", `TIP: ${TIPS[tipIndex++ % TIPS.length]}`);
+  };
   const reply = (text: string) => {
     if (remoteOk) void remote!.appendMessage(session, "assistant", text);
     else appendMessage(session, "assistant", text);
@@ -128,6 +176,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       push("info", `context ──\n${top}\n  TOTAL: ${tokens} tok · $${total.toFixed(4)}`);
     }
     if (subagentTree.hasTree) push("info", subagentTree.render());
+    tip();
     statusText = "";
     scheduleRender();
   };
@@ -194,11 +243,10 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     paletteSelected = Math.min(paletteSelected, Math.max(0, paletteRows.length - 1));
     paletteScroll = Math.min(paletteScroll, paletteSelected);
   };
-  const applyTheme = (id: string) => {
+  const setTheme = (id: string, persist: boolean) => {
     palette = getPalette(id);
     themeId.current = id;
-    savePrefs({ ...prefs, theme: id });
-    push("info", `theme → ${id} (saved)`);
+    if (persist) savePrefs({ ...prefs, theme: id });
   };
 
   void collectProjectFiles(opts.cwd).then((f) => { projectFiles = f; if (paletteOpen) { refreshPalette(); scheduleRender(); } }).catch(() => {});
@@ -265,14 +313,12 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     const W = screenWidth, H = screenHeight;
     const out: string[] = [];
 
-    // header bar
     const cwdShort = opts.cwd.replace(/^\/Users\/[^/]+/, "~");
     const busyTag = busy ? `  ● ${statusText || "busy"}` : "";
     const header = ` 𓃡 ${APP_NAME} ${RA_VERSION}  ·  ${config.profile ?? "default"}  ·  small ${short(config.small_model)} · big ${short(config.model)}${busyTag}`;
     out.push(sty.bar(fit(W, header)));
 
     if (paletteOpen) {
-      // palette overlay
       const title = ` search everything — commands · agents · files · models · sessions · themes `;
       out.push(sty.accent(`╭${"─".repeat(Math.max(0, W - 2))}╮`));
       out.push(sty.accent("│") + fit(W - 2, sty.strong(title)) + sty.accent("│"));
@@ -290,8 +336,8 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         const marker = selected ? sty.accent("▌") : " ";
         const label = highlightMatches(r.row.entry.label, r.row.indices, `\x1b[1m${hexFg(palette.foreground)}`, "\x1b[0m");
         const detail = r.row.entry.detail ? sty.muted(` — ${truncateVisible(r.row.entry.detail, Math.max(10, W - visibleWidth(r.row.entry.label) - 14))}`) : "";
-        out.push(fit(W - 1, ` ${marker}${selected ? label : r.row.entry.label && label}${detail}`));
-        rowHitbox.set(out.length, idx);   // 1-based screen y of this row
+        out.push(fit(W - 1, ` ${marker}${label}${detail}`));
+        rowHitbox.set(out.length, idx);
       }
       if (!paletteRows.length) out.push(sty.muted(fit(W, "  no matches — keep typing")));
       out.push(sty.muted(fit(W, `  ↑↓ select · enter run · tab insert · esc close · mouse clickable (${paletteRows.length})`)));
@@ -305,8 +351,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       scrollOffset = Math.min(scrollOffset, Math.max(0, vLines.length - maxVisible));
     }
 
-    // input box
-    const label = busy ? ` ⣿ ${SPINNER[spinnerFrame % SPINNER.length]} ${statusText || "working…"} ` : ` ${APP_NAME} › type / to search everything `;
+    const label = busy ? ` ⣿ ${SPINNER[spinnerFrame % SPINNER.length]} ${statusText || "working…"} ` : ` ${APP_NAME} › type / to search everything · ? for shortcuts `;
     const cursorAt = Math.min(editor.cursor, editor.text.length);
     const before = editor.text.slice(0, cursorAt);
     const at = editor.text.slice(cursorAt, cursorAt + 1) || " ";
@@ -316,11 +361,10 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     out.push(sty.accent("│") + fit(W - 2, inputLine) + sty.accent("│"));
     out.push(sty.accent(`╰${"─".repeat(Math.max(0, W - 2))}╯`));
 
-    // footer chips
     const chips: Array<[string, string]> = [
       ["/", "everything"],
       ["ctrl+p", "palette"],
-      ["tab", "complete"],
+      ["?", "shortcuts"],
       ["esc", busy ? "cancel" : "close"],
       ["ctrl+d", "quit"],
     ];
@@ -329,8 +373,41 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     const right = `${cwdShort}${branch() ? ` · ⑂ ${branch()}` : ""} · ${themeId.current}`;
     out.push(fit(Math.max(0, W - visibleWidth(right) - 1), chipLine) + sty.muted(right));
 
+    // modals paint over the base frame
+    if (modal?.kind === "menu") {
+      const frame = renderMenuOverlay({
+        base: out.slice(0, H - 1),
+        screenW: W, screenH: H,
+        x: modal.x, y: modal.y,
+        title: modal.title,
+        entries: modal.entries,
+        selected: modal.selected,
+        style: { accent: sty.accent, strong: sty.strong, muted: sty.muted, bar: sty.bar },
+      });
+      menuHitbox = frame.hitbox;
+      out.length = 0;
+      for (const l of frame.lines) out[l.y] = l.text;
+      for (let i = 0; i < H; i++) out[i] ??= "";
+    } else if (modal?.kind === "shortcuts") {
+      const lines = renderShortcutsOverlay({ screenW: W, screenH: H, style: { accent: sty.accent, strong: sty.strong, muted: sty.muted, bar: sty.bar }, themeName: themeId.current });
+      out.length = 0;
+      out.push(...lines);
+    } else if (modal?.kind === "onboard") {
+      const frame = renderOnboardingOverlay({
+        screenW: W, screenH: H,
+        style: { accent: sty.accent, strong: sty.strong, muted: sty.muted, bar: sty.bar },
+        step: modal.step,
+        themes: listPalettes().map((p) => ({ id: p.name.toLowerCase(), name: p.name })),
+        selectedTheme: modal.selected,
+        version: RA_VERSION,
+      });
+      onboardHit = { theme: frame.themeHit, action: frame.actionHit };
+      out.length = 0;
+      out.push(...frame.lines);
+    }
+
     while (out.length < H) out.push("");
-    const frame = SYNC_BEGIN + "\x1b[H" + out.slice(0, H).map((l) => fit(W, l) + "\x1b[K").join("\n") + SYNC_END;
+    const frame = SYNC_BEGIN + "\x1b[H" + out.slice(0, H).map((l) => fit(W, l ?? "") + "\x1b[K").join("\n") + SYNC_END;
     process.stdout.write(frame);
   };
 
@@ -349,20 +426,16 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       `  /quick <task>    plan + implement`,
       `  /moa <task>      multiple agents, one synthesis`,
       `  agent:<name> …   delegate to one agent directly`,
-      `  /theme           switch look (persisted to ~/.ra/tui.json)`,
+      `  ?                all shortcuts`,
       `small: ${config.small_model} · code: ${config.model}`,
     ].join("\n"));
   } else {
     push("info", formatReattach(session) + "\n/history to review · /clear to reset");
   }
-  void (async () => {
-    const { loadLastRun, formatLaneLine, formatIntentLine } = await import("../../../anubis/src/last-run.ts");
-    const last = loadLastRun();
-    if (last?.timings?.length) { push("info", `${formatLaneLine(last)} · ${formatIntentLine(last)}`); scheduleRender(); }
-  })();
 
-  // ---------- palette actions ----------
+  // ---------- palette / modal actions ----------
   const openPalette = (query: string) => {
+    modal = null;
     paletteOpen = true;
     paletteViaSlash = query.startsWith("/");
     editor.text = query;
@@ -374,6 +447,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   };
   const closePalette = () => {
     paletteOpen = false;
+    if (previewing) { previewing = false; setTheme(themeId.current, false); }
     if (paletteViaSlash && editor.text.startsWith("/")) { editor.text = ""; editor.cursor = 0; }
     paletteViaSlash = false;
     scheduleRender();
@@ -389,28 +463,52 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     process.exit(0);
   };
 
-  const activateRow = (idx: number) => {
-    const row = paletteRows[idx];
-    if (!row) return;
-    const a = row.entry.action;
-    closePalette();
-    if (a.type === "exit") { quit(); return; }
-    if (a.type === "command") { void submit(a.command); return; }
-    if (a.type === "insert") { editor.text = insertAtCursor(a.text); editor.cursor += a.text.length; scheduleRender(); return; }
-    if (a.type === "theme") { applyTheme(a.theme); scheduleRender(); return; }
-    if (a.type === "model") {
-      if (a.slot === "big") config.model = a.model; else config.small_model = a.model;
-      push("info", `${a.slot} model → ${a.model} (this session)`);
+  const runAction = (a: Record<string, unknown>) => {
+    const type = a.type as string;
+    if (type === "exit") { quit(); return; }
+    if (type === "command") { void submit(String(a.command)); return; }
+    if (type === "insert") { editor.text = insertAtCursor(String(a.text)); editor.cursor += String(a.text).length; scheduleRender(); return; }
+    if (type === "theme") { setTheme(String(a.theme), true); push("info", `theme → ${String(a.theme)} (saved)`); scheduleRender(); return; }
+    if (type === "model") {
+      if (a.slot === "small") config.small_model = String(a.model); else config.model = String(a.model);
+      push("info", `${String(a.slot)} model → ${String(a.model)} (this session)`);
       scheduleRender();
       return;
     }
-    if (a.type === "session") {
+    if (type === "session") {
       try {
-        switchSession(a.id);
-        push("info", `session pointer → ${a.id}. Restart ra to open it.`);
+        switchSession(String(a.id));
+        push("info", `session pointer → ${String(a.id)}. Restart ra to open it.`);
       } catch (e) { push("activity", `session switch failed: ${String(e)}`); }
       scheduleRender();
     }
+  };
+
+  const mainMenuEntries = (): MenuEntry[] => [
+    { label: "Search everything", detail: "commands · files · agents · models · themes", run: { type: "palette" } },
+    { label: "Themes", detail: `${listPalettes().length} looks, live preview`, submenu: themeEntries().map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
+    { label: "Models", submenu: modelEntries().slice(0, 20).map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
+    { label: "Agents", submenu: agentEntries().map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
+    { separator: true, label: "" },
+    { label: "Shortcuts", detail: "?", run: { type: "shortcuts" } },
+    { label: "Clear screen", run: { type: "clearscreen" } },
+    ...(busy ? [{ label: "Cancel task", detail: statusText, run: { type: "cancel" } }] : []),
+    { label: "Quit RA", run: { type: "exit" } },
+  ];
+
+  const activateMenuEntry = (e: MenuEntry) => {
+    if (e.submenu) {
+      modal = { kind: "menu", x: (screenWidth / 2) | 0, y: 4, title: e.label, entries: e.submenu, selected: 0 };
+      scheduleRender();
+      return;
+    }
+    modal = null;
+    const run = e.run ?? {};
+    if (run.type === "palette") { openPalette(""); return; }
+    if (run.type === "shortcuts") { modal = { kind: "shortcuts" }; scheduleRender(); return; }
+    if (run.type === "clearscreen") { segments.length = 0; scheduleRender(); return; }
+    if (run.type === "cancel") { if (abortActiveTurn()) statusText = "cancelling…"; scheduleRender(); return; }
+    runAction(run);
   };
 
   // ---------- submit ----------
@@ -421,6 +519,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (input === "/exit" || input === "exit" || input === "/quit") { quit(); return; }
     if (input === "/palette") { openPalette(""); return; }
     if (input === "/themes" || input === "/theme") { openPalette("theme:"); return; }
+    if (input === "/shortcuts" || input === "?") { modal = { kind: "shortcuts" }; scheduleRender(); return; }
     push("user", input);
     render();
     if (remoteOk) void remote!.appendMessage(session, "user", input);
@@ -455,6 +554,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     } finally {
       busy = false;
       statusText = "";
+      tip();
       scheduleRender();
       saveSession(session);
     }
@@ -476,16 +576,9 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   }, 140);
 
   // ---------- terminal ----------
-  const stdin = process.stdin;
-  const stdout = process.stdout;
-  stdin.setRawMode(true);
-  stdin.resume();
-  stdout.write(ALT_ENTER + CURSOR_HIDE + PASTE_ENTER + (mouseOn ? MOUSE_ENTER : ""));
-  const onResize = () => { screenWidth = stdout.columns ?? screenWidth; screenHeight = stdout.rows ?? screenHeight; render(); };
-  stdout.on("resize", onResize);
+  stdout.on("resize", () => { screenWidth = stdout.columns ?? screenWidth; screenHeight = stdout.rows ?? screenHeight; render(); });
   const cleanup = () => {
     clearInterval(spinnerTimer);
-    stdout.removeListener("resize", onResize);
     stdout.write(MOUSE_EXIT + PASTE_EXIT + CURSOR_SHOW + ALT_EXIT);
     stdin.setRawMode(false);
     setActiveSubagentTracker(null);
@@ -493,6 +586,8 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     saveSession(session);
   };
   process.on("exit", cleanup);
+
+  const closeMenu = () => { if (modal?.kind === "menu") modal = null; scheduleRender(); };
 
   // ---------- keys ----------
   let pending = "";
@@ -504,41 +599,115 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
 
   function handleKey(k: Key): void {
     switch (k.type) {
+      case "osc":
+        return;
+      case "f":
+        if (k.n === 1) { modal = modal?.kind === "shortcuts" ? null : { kind: "shortcuts" }; scheduleRender(); }
+        return;
       case "mouse": {
         const ev = k.event;
         if (ev.kind === "wheel-up" || ev.kind === "wheel-down") {
           const dir = ev.kind === "wheel-up" ? -1 : 1;
-          if (!paletteOpen) scrollOffset = Math.max(0, scrollOffset + dir * scrollSpeed * 3);
+          if (modal?.kind === "menu") {
+            const n = modal.entries.filter((e) => !e.separator).length;
+            modal.selected = Math.max(0, Math.min(n - 1, modal.selected + dir));
+          } else if (!paletteOpen) {
+            scrollOffset = Math.max(0, scrollOffset + dir * scrollSpeed * 3);
+          }
+          render();
+          return;
+        }
+        if (ev.kind === "press" && ev.button === "right") {
+          modal = { kind: "menu", x: ev.x, y: ev.y, title: "RA", entries: mainMenuEntries(), selected: 0 };
           render();
           return;
         }
         if (ev.kind !== "press" || ev.button !== "left") return;
-        const hit = rowHitbox.get(ev.y);
-        if (paletteOpen) {
-          if (hit !== undefined) activateRow(hit);
-          else if (ev.y < screenHeight - 3) closePalette();
+        if (modal?.kind === "menu") {
+          const hit = menuHitbox.get(ev.y);
+          if (hit === undefined) { closeMenu(); return; }
+          const actionable = modal.entries.filter((e) => !e.separator);
+          const entry = actionable[hit];
+          if (entry) activateMenuEntry(entry);
           return;
         }
+        if (modal?.kind === "shortcuts") { modal = null; scheduleRender(); return; }
+        if (modal?.kind === "onboard") {
+          const themeHit = onboardHit.theme.get(ev.y);
+          if (themeHit !== undefined && modal.step === 0) {
+            setTheme(themeHit, true);
+            modal = { kind: "onboard", step: 1, selected: 0 };
+            scheduleRender();
+            return;
+          }
+          const actionPrefix = onboardHit.action.get(ev.y);
+          if (actionPrefix !== undefined && modal.step === 1) {
+            finishOnboarding();
+            if (actionPrefix) void submit(actionPrefix + "make a tiny colorful index.html that prints hello from RA");
+            return;
+          }
+          finishOnboarding();
+          return;
+        }
+        if (paletteOpen) {
+          const hit = rowHitbox.get(ev.y);
+          if (hit !== undefined) { activateRow(hit); return; }
+          if (ev.y === 1) { modal = { kind: "menu", x: ev.x, y: ev.y, title: "RA", entries: mainMenuEntries(), selected: 0 }; render(); return; }
+          if (ev.y < screenHeight - 3) closePalette();
+          return;
+        }
+        if (ev.y === 1) { modal = { kind: "menu", x: ev.x, y: ev.y, title: "RA", entries: mainMenuEntries(), selected: 0 }; render(); return; }
+        if (ev.y >= screenHeight - 1) { openPalette("theme:"); return; }
         return;
       }
       case "ctrl":
         if (k.name === "d") { quit(); return; }
         if (k.name === "c") {
+          if (modal) { modal = null; scheduleRender(); return; }
           if (busy) { if (abortActiveTurn()) statusText = "cancelling…"; }
           else { editor.text = ""; editor.cursor = 0; }
           scheduleRender();
           return;
         }
-        if (k.name === "p") { if (paletteOpen) closePalette(); else openPalette(""); return; }
+        if (k.name === "p") {
+          if (modal) { modal = null; scheduleRender(); return; }
+          if (paletteOpen) closePalette(); else openPalette("");
+          return;
+        }
         if (k.name === "l") { segments.length = 0; scheduleRender(); return; }
         if (k.name === "u") { editor.text = ""; editor.cursor = 0; scheduleRender(); return; }
         return;
       case "escape":
+        if (modal) { if (modal.kind !== "onboard") modal = null; scheduleRender(); return; }
         if (paletteOpen) { closePalette(); return; }
         if (busy) { if (abortActiveTurn()) statusText = "cancelling…"; scheduleRender(); return; }
         editor.text = ""; editor.cursor = 0; scheduleRender();
         return;
+      case "f":
+        if (k.n === 1) { modal = modal?.kind === "shortcuts" ? null : { kind: "shortcuts" }; scheduleRender(); }
+        return;
       case "enter":
+        if (modal?.kind === "menu") {
+          const actionable = modal.entries.filter((e) => !e.separator);
+          const entry = actionable[modal.selected];
+          if (entry) activateMenuEntry(entry);
+          return;
+        }
+        if (modal?.kind === "onboard") {
+          if (modal.step === 0) {
+            const themes = listPalettes().map((p) => p.name.toLowerCase());
+            setTheme(themes[modal.selected] ?? themeId.current, true);
+            modal = { kind: "onboard", step: 1, selected: 0 };
+          } else {
+            const prefixes = ["/quick ", "/moa ", ""];
+            const prefix = prefixes[modal.selected] ?? "";
+            finishOnboarding();
+            if (prefix) void submit(prefix + "make a tiny colorful index.html that prints hello from RA");
+            return;
+          }
+          scheduleRender();
+          return;
+        }
         if (paletteOpen) { activateRow(paletteSelected); return; }
         { const t = editor.text; editor.text = ""; editor.cursor = 0; void submit(t); }
         return;
@@ -562,10 +731,35 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); paletteScroll = Math.min(paletteScroll, paletteSelected); render(); }
         return;
       case "up":
-        if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); if (paletteSelected < paletteScroll) paletteScroll = paletteSelected; render(); return; }
+        if (modal?.kind === "menu") {
+          const n = modal.entries.filter((e) => !e.separator).length;
+          modal.selected = (modal.selected - 1 + n) % n;
+          render();
+          return;
+        }
+        if (modal?.kind === "onboard") { modal.selected = Math.max(0, modal.selected - 1); render(); return; }
+        if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); if (paletteSelected < paletteScroll) paletteScroll = paletteSelected; livePreview(); render(); return; }
         scrollOffset += 3; render(); return;
       case "down":
-        if (paletteOpen) { paletteSelected = Math.min(paletteRows.length - 1, paletteSelected + 1); if (paletteSelected >= paletteScroll + 12) paletteScroll = paletteSelected - 11; render(); return; }
+        if (modal?.kind === "menu") {
+          const n = modal.entries.filter((e) => !e.separator).length;
+          modal.selected = (modal.selected + 1) % n;
+          render();
+          return;
+        }
+        if (modal?.kind === "onboard") {
+          const max = modal.step === 0 ? Math.min(8, listPalettes().length) : 3;
+          modal.selected = Math.min(max - 1, modal.selected + 1);
+          render();
+          return;
+        }
+        if (paletteOpen) {
+          paletteSelected = Math.min(paletteRows.length - 1, paletteSelected + 1);
+          if (paletteSelected >= paletteScroll + 12) paletteScroll = paletteSelected - 11;
+          livePreview();
+          render();
+          return;
+        }
         scrollOffset = Math.max(0, scrollOffset - 3); render(); return;
       case "pgup": scrollOffset += screenHeight - 6; render(); return;
       case "pgdn": scrollOffset = Math.max(0, scrollOffset - (screenHeight - 6)); render(); return;
@@ -592,6 +786,26 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         return;
       }
       case "text":
+        if (k.text === "?" && !editor.text && !paletteOpen && !modal) { modal = { kind: "shortcuts" }; scheduleRender(); return; }
+        if (modal) {
+          if (modal.kind === "onboard" && k.text === "/") {
+            // The user is asking for the palette — skip the wizard entirely.
+            finishOnboarding();
+            openPalette("/");
+            return;
+          }
+          if (modal.kind === "onboard" && modal.step === 0) {
+            const themes = listPalettes().map((p) => p.name.toLowerCase());
+            setTheme(themes[modal.selected] ?? themeId.current, true);
+            modal = { kind: "onboard", step: 1, selected: 0 };
+            scheduleRender();
+            return;
+          }
+          modal = null;
+          if (!onboarded) { onboarded = true; savePrefs({ ...prefs, onboarded: true, theme: themeId.current }); }
+          scheduleRender();
+          return;
+        }
         editor.text = insertAtCursor(k.text);
         editor.cursor += k.text.length;
         if (!paletteOpen && editor.text.startsWith("/") && !editor.text.includes(" ")) { paletteViaSlash = true; paletteOpen = true; }
@@ -601,6 +815,82 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     }
   }
 
+  /** Live theme preview: moving over theme rows re-paints without persisting. */
+  const livePreview = () => {
+    const row = paletteRows[paletteSelected];
+    if (row?.entry.category === "theme" && row.entry.action.type === "theme") {
+      previewing = true;
+      setTheme(String((row.entry.action as { theme: string }).theme), false);
+    } else if (previewing) {
+      previewing = false;
+      setTheme(themeId.current, false);
+    }
+  };
+
+  const finishOnboarding = () => {
+    onboarded = true;
+    savePrefs({ ...prefs, onboarded: true, theme: themeId.current });
+    modal = null;
+    push("info", "You're set. Press / any time to search everything.");
+    scheduleRender();
+  };
+
+  const activateRow = (idx: number) => {
+    const row = paletteRows[idx];
+    if (!row) return;
+    const a = row.entry.action;
+    closePalette();
+    runAction(a as unknown as Record<string, unknown>);
+  };
+
   render();
   process.on("SIGINT", () => { if (busy) abortActiveTurn(); else quit(); });
+
+  // splash: gradient logo over a tiled background, any key skips
+  const drawSplash = () => {
+    const lines = renderSplashFrame({
+      width: screenWidth,
+      height: screenHeight,
+      accent: palette.accent,
+      accent2: palette.success,
+      muted: palette.muted,
+      version: RA_VERSION,
+    });
+    process.stdout.write(SYNC_BEGIN + "\x1b[H" + lines.map((l) => fit(screenWidth, l ?? "") + "\x1b[K").join("\n") + SYNC_END);
+  };
+  if (!process.env.RA_NO_SPLASH) {
+    try { drawSplash(); } catch (e) { stdout.write(`\r\nsplash error: ${String(e)}\r\n`); }
+    void (async () => {
+      const skipped = await Promise.race([
+        new Promise<null>((r) => setTimeout(() => r(null), 1600)),
+        new Promise<string | null>((r) => {
+          const onData = (chunk: string) => { stdin.removeListener("data", onData); r(chunk); };
+          stdin.on("data", onData);
+        }),
+      ]);
+      stdin.removeAllListeners("data");
+      wireKeys();
+      if (skipped === null) drawSplash(); // one final paint before the app takes over
+      render();
+      if (!onboarded) {
+        modal = { kind: "onboard", step: 0, selected: Math.max(0, listPalettes().findIndex((p) => p.name.toLowerCase() === themeId.current)) };
+        render();
+      }
+    })();
+  } else {
+    wireKeys();
+    render();
+    if (!onboarded) {
+      modal = { kind: "onboard", step: 0, selected: Math.max(0, listPalettes().findIndex((p) => p.name.toLowerCase() === themeId.current)) };
+      render();
+    }
+  }
+
+  function wireKeys(): void {
+    stdin.on("data", (chunk: string) => {
+      const { keys, pending: rest } = decodeKeys(chunk.toString("utf-8"), pending);
+      pending = rest;
+      for (const key of keys) handleKey(key);
+    });
+  }
 }

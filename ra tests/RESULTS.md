@@ -1,6 +1,12 @@
 # RA installed-user acceptance — 2026-08-30/31
 
-For the subsequent .70 team features and regression run, see [AGENT_RESULTS.md](AGENT_RESULTS.md). This report preserves the .69 results, records the .71 coding regression, the .72 fallback feature, and the .73 TUI overhaul.
+For the subsequent .70 team features and regression run, see [AGENT_RESULTS.md](AGENT_RESULTS.md). This report preserves the .69 results and records the .71 regression, .72 fallbacks, .73 TUI, and .74 splash/menus/onboarding.
+
+## .74 splash, context menus, onboarding (RA 1.0.0-ra.74, 2026-08-31)
+
+Startup now shows a full-screen splash: a gradient ASCII "RA" logo composited over a dim tiled background pattern (any key skips), the terminal window title is set, and an OSC 11 background query picks a light or dark theme automatically on first run. First-run users get a two-step onboarding wizard (pick a look, pick a first move — both clickable). `?` (or F1) opens a shortcuts panel; right-click opens a context menu at the mouse with Search, Themes, Models, Agents submenus, Shortcuts, Clear, Cancel, and Quit; clicking the header opens the same menu and the footer theme chip opens the theme list. Palette theme rows live-preview the look while browsing; `enter` persists it. `/` during onboarding skips straight to the palette. Cross-platform note: the TUI is pure ANSI (Linux/Windows Terminal/Windows macOS); only the command sandbox is macOS-specific.
+
+**Installed-user acceptance: 11/11 in one uninterrupted batch** — scenarios 66–73 (palette, mouse, streaming, persistence, legacy contract) plus 74-splash-onboarding, 75-question-shortcuts, 76-context-menu, and the new first-run flows. Evidence: [evidence/ui-74/](evidence/ui-74/), driver [`ui_acceptance.py`](ui_acceptance.py). Unit suite **385/0** (23 TUI cases). Development bugs found and fixed: splash compositing truncated the logo because hieroglyph surrogate pairs broke visible-width math (tiles are now width-1 ASCII), a missing `hexFg` helper, a menu box off-by-one, and onboarding blocking the palette on first run (`/` now skips straight through).
 
 ## .73 full-screen TUI (RA 1.0.0-ra.73, 2026-08-31)
 

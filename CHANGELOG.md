@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-ra.74 — 2026-08-31
+
+- Startup splash: gradient ASCII "RA" logo composited over a dim tiled background; any key skips; window title set; OSC 11 background detection auto-picks a light or dark theme on first run.
+- Real mouse menu system: right-click opens a context menu at the pointer (Search, Themes, Models, Agents submenus, Shortcuts, Clear screen, Cancel task, Quit); clicking the header opens the main menu; the footer theme chip opens the theme list; menu rows are clickable and wheel-navigable.
+- `?` (and F1, and /shortcuts) opens a clickable shortcuts panel listing every keybind and quick action.
+- First-run onboarding wizard: pick a look (live), pick a first move (build / get opinions / chat) — clickable and keyboard-driven; `/` skips straight to the palette; persisted via `~/.ra/tui.json` `onboarded`.
+- Live theme preview while browsing theme rows in the palette; `enter` persists, `esc` reverts.
+- Beginner tips: contextual TIP lines after turns until onboarding completes (and in simple mode). Cross-platform: the TUI path is pure ANSI with no macOS-only calls; only the command sandbox is platform-specific.
+- Fixed during acceptance: splash logo truncation from surrogate-pair width math, menu box off-by-one, onboarding blocking the palette on first run. Unit suite 385/0 (23 TUI cases); installed-user UI acceptance 11/11 in one batch.
+
 ## 1.0.0-ra.73 — 2026-08-31
 
 - Full-screen terminal UI (opencode-inspired) when `ra` runs in a real terminal: alternate-screen layout with a live header (logo, profile, small/big models, busy state), markdown-rendered conversation (headings, lists, bordered code blocks), streaming tokens with a spinner status, cost sidebar, subagent tree, bordered input box, and a clickable key-chip footer with cwd, git branch, and theme.

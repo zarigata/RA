@@ -22,7 +22,10 @@ export type Key =
   | { type: "escape" }
   | { type: "ctrl"; name: string }
   | { type: "paste"; text: string }
-  | { type: "mouse"; event: MouseEvent };
+  | { type: "mouse"; event: MouseEvent }
+  | { type: "f"; n: number }
+  /** terminal reply to an OSC query (e.g. background color), body between OSC and terminator */
+  | { type: "osc"; body: string };
 
 export interface DecodeResult {
   keys: Key[];
@@ -69,6 +72,25 @@ export function decodeKeys(chunk: string, pending = ""): DecodeResult {
       const fin = m[2];
       keys.push(...csiToKeys(params, fin));
       buf = buf.slice(m[0].length);
+      continue;
+    }
+    // OSC sequences: \x1b] ... \x07 or \x1b\\  (terminal color reports etc.)
+    if (buf.startsWith("\x1b]")) {
+      const bel = buf.indexOf("\x07");
+      const st = buf.indexOf("\x1b\\");
+      if (bel < 0 && st < 0) return { keys, pending: buf };
+      const end = bel >= 0 && (st < 0 || bel < st) ? bel + 1 : st + 2;
+      keys.push({ type: "osc", body: buf.slice(2, end - (bel >= 0 && (st < 0 || bel < st) ? 1 : 2)) });
+      buf = buf.slice(end);
+      continue;
+    }
+    // SS3 F-keys: \x1bO P Q R S
+    if (buf.startsWith("\x1bO")) {
+      if (buf.length < 3) return { keys, pending: buf };
+      const fin = buf[2];
+      const fkeys: Record<string, number> = { P: 1, Q: 2, R: 3, S: 4 };
+      if (fkeys[fin]) keys.push({ type: "f", n: fkeys[fin] });
+      buf = buf.slice(3);
       continue;
     }
     // ESC alone (possibly a prefix of a longer sequence)

@@ -5,6 +5,15 @@
 
 ## Current Cycle
 
+**2026-08-31 — Splash, context menus, onboarding (RA 1.0.0-ra.74).**
+Startup splash with a gradient ASCII logo over a tiled background, automatic
+light/dark theme detection (OSC 11), right-click context menus with Themes/
+Models/Agents submenus, a `?` shortcuts panel (F1), a two-step first-run
+onboarding wizard, live theme preview in the palette, and beginner TIPs.
+Installed-user acceptance **11/11 in one batch** (`evidence/ui-74/`), unit
+suite **385/0**, gate green. Pure-ANSI TUI path keeps Linux/Windows Terminal
+viable; only the command sandbox is macOS-specific.
+
 **2026-08-31 — Full-screen TUI with unified "/" palette (RA 1.0.0-ra.73).**
 `ra` in a terminal now opens an opencode-inspired workspace: header with
 models/profile, markdown-rendered streaming conversation, cost sidebar,

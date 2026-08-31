@@ -5,9 +5,57 @@ import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:chil
 import { RA_ROOT } from "./paths.ts";
 import { assertTool, assertBash, type AgentCapabilities } from "./permission.ts";
 
-export interface SandboxConfig { mode?: "workspace-write" | "read-only" | "off"; network?: "deny" | "allow" }
+export interface SandboxConfig { mode?: "workspace-write" | "read-only" | "off"; network?: "deny" | "allow"; allow_unsandboxed?: boolean }
 export interface CommandContext { cwd: string; sandbox?: SandboxConfig; capabilities?: AgentCapabilities; signal?: AbortSignal }
 export interface CommandResult { code: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string; timedOut: boolean; sandbox: string }
+
+export interface ResolvedBackend {
+  backend: "macOS Seatbelt" | "Linux bubblewrap" | "disabled" | "unavailable";
+  /** true when no OS boundary is applied despite a non-off mode (explicit consent) */
+  unsandboxed: boolean;
+  bwrapPath?: string;
+}
+
+/**
+ * Pure backend resolution so platform behavior stays testable.
+ * Consent (config sandbox.allow_unsandboxed or RA_ALLOW_UNSANDBOXED=1) permits
+ * running without an OS boundary on platforms without a backend; without it,
+ * RA fails closed.
+ */
+export function resolveBackend(opts: {
+  platform: NodeJS.Platform;
+  mode: "workspace-write" | "read-only" | "off";
+  consent: boolean;
+  hasSeatbelt: boolean;
+  hasBwrap: boolean;
+}): ResolvedBackend {
+  if (opts.mode === "off") return { backend: "disabled", unsandboxed: true };
+  if (opts.platform === "darwin") {
+    if (opts.hasSeatbelt) return { backend: "macOS Seatbelt", unsandboxed: false };
+    if (opts.consent) return { backend: "disabled", unsandboxed: true };
+    return { backend: "unavailable", unsandboxed: false };
+  }
+  if (opts.platform === "linux") {
+    if (opts.hasBwrap) return { backend: "Linux bubblewrap", unsandboxed: false, bwrapPath: opts.hasBwrap };
+    if (opts.consent) return { backend: "disabled", unsandboxed: true };
+    return { backend: "unavailable", unsandboxed: false };
+  }
+  if (opts.consent) return { backend: "disabled", unsandboxed: true };
+  return { backend: "unavailable", unsandboxed: false };
+}
+
+let bwrapPathCache: string | null | undefined;
+function findBwrap(): string | null {
+  if (bwrapPathCache !== undefined) return bwrapPathCache;
+  for (const p of ["/usr/bin/bwrap", "/bin/bwrap", "/usr/local/bin/bwrap", "/snap/bin/bwrap"]) {
+    if (existsSync(p)) { bwrapPathCache = p; return p; }
+  }
+  for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+    if (dir && existsSync(join(dir, "bwrap"))) { bwrapPathCache = join(dir, "bwrap"); return bwrapPathCache; }
+  }
+  bwrapPathCache = null;
+  return null;
+}
 
 export function sandboxSettings(context: CommandContext) {
   let mode = process.env.RA_SANDBOX ?? context.sandbox?.mode ?? "workspace-write";
@@ -15,7 +63,21 @@ export function sandboxSettings(context: CommandContext) {
   if (!["workspace-write", "read-only", "off"].includes(mode)) throw new Error("sandbox.mode must be workspace-write, read-only, or off");
   if (!["deny", "allow"].includes(network)) throw new Error("sandbox.network must be deny or allow");
   if (context.capabilities?.readOnly) mode = "read-only";
-  return { mode, network: mode === "off" ? "unrestricted" : network, backend: mode === "off" ? "disabled" : process.platform === "darwin" && existsSync("/usr/bin/sandbox-exec") ? "macOS Seatbelt" : "unavailable" };
+  const consent = context.sandbox?.allow_unsandboxed === true || process.env.RA_ALLOW_UNSANDBOXED === "1";
+  const resolved = resolveBackend({
+    platform: process.platform,
+    mode,
+    consent,
+    hasSeatbelt: process.platform === "darwin" && existsSync("/usr/bin/sandbox-exec"),
+    hasBwrap: process.platform === "linux" && !!findBwrap(),
+  });
+  return {
+    mode,
+    network: mode === "off" ? "unrestricted" : network,
+    backend: resolved.backend,
+    unsandboxed: resolved.unsandboxed,
+    bwrapPath: resolved.bwrapPath,
+  };
 }
 
 const secretPath = /(?:^|\/)(?:\.env(?:\..*)?|\.netrc|\.npmrc|id_(?:rsa|ed25519)(?:\.pub)?|credentials(?:\.json)?|auth\.json)$|\.(?:pem|key)$/i;
@@ -127,18 +189,34 @@ function prepareCommand(context: CommandContext, args: string[], options: Launch
   assertTool(context.capabilities, tool);
   if (tool === "bash" || tool === "diagnose") assertBash(context.capabilities, tool === "bash" && args[0] === "/bin/bash" ? args[2] : args.join(" "));
   const settings = sandboxSettings(context);
-  if (settings.backend === "unavailable") throw new Error("OS sandbox unavailable. This build supports macOS Seatbelt. Explicitly select sandbox.mode=off only for a trusted workspace; no automatic unsandboxed fallback occurs.");
+  if (settings.backend === "unavailable") throw new Error(
+    "No OS command sandbox on this platform. Install bubblewrap (Debian/Ubuntu: apt install bubblewrap; Fedora: dnf install bubblewrap) "
+    + "for isolated commands, or consent to unsandboxed execution in a trusted environment with RA_ALLOW_UNSANDBOXED=1 or config "
+    + "sandbox.allow_unsandboxed=true. RA fails closed instead of guessing."
+  );
   const cwd = realpathSync(context.cwd);
   const scratch = mkdtempSync(join(tmpdir(), "ra-command-"));
   try {
   const env = commandEnvironment(scratch, options.env);
   let command = args;
-  if (settings.mode !== "off") {
+  if (settings.backend === "Linux bubblewrap" && settings.bwrapPath) {
+    const bwrap: string[] = [settings.bwrapPath,
+      "--dev", "/dev", "--proc", "/proc",
+      "--ro-bind", "/", "/",
+      "--tmpfs", "/tmp",
+      "--clearenv", "--die-with-parent"];
+    if (settings.mode === "workspace-write") bwrap.push("--bind", cwd, cwd);
+    bwrap.push("--bind", scratch, scratch);
+    if (settings.network === "deny") bwrap.push("--unshare-net");
+    for (const [k, v] of Object.entries(env)) bwrap.push("--setenv", k, v);
+    command = [...bwrap, ...args];
+  } else if (!settings.unsandboxed) {
     const path = join(scratch, "policy.sb");
     writeFileSync(path, profile(cwd, scratch, settings.mode, settings.network, env, gitWrite, commandReadRoots(tool, args)), { mode: 0o600 });
     command = ["/usr/bin/sandbox-exec", "-f", path, ...args];
   }
-  return { cwd, scratch, env, command, settings };
+  const tag = settings.unsandboxed && settings.mode !== "off" ? `${settings.backend} (no isolation; user consent)` : settings.backend;
+  return { cwd, scratch, env, command, settings: { ...settings, backend: tag } };
   } catch (error) { rmSync(scratch, { recursive: true, force: true }); throw error; }
 }
 

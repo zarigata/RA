@@ -16,7 +16,7 @@ export interface RaConfig extends RouterConfig {
   plugin?: string[];
   moa?: { roles: string[]; parallel: boolean; concurrency?: number };
   agent_limits?: { max_calls?: number; max_agents?: number; max_depth?: number; timeout_ms?: number };
-  sandbox?: { mode?: "workspace-write" | "read-only" | "off"; network?: "deny" | "allow" };
+  sandbox?: { mode?: "workspace-write" | "read-only" | "off"; network?: "deny" | "allow"; allow_unsandboxed?: boolean };
   pipeline?: { stages: string[] };
   permission?: {
     tool?: Record<string, "allow" | "ask" | "deny">;

@@ -191,3 +191,23 @@ describe("menu overlays", () => {
     expect(step1.lines.join("\n")).toContain("what do you want to do first");
   });
 });
+
+describe("cross-platform backend resolution", () => {
+  const { resolveBackend } = require("../src/sandbox.ts");
+  const base = { mode: "workspace-write" as const, consent: false, hasSeatbelt: false, hasBwrap: false };
+  test("macOS uses Seatbelt, fails closed without it", () => {
+    expect(resolveBackend({ ...base, platform: "darwin", hasSeatbelt: true }).backend).toBe("macOS Seatbelt");
+    expect(resolveBackend({ ...base, platform: "darwin" }).backend).toBe("unavailable");
+    expect(resolveBackend({ ...base, platform: "darwin", consent: true })).toMatchObject({ backend: "disabled", unsandboxed: true });
+  });
+  test("linux uses bubblewrap, requires consent when absent", () => {
+    expect(resolveBackend({ ...base, platform: "linux", hasBwrap: true }).backend).toBe("Linux bubblewrap");
+    expect(resolveBackend({ ...base, platform: "linux" }).backend).toBe("unavailable");
+    expect(resolveBackend({ ...base, platform: "linux", consent: true })).toMatchObject({ backend: "disabled", unsandboxed: true });
+  });
+  test("mode=off is always disabled; other platforms need consent", () => {
+    expect(resolveBackend({ ...base, platform: "win32", mode: "off" })).toMatchObject({ backend: "disabled", unsandboxed: true });
+    expect(resolveBackend({ ...base, platform: "win32" }).backend).toBe("unavailable");
+    expect(resolveBackend({ ...base, platform: "sunos" }).backend).toBe("unavailable");
+  });
+});

@@ -1,0 +1,65 @@
+# Linux acceptance: installs RA on an Ubuntu runner (a Linux container),
+# runs one real cloud coding task end-to-end, verifies sandbox behavior,
+# and drives the full-screen TUI through a real PTY.
+name: linux-acceptance
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - name: Install system deps (bubblewrap = sandbox backend)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap python3
+      - name: Install RA as a user
+        run: |
+          ./install
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Cloud config
+        run: |
+          python3 - <<'PY'
+          import json
+          base = json.load(open("anubis/ra.json"))
+          base["profile"] = "linux-acceptance"
+          base.pop("tier_models", None)
+          open("/tmp/ra-linux.json", "w").write(json.dumps(base, indent=2))
+          PY
+      - name: Version + sandbox backend
+        run: |
+          ra version
+          ra sandbox status
+      - name: Real coding task (plan → implement → verify, live cloud)
+        env:
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          RA_CONFIG: /tmp/ra-linux.json
+          RA_MODEL: ollama-cloud/deepseek-v4-pro:0813
+          RA_SMALL_MODEL: ollama-cloud/glm-5.3-flash
+        run: |
+          mkdir -p /tmp/proj && cd /tmp/proj && git init -q
+          ra run "Create calc.py defining add(a,b) returning a+b and a __main__ block printing add(2,3). Dependency-free." --quick --verify --json
+          test -f calc.py
+          python3 calc.py | grep -q 5
+      - name: Sandbox isolation (outside-write denied under bubblewrap)
+        env:
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          RA_CONFIG: /tmp/ra-linux.json
+        run: |
+          cd /tmp/proj
+          if ra sandbox exec -- sh -c 'echo blocked > /etc/ra-outside-probe' 2>/dev/null; then
+            test ! -e /etc/ra-outside-probe
+          fi
+          ra sandbox exec -- sh -c 'echo sandbox-ok' | grep -q sandbox-ok
+      - name: Full-screen TUI through a real PTY
+        env:
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          RA_CONFIG: /tmp/ra-linux.json
+          RA_MODEL: ollama-cloud/deepseek-v4-pro:0813
+          RA_SMALL_MODEL: ollama-cloud/glm-5.3-flash
+        run: python3 "ra tests/linux_tui_pty.py"

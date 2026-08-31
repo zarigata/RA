@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Drive the full-screen RA TUI through a real PTY (CI-safe, stdlib only)."""
-import os, pty, re, select, signal, struct, sys, time, fcntl, termios
+import os, pty, re, select, signal, struct, subprocess, sys, time, fcntl, termios
 
 master, slave = pty.openpty()
 fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 34, 110, 0, 0))

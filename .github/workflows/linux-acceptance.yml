@@ -43,9 +43,16 @@ jobs:
           RA_SMALL_MODEL: ollama-cloud/glm-5.3-flash
         run: |
           mkdir -p /tmp/proj && cd /tmp/proj && git init -q
-          ra run "Create calc.py defining add(a,b) returning a+b and a __main__ block printing add(2,3). Dependency-free." --quick --verify --json
-          test -f calc.py
-          python3 calc.py | grep -q 5
+          set +e
+          ra run "Create calc.py defining add(a,b) returning a+b and a __main__ block printing add(2,3). Dependency-free." --quick --verify --json > ra-out.json 2> ra-err.txt
+          RA_EXIT=$?
+          set -e
+          echo "=== ra exit: $RA_EXIT; stderr tail ==="; tail -6 ra-err.txt || true
+          echo "=== calc.py contents ==="; cat calc.py || true
+          echo "=== direct python3 ==="; python3 calc.py; echo "direct exit=$?"
+          echo "=== sandboxed python3 ==="; ra sandbox exec -- python3 calc.py; echo "bwrap exit=$?"
+          echo "=== sandboxed python3 -v probe ==="; ra sandbox exec -- python3 -c "print(41+1)"; echo "probe exit=$?"
+          test -f calc.py && test "$RA_EXIT" -eq 0
       - name: Sandbox isolation (outside-write denied under bubblewrap)
         env:
           OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}

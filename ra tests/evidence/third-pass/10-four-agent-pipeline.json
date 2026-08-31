@@ -1,0 +1,21 @@
+{
+  "scenario": "10-four-agent-pipeline",
+  "status": "FAIL",
+  "seconds": 27.92,
+  "error": "Error: Stage maat failed: Error: Agent maat reached its 8-step limit before finishing. Last tool result: Error: tool 'edit' is not permitted for this agent\n",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create parity.py defining is_even(n) returning whether integer n is even. Test 0, -2, 3. Keep the solution minimal.",
+        "--json",
+        "--verify"
+      ],
+      "exit": 1,
+      "seconds": 27.92,
+      "stdout": "",
+      "stderr": "Error: Stage maat failed: Error: Agent maat reached its 8-step limit before finishing. Last tool result: Error: tool 'edit' is not permitted for this agent\n"
+    }
+  ]
+}

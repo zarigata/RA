@@ -1,0 +1,21 @@
+{
+  "scenario": "10-four-agent-pipeline",
+  "status": "FAIL",
+  "seconds": 17.32,
+  "error": "Error: Stage maat failed: Error: Model gpt-oss:120b returned an empty response\n",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create parity.py defining is_even(n) returning whether integer n is even. Test 0, -2, 3. Keep the solution minimal.",
+        "--json",
+        "--verify"
+      ],
+      "exit": 1,
+      "seconds": 17.32,
+      "stdout": "",
+      "stderr": "Error: Stage maat failed: Error: Model gpt-oss:120b returned an empty response\n"
+    }
+  ]
+}

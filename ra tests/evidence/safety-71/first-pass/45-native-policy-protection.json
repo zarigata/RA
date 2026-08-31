@@ -1,0 +1,27 @@
+{
+  "scenario": "45-native-policy-protection",
+  "status": "PASS",
+  "seconds": 1.1,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--mode",
+        "workspace-write",
+        "--network",
+        "deny",
+        "--",
+        "python3",
+        "/private/tmp/ra-user-sandbox/projects/45-native-policy-protection/check.py"
+      ],
+      "exit": 0,
+      "seconds": 1.1,
+      "stdout": "{\n  \"code\": 0,\n  \"timedOut\": false,\n  \"stdout\": \"{\\\".git/config\\\": \\\"denied\\\", \\\".ra/project.json\\\": \\\"denied\\\", \\\"AGENTS.md\\\": \\\"denied\\\"}\\n\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/workspace-write; network=deny\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

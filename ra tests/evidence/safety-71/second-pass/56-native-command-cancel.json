@@ -1,0 +1,24 @@
+{
+  "scenario": "56-native-command-cancel",
+  "status": "PASS",
+  "seconds": 1.94,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--",
+        "python3",
+        "wait.py"
+      ],
+      "exit": 130,
+      "seconds": 0.92,
+      "stdout": "{\"status\":\"cancelled\",\"error\":\"Turn cancelled by user\"}\n",
+      "stderr": "",
+      "signal": "SIGINT after command start"
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+{
+  "scenario": "33-swarm-cancel-shell",
+  "status": "PASS",
+  "seconds": 14.14,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.16,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/33-swarm-cancel-shell/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.15,
+      "stdout": "[main (root-commit) 385eb41] test: seed swarm acceptance\n 1 file changed, 6 insertions(+)\n create mode 100644 wait.py\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "385eb41a7762e781854e6db025383dec1ac4a35e\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/33-swarm-cancel-shell-tasks.json",
+        "--concurrency",
+        "1",
+        "--json"
+      ],
+      "exit": 130,
+      "seconds": 7.45,
+      "stdout": "{\n  \"id\": \"swarm-mtghpjxq-a388a652\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/33-swarm-cancel-shell\",\n  \"base\": \"385eb41a7762e781854e6db025383dec1ac4a35e\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788135502382,\n  \"status\": \"cancelled\",\n  \"concurrency\": 1,\n  \"tasks\": [\n    {\n      \"id\": \"running\",\n      \"prompt\": \"First run exactly python3 wait.py with BASH and wait for its result. Do not inspect or modify wait.py. Only after this command completes create answer.py with ANSWER=42.\",\n      \"files\": [\n        \"answer.py\"\n      ]\n    },\n    {\n      \"id\": \"queued\",\n      \"prompt\": \"Create queued.py containing X=1.\",\n      \"files\": [\n        \"queued.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"running\",\n      \"branch\": \"codex/ra-swarm-mtghpjxq-a388a652/running\",\n      \"status\": \"cancelled\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/33-swarm-cancel-shell/.git/ra-swarms/swarm-mtghpjxq-a388a652/worktrees/codex/ra-swarm-mtghpjxq-a388a652/running\",\n      \"error\": \"Turn cancelled by user\"\n    },\n    {\n      \"taskId\": \"queued\",\n      \"branch\": \"codex/ra-swarm-mtghpjxq-a388a652/queued\",\n      \"status\": \"cancelled\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"error\": \"Error: Turn cancelled by user\"\n    }\n  ]\n}\n",
+      "stderr": "running: started in /private/tmp/ra-user-sandbox/projects/33-swarm-cancel-shell/.git/ra-swarms/swarm-mtghpjxq-a388a652/worktrees/codex/ra-swarm-mtghpjxq-a388a652/running\nrunning: cancelled \u00b7 Turn cancelled by user\n",
+      "signal": "SIGINT after shell child-started marker"
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "385eb41a7762e781854e6db025383dec1ac4a35e\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.11,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+ "scenario": "63-auth-no-fallback",
+ "status": "PASS",
+ "seconds": 0.36,
+ "records": []
+}

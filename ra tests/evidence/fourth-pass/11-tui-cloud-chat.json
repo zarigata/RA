@@ -1,0 +1,24 @@
+{
+  "scenario": "11-tui-cloud-chat",
+  "status": "FAIL",
+  "seconds": 17.42,
+  "error": "Command '['ra', '--cwd', '/private/tmp/ra-user-sandbox/projects/11-tui-cloud-chat']' timed out after 10 seconds",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "--cwd",
+        "/private/tmp/ra-user-sandbox/projects/11-tui-cloud-chat"
+      ],
+      "inputs": [
+        "/help",
+        "What is 19 plus 23? Reply with only the number.",
+        "/not-a-command",
+        "/version"
+      ],
+      "exit": -9,
+      "stdout": "\u256d RA TUI \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256e\r\n\u2502 \ud80c\udce1  RA  \ud80c\udce1                                               \u2502\r\n\u2502 Relic Agent \u2014 Mixture-of-Agents Terminal Dev             \u2502\r\n\u2502 v1.0.0-ra.68  \u00b7  theme: Pharaonic                        \u2502\r\n\u2502 RA prefer small@251 \u2192 big@cloud  (gemma @local fallback) \u2502\r\n\u2570 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256f\r\nProject: /private/tmp/ra-user-sandbox/projects/11-tui-cloud-chat | Profile: cloud-test | Ctrl+P palette | /help\r\n\r\nWelcome to RA. New here? Try:\r\n  /simple on\r\n  /quick write a hello world function\r\n  /again  (re-run last full-dev)\r\n  /verify  (re-check last artifacts)\r\n  /palette\r\n  small: ollama-cloud/gpt-oss:120b \u00b7 code: ollama-cloud/deepseek-v4-pro:0813\r\n\r\nRA \u203a /help\r\r\n\r\nRA\r\nRA Pro Mode \u2014 commands:\r\n  /plan /code /review /critique /docs\r\n  /quick /again /moa /pipeline /roles /models /cost /status /files /show /result /lane /intent /prefer /summary /timings /verify /history /sessions /ls /env /ping /which /lanes /home /doctor /selfcheck /palette /clear /lan-scan\r\n  /simple on     Grandma mode\r\n  /help          This help\r\n  Ctrl+P         Command palette\r\n\r\nRA \u203a What is 19 plus 23? Reply with only the number.\r\r\n42\r\n\r\n**Roles executed**\r\n- **horus** (local model `gpt\u20114o\u2011mini`) \u2013 performed the addition and returned the result.\r\nRA (streamed above)\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/gpt-oss:120b: 279 tok \u00b7 subscription\r\n  TOTAL: 279 tok \u00b7 $0.0000\r\n\u2570\u2500\r\nRA \u203a /not-a-command\r\r\n\r\nRA\r\nUnknown: /not-a-command. Try /help\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/gpt-oss:120b: 279 tok \u00b7 subscription\r\n  TOTAL: 279 tok \u00b7 $0.0000\r\n\u2570\u2500\r\nRA \u203a /version\r\r\n\r\nRA\r\nRA 1.0.0-ra.68\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/gpt-oss:120b: 279 tok \u00b7 subscription\r\n  TOTAL: 279 tok \u00b7 $0.0000\r\n\u2570\u2500\r\nRA \u203a ",
+      "stderr": ""
+    }
+  ]
+}

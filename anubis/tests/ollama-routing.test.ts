@@ -34,18 +34,21 @@ describe("small Ollama routing", () => {
 });
 
 describe("fallback chain", () => {
-  test("cloud model falls back to LAN then local", () => {
+  test("cloud model falls back only to other cloud models", () => {
     const chain = fallbackChain("ollama-cloud/glm-5.2");
     expect(chain[0]).toBe("ollama-cloud/glm-5.2");
-    expect(chain).toContain("ollama-lan/qwen3.8:latest");
-    expect(chain).toContain("ollama/gemma:latest");
+    for (const m of chain.slice(1)) {
+      expect(m.startsWith("ollama-cloud/")).toBe(true);
+    }
+    expect(chain).not.toContain("ollama-lan/qwen3.8:latest");
+    expect(chain).not.toContain("ollama/gemma:latest");
   });
 
-  test("small model falls back to LAN, local, then cloud", () => {
+  test("small model falls back only to other local models", () => {
     const chain = fallbackChain("ollama-lan/qwen3.8:latest");
     expect(chain[0]).toBe("ollama-lan/qwen3.8:latest");
     expect(chain).toContain("ollama/gemma:latest");
-    expect(chain).toContain("ollama-cloud/glm-5.2");
+    expect(chain.every((m) => !m.startsWith("ollama-cloud/"))).toBe(true);
   });
 
   test("dedupes repeated candidates", () => {

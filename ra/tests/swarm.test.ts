@@ -19,29 +19,29 @@ function initRepo(): string {
 describe("swarm mode", () => {
   test("createWorktree and removeWorktree", () => {
     const repo = initRepo();
-    const root = mkdtempSync(join(tmpdir(), "ra-swarm-wt-"));
+    // Worktree root must live inside the repo: the command sandbox scopes
+    // writes to the workspace, matching the production storeRoot default.
+    const root = join(repo, "ra-swarms", "wt");
     try {
       const path = createWorktree(repo, "ra-swarm/t1", root);
       expect(path).toContain("ra-swarm/t1");
       removeWorktree(repo, "ra-swarm/t1", path);
     } finally {
       rmSync(repo, { recursive: true, force: true });
-      rmSync(root, { recursive: true, force: true });
     }
   });
 
   test("runSwarm runs tasks in parallel and merges", async () => {
     const repo = initRepo();
-    const root = mkdtempSync(join(tmpdir(), "ra-swarm-wt-"));
+    const root = join(repo, "ra-swarms", "wt");
     try {
       const results = await runSwarm(
         {
           repo,
           worktreeRoot: root,
           runAgent: async (wt, task) => {
+            // Real swarm agents only write files; RA stages and commits them.
             writeFileSync(join(wt, `${task.id}.txt`), task.prompt);
-            spawnSync("git", ["add", "."], { cwd: wt });
-            spawnSync("git", ["commit", "-q", "-m", task.id], { cwd: wt });
             return `did ${task.id}`;
           },
         },
@@ -55,7 +55,6 @@ describe("swarm mode", () => {
       expect(results[0].output).toBe("did one");
     } finally {
       rmSync(repo, { recursive: true, force: true });
-      rmSync(root, { recursive: true, force: true });
     }
   });
 });

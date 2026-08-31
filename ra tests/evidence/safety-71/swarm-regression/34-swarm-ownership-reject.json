@@ -1,0 +1,139 @@
+{
+  "scenario": "34-swarm-ownership-reject",
+  "status": "PASS",
+  "seconds": 8.49,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.1,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/34-swarm-ownership-reject/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "[main (root-commit) 690b630] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.04,
+      "stdout": "690b63097653d19ed10a96693c75833f83b78325\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/34-swarm-ownership-reject-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 8.04,
+      "stdout": "{\n  \"id\": \"swarm-mtgftt53-0c3e3f44\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/34-swarm-ownership-reject\",\n  \"base\": \"690b63097653d19ed10a96693c75833f83b78325\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132341703,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"owned\",\n      \"prompt\": \"Create wrong.py containing VALUE=7 only. The explicit requested output is wrong.py; report a conflict if the allowed paths prohibit it.\",\n      \"files\": [\n        \"allowed.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"owned\",\n      \"branch\": \"codex/ra-swarm-mtgftt53-0c3e3f44/owned\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/34-swarm-ownership-reject/.git/ra-swarms/swarm-mtgftt53-0c3e3f44/worktrees/codex/ra-swarm-mtgftt53-0c3e3f44/owned\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n",
+      "stderr": "owned: started in /private/tmp/ra-user-sandbox/projects/34-swarm-ownership-reject/.git/ra-swarms/swarm-mtgftt53-0c3e3f44/worktrees/codex/ra-swarm-mtgftt53-0c3e3f44/owned\nowned: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n"
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.07,
+      "stdout": "690b63097653d19ed10a96693c75833f83b78325\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.07,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

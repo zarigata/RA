@@ -1,0 +1,24 @@
+{
+  "scenario": "24-partial-moa",
+  "status": "PASS",
+  "seconds": 5.61,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "moa",
+        "Give one short suggestion for naming a Python sum function. No tools.",
+        "--roles",
+        "broken,thoth",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 2,
+      "seconds": 5.6,
+      "stdout": "{\n  \"status\": \"partial\",\n  \"task\": \"Give one short suggestion for naming a Python sum function. No tools.\",\n  \"results\": [\n    {\n      \"role\": \"broken\",\n      \"model\": \"ollama-cloud/ra-acceptance-no-such-model\",\n      \"output\": \"\",\n      \"status\": \"failed\",\n      \"error\": \"Error: chatStream 404: {\\\"error\\\":{\\\"message\\\":\\\"model \\\\\\\"ra-acceptance-no-such-model\\\\\\\" not found\\\",\\\"type\\\":\\\"not_found_error\\\",\\\"param\\\":null,\\\"code\\\":null}}\\n\"\n    },\n    {\n      \"role\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"output\": \"**Goal**  \\nProvide a concise, memorable name suggestion for a Python function that computes the sum of a collection.\\n\\n**Approach**  \\nSelect a name that clearly conveys the operation (summation) while fitting Python\u2019s naming conventions (lowercase with underscores if needed). Keep it short (one\u2011word or a brief phrase) and avoid clashes with built\u2011in `sum`.  \\n\\n**Steps**  \\n1. **Identify naming constraints** \u2013 verify that the name is not a Python built\u2011in or reserved keyword. *Verification*: check Python docs for `sum` and reserved words.  \\n2. **Generate candidate names** \u2013 brainstorm short alternatives (e.g., `total`, `add_all`, `aggregate`, `accumulate`). *Verification*: each candidate is \u2264\u202f12 characters and uses only letters/underscores.  \\n3. **Select the best candidate** \u2013 choose the name that most directly describes the purpose and is least likely to conflict. *Verification*: confirm the chosen name is not already defined in the standard library.  \\n\\n**Risks & Mitigations**  \\n- *Risk*: The suggested name could shadow the built\u2011in `sum`. *Mitigation*: Explicitly avoid `sum` and any name that Python already uses for a built\u2011in function.  \\n- *Risk*: The name may be too generic, causing confusion in larger codebases. *Mitigation*: Prefer a name that hints at the data type or context if needed (e.g., `total` for numeric collections).  \\n\\n**Open Questions for the User**  \\n1. Will the function be part of a public API where naming collisions are a higher concern?  \\n2. Do you prefer a single\u2011word name (`total`) or a short phrase with an underscore (`add_all`)?  \\n3. Should the name reflect the type of input (e.g., `list_sum`, `array_total`), or remain generic?  \",\n      \"host\": \"cloud\",\n      \"status\": \"completed\"\n    }\n  ],\n  \"synthesis\": \"## MoA synthesis (gpt-oss:120b)\\n**Suggestion:** `total` \u2013 a short, clear name that conveys summation without clashing with Python\u2019s built\u2011in `sum`.\",\n  \"stats\": {\n    \"calls\": 3,\n    \"agents\": 3,\n    \"elapsedMs\": 5309\n  }\n}\n",
+      "stderr": "MOA read-only proposals: broken, thoth \u00b7 concurrency 2\nbroken: started\nthoth: started\nthoth: completed [gpt-oss:120b]\nsynthesis: started\n"
+    }
+  ]
+}

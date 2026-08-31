@@ -1,0 +1,52 @@
+{
+  "model": "ollama-cloud/deepseek-v4-pro:0813",
+  "small_model": "ollama-cloud/gpt-oss:120b",
+  "agent": {
+    "thoth": {
+      "model": "ollama-cloud/gpt-oss:120b"
+    },
+    "ptah": {
+      "model": "ollama-cloud/deepseek-v4-pro:0813"
+    },
+    "maat": {
+      "model": "ollama-cloud/glm-5.3-flash"
+    },
+    "sekhmet": {
+      "model": "ollama-cloud/glm-5.3-flash"
+    },
+    "seshat": {
+      "model": "ollama-cloud/gpt-oss:120b"
+    },
+    "horus": {
+      "model": "ollama-cloud/gpt-oss:120b"
+    }
+  },
+  "moa": {
+    "roles": [
+      "thoth",
+      "ptah",
+      "maat",
+      "sekhmet"
+    ],
+    "parallel": true
+  },
+  "pipeline": {
+    "stages": [
+      "thoth",
+      "ptah",
+      "maat",
+      "sekhmet"
+    ]
+  },
+  "plugin": [
+    "horus",
+    "vibeguard",
+    "dcp",
+    "cost-tracker",
+    "notify",
+    "moa",
+    "router",
+    "lan",
+    "papyrus"
+  ]
+}

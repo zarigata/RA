@@ -1,0 +1,77 @@
+{
+  "scenario": "49-sandbox-cli-tui-controls",
+  "status": "PASS",
+  "seconds": 1.28,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "status",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 0.22,
+      "stdout": "{\n  \"mode\": \"workspace-write\",\n  \"network\": \"deny\",\n  \"backend\": \"macOS Seatbelt\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/49-sandbox-cli-tui-controls\",\n  \"environment\": \"allowlist; private HOME and temporary directory\",\n  \"protected\": [\n    \"credentials\",\n    \"Git metadata\",\n    \"agent policy\",\n    \"installed RA runtime\"\n  ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--mode",
+        "bogus",
+        "--",
+        "echo",
+        "x"
+      ],
+      "exit": 1,
+      "seconds": 0.26,
+      "stdout": "",
+      "stderr": "Error: sandbox.mode must be workspace-write, read-only, or off\n"
+    },
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--network",
+        "bogus",
+        "--",
+        "echo",
+        "x"
+      ],
+      "exit": 1,
+      "seconds": 0.25,
+      "stdout": "",
+      "stderr": "Error: sandbox.network must be deny or allow\n"
+    },
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec"
+      ],
+      "exit": 1,
+      "seconds": 0.23,
+      "stdout": "",
+      "stderr": "Error: RA sandbox\n  ra sandbox status [--json]\n  ra sandbox exec [--mode workspace-write|read-only|off] [--network deny|allow] -- COMMAND [ARG...]\n\nDefault: workspace writes, private temporary HOME, no subprocess networking.\nNetwork allow grants IP traffic and loopback listeners, not Unix-domain sockets.\nOn macOS, Seatbelt enforces filesystem and network boundaries. Unsupported or\nnested environments fail closed. No automatic unsandboxed retry occurs.\nUse off only for trusted work; provider credentials are still removed from the environment.\nAgent writes to Git metadata, policy files, credential files and RA's installed runtime are blocked.\nCloud model requests and explicitly configured HTTP tools run in RA's trusted control process.\n"
+    },
+    {
+      "command": [
+        "ra",
+        "--cwd",
+        "/private/tmp/ra-user-sandbox/projects/49-sandbox-cli-tui-controls"
+      ],
+      "inputs": [
+        "/sandbox status",
+        "/help"
+      ],
+      "exit": 0,
+      "stdout": "\u256d RA TUI \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256e\r\n\u2502 \ud80c\udce1  RA  \ud80c\udce1                                               \u2502\r\n\u2502 Relic Agent \u2014 Mixture-of-Agents Terminal Dev             \u2502\r\n\u2502 v1.0.0-ra.71  \u00b7  theme: Pharaonic                        \u2502\r\n\u2502 RA prefer small@251 \u2192 big@cloud  (gemma @local fallback) \u2502\r\n\u2570 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256f\r\nProject: /private/tmp/ra-user-sandbox/projects/49-sandbox-cli-tui-controls | Profile: cloud-acceptance | Ctrl+P palette | /help\r\n\r\nWelcome to RA. New here? Try:\r\n  /simple on\r\n  /quick write a hello world function\r\n  /again  (re-run last full-dev)\r\n  /verify  (re-check last artifacts)\r\n  /palette\r\n  small: ollama-cloud/glm-5.3-flash \u00b7 code: ollama-cloud/deepseek-v4-pro:0813\r\n\r\nRA \u203a /sandbox status\r\r\n\r\nRA\r\nRA sandbox: macOS Seatbelt \u00b7 workspace-write \u00b7 subprocess network deny\r\nWorkspace: /private/tmp/ra-user-sandbox/projects/49-sandbox-cli-tui-controls\r\nEnvironment: allowlist; private HOME and temporary directory\r\nRA sandbox\r\n  ra sandbox status [--json]\r\n  ra sandbox exec [--mode workspace-write|read-only|off] [--network deny|allow] -- COMMAND [ARG...]\r\n\r\nDefault: workspace writes, private temporary HOME, no subprocess networking.\r\nNetwork allow grants IP traffic and loopback listeners, not Unix-domain sockets.\r\nOn macOS, Seatbelt enforces filesystem and network boundaries. Unsupported or\r\nnested environments fail closed. No automatic unsandboxed retry occurs.\r\nUse off only for trusted work; provider credentials are still removed from the environment.\r\nAgent writes to Git metadata, policy files, credential files and RA's installed runtime are blocked.\r\nCloud model requests and explicitly configured HTTP tools run in RA's trusted control process.\r\n\r\nRA \u203a /help\r\r\n\r\nRA\r\nRA \u2014 commands:\r\n  Build        /plan /code /quick /pipeline /again\r\n  Review       /review /critique /docs /moa /tree\r\n  Teams        /agents /swarm help /swarm list\r\n  Safety       /sandbox status /sandbox help\r\n  Project      /ls /files /show /todos /verify\r\n  Session      /status /history /sessions /replay /clear\r\n  Models       /roles /models /env /ping /doctor /cost\r\n  Results      /result /summary /timings /lane /intent /prefer\r\n  Connection   /connect /home /which /lanes /selfcheck /lan-scan\r\n  Interface    /simple on /simple off /palette /help /exit\r\n  Ctrl+P       Command palette\r\n  Esc          Cancel the current model request\r\n\r\nRA \u203a /exit\r\r\n",
+      "stderr": ""
+    }
+  ]
+}

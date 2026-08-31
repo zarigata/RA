@@ -1,0 +1,32 @@
+{
+  "scenario": "35-pipeline-shared-budget",
+  "status": "PASS",
+  "seconds": 1.65,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create answer.py containing ANSWER=42.",
+        "--quick",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 1.38,
+      "stdout": "",
+      "stderr": "Error: Stage thoth failed: Error: Model call budget exhausted (1)\n"
+    },
+    {
+      "command": [
+        "ra",
+        "last",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 0.26,
+      "stdout": "{\n  \"task\": \"Create answer.py containing ANSWER=42.\",\n  \"stages\": [\n    \"thoth\",\n    \"ptah\"\n  ],\n  \"models\": [],\n  \"filesWritten\": [],\n  \"hosts\": [],\n  \"ms\": 977,\n  \"intent\": \"code\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/35-pipeline-shared-budget\",\n  \"timings\": [],\n  \"status\": \"failed\",\n  \"error\": \"Stage thoth failed: Error: Model call budget exhausted (1)\",\n  \"outputs\": [],\n  \"at\": 1788129344831\n}\n",
+      "stderr": ""
+    }
+  ]
+}

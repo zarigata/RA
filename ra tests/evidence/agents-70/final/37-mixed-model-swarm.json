@@ -1,0 +1,171 @@
+{
+  "scenario": "37-mixed-model-swarm",
+  "status": "PASS",
+  "seconds": 11.81,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.11,
+      "stdout": "[main (root-commit) af79189] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "af79189d2e83d0caa1fb801238d61ccf4f4fcff4\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/37-mixed-model-swarm-tasks.json",
+        "--concurrency",
+        "2",
+        "--merge",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 11.15,
+      "stdout": "{\n  \"id\": \"swarm-mtge1rrw-f5ed5914\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm\",\n  \"base\": \"af79189d2e83d0caa1fb801238d61ccf4f4fcff4\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788129353948,\n  \"status\": \"applied\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"deepseek\",\n      \"prompt\": \"Create deepseek.py containing MODEL_FAMILY=\\\"deepseek\\\" only.\",\n      \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n      \"files\": [\n        \"deepseek.py\"\n      ]\n    },\n    {\n      \"id\": \"glm\",\n      \"prompt\": \"Create glm.py containing MODEL_FAMILY=\\\"glm\\\" only.\",\n      \"model\": \"ollama-cloud/glm-5.3-flash\",\n      \"files\": [\n        \"glm.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"deepseek\",\n      \"branch\": \"codex/ra-swarm-mtge1rrw-f5ed5914/deepseek\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"Created `deepseek.py` with the exact content `MODEL_FAMILY=\\\"deepseek\\\"` and verified it by reading the file back. No other files were changed.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtge1rrw-f5ed5914/worktrees/codex/ra-swarm-mtge1rrw-f5ed5914/deepseek\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"69ecb23e4347efc7e5d4ca1152fa94870c6a2789\",\n      \"files\": [\n        \"deepseek.py\"\n      ]\n    },\n    {\n      \"taskId\": \"glm\",\n      \"branch\": \"codex/ra-swarm-mtge1rrw-f5ed5914/glm\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"**Changed:**\\n- Created `glm.py` containing a single line: `MODEL_FAMILY=\\\"glm\\\"` (18 bytes).\\n\\n**Verified:**\\n- `python3 -m py_compile glm.py` \u2014 passed (no syntax errors).\\n- `python3 -c \\\"import glm; print(glm.MODEL_FAMILY)\\\"` \u2014 output `glm`, confirming the constant is defined correctly.\\n\\nNo other files were touched, and no git commands were run.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtge1rrw-f5ed5914/worktrees/codex/ra-swarm-mtge1rrw-f5ed5914/glm\",\n      \"model\": \"glm-5.3-flash\",\n      \"commit\": \"03ad85b529e971fe8b619f6bd627ca8b6c6f70df\",\n      \"files\": [\n        \"glm.py\"\n      ]\n    }\n  ],\n  \"integrationBranch\": \"codex/ra-swarm-mtge1rrw-f5ed5914/integration\",\n  \"integrationWorktree\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtge1rrw-f5ed5914/integration/codex/ra-swarm-mtge1rrw-f5ed5914/integration\",\n  \"conflicts\": []\n}\n",
+      "stderr": "deepseek: started in /private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtge1rrw-f5ed5914/worktrees/codex/ra-swarm-mtge1rrw-f5ed5914/deepseek\nglm: started in /private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtge1rrw-f5ed5914/worktrees/codex/ra-swarm-mtge1rrw-f5ed5914/glm\ndeepseek: ready [deepseek-v4-pro:0813] \u00b7 1 files\nglm: ready [glm-5.3-flash] \u00b7 1 files\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "-c",
+        "import deepseek,glm; assert deepseek.MODEL_FAMILY==\"deepseek\"; assert glm.MODEL_FAMILY==\"glm\""
+      ],
+      "exit": 0,
+      "seconds": 0.2,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtge1rrw-f5ed5914/deepseek"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "69ecb23e4347efc7e5d4ca1152fa94870c6a2789\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtge1rrw-f5ed5914/glm"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "03ad85b529e971fe8b619f6bd627ca8b6c6f70df\n",
+      "stderr": ""
+    }
+  ]
+}

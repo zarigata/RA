@@ -1,0 +1,22 @@
+{
+  "scenario": "03-multifile-js",
+  "status": "FAIL",
+  "seconds": 31.04,
+  "error": "Error: Stage ptah failed: Error: Agent ptah ended without applying the requested edits\n",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create math.mjs exporting sum(values) and app.mjs importing sum from ./math.mjs and printing sum([2,3,5]). No dependencies. Run app.mjs to check it.",
+        "--quick",
+        "--json",
+        "--verify"
+      ],
+      "exit": 1,
+      "seconds": 31.04,
+      "stdout": "",
+      "stderr": "Error: Stage ptah failed: Error: Agent ptah ended without applying the requested edits\n"
+    }
+  ]
+}

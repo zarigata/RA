@@ -1,3 +1,4 @@
+import { collectToolCalls, collectedToolText, type StreamToolCall } from "./tool-call.ts";
 // src/ollama.ts — Ollama client (cloud OpenAI-compat + LAN/local native)
 
 export interface OllamaConfig {
@@ -42,11 +43,11 @@ export interface StreamChatOptions {
  */
 export function parseOllamaStreamLine(
   line: string,
-): { token: string; done: boolean; model?: string; usage?: ChatUsage } | null {
+): { token: string; done: boolean; model?: string; usage?: ChatUsage; toolCalls?: StreamToolCall[] } | null {
   const l = line.trim();
   if (!l) return null;
   let j: {
-    message?: { content?: string };
+    message?: { content?: string; tool_calls?: StreamToolCall[] };
     done?: boolean;
     model?: string;
     eval_count?: number;
@@ -67,6 +68,7 @@ export function parseOllamaStreamLine(
       : undefined;
   return {
     token: j.message?.content ?? "",
+    toolCalls: j.message?.tool_calls,
     done: j.done === true,
     model: j.model,
     usage,
@@ -79,13 +81,14 @@ export function parseOllamaStreamLine(
  */
 export function parseSSEFrame(
   frame: string,
-): { token: string; model?: string; usage?: ChatUsage; done?: boolean } | null {
+): { token: string; model?: string; usage?: ChatUsage; done?: boolean; toolCalls?: StreamToolCall[] } | null {
   const f = frame.trim();
   if (!f) return null;
   if (f === "[DONE]") return { token: "", done: true };
   let j: {
+    error?: string;
     model?: string;
-    choices?: Array<{ delta?: { content?: string } }>;
+    choices?: Array<{ delta?: { content?: string; tool_calls?: StreamToolCall[] } }>;
     usage?: ChatUsage;
   };
   try {
@@ -93,8 +96,10 @@ export function parseSSEFrame(
   } catch {
     return null;
   }
+  if (j.error) throw new Error(`Provider stream error: ${typeof j.error === "string" ? j.error : JSON.stringify(j.error)}`);
   return {
     token: j.choices?.[0]?.delta?.content ?? "",
+    toolCalls: j.choices?.[0]?.delta?.tool_calls,
     model: j.model,
     usage: j.usage,
   };
@@ -145,7 +150,7 @@ export class OllamaClient {
   async probe(timeoutMs = 3000): Promise<boolean> {
     try {
       if (this.cfg.kind === "cloud" || this.cfg.openaiCompat) {
-        this.availableModels = await this.listModels();
+        this.availableModels = await this.listModels(timeoutMs);
         return this.availableModels.length > 0;
       }
       const base = this.cfg.baseURL.replace(/\/v1$/, "");
@@ -170,8 +175,9 @@ export class OllamaClient {
     return (data.models ?? []).map((m) => m.name);
   }
 
-  async listModels(): Promise<string[]> {
+  async listModels(timeoutMs = 5000): Promise<string[]> {
     const res = await fetch(`${this.cfg.baseURL}/models`, {
+      signal: AbortSignal.timeout(timeoutMs),
       headers: { Authorization: `Bearer ${this.cfg.apiKey}` },
     });
     if (!res.ok) throw new Error(`listModels ${res.status}: ${await res.text()}`);
@@ -200,12 +206,14 @@ export class OllamaClient {
       });
       if (!res.ok) throw new Error(`chat ${res.status}: ${await res.text()}`);
       const data = (await res.json()) as {
-        choices: Array<{ message: { content: string } }>;
+        choices: Array<{ message: { content: string; tool_calls?: StreamToolCall[] } }>;
         model: string;
         usage?: ChatUsage;
       };
+      const calls = new Map<number, { name: string; args: string }>();
+      collectToolCalls(calls, data.choices[0]?.message?.tool_calls ?? []);
       return {
-        content: data.choices[0]?.message?.content ?? "",
+        content: collectedToolText(calls) || data.choices[0]?.message?.content || "",
         model: data.model,
         usage: data.usage ?? null,
       };
@@ -278,6 +286,7 @@ export class OllamaClient {
    * shared with the unit tests.
    */
   async nativeChatStream(model: string, messages: ChatMessage[], opts: StreamChatOptions = {}): Promise<ChatResult> {
+    opts.signal?.throwIfAborted();
     if (this.cfg.kind === "cloud" || this.cfg.openaiCompat) return this.chatStream(model, messages, opts);
     const base = this.cfg.baseURL.replace(/\/v1$/, "");
     const timeoutMs = opts.timeoutMs ?? 180_000;
@@ -286,6 +295,7 @@ export class OllamaClient {
     if (opts.signal) opts.signal.addEventListener("abort", () => ctrl.abort(), { once: true });
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     let content = "";
+    const calls = new Map<number, { name: string; args: string }>();
     let usage: ChatUsage | null = null;
     let usedModel = model;
     try {
@@ -314,6 +324,7 @@ export class OllamaClient {
         for (const line of lines) {
           const part = parseOllamaStreamLine(line);
           if (!part) continue;
+          if (part.toolCalls) collectToolCalls(calls, part.toolCalls);
           if (part.model) usedModel = part.model;
           if (part.usage) usage = part.usage;
           if (part.token) {
@@ -329,9 +340,12 @@ export class OllamaClient {
           opts.onToken?.(part.token);
         }
         if (part?.usage) usage = part.usage;
+        if (part?.toolCalls) collectToolCalls(calls, part.toolCalls);
       }
-      return { content, model: usedModel, usage };
+      return { content: collectedToolText(calls) || content, model: usedModel, usage };
     } catch (e) {
+      // A bare local-timeout abort carries no reason; user/run cancellations carry one.
+      if (opts.signal?.aborted) throw new Error(opts.signal.reason ? String(opts.signal.reason) : `model call aborted after ${timeoutMs}ms timeout (model=${model})`);
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("abort") || msg.includes("Timeout") || (e as { name?: string })?.name === "TimeoutError") {
         throw new Error(`nativeChatStream timeout after ${timeoutMs}ms model=${model}`);
@@ -344,11 +358,14 @@ export class OllamaClient {
 
   /** SSE streaming for OpenAI-compatible endpoints (Ollama Cloud, LM Studio). */
   async chatStream(model: string, messages: ChatMessage[], opts: StreamChatOptions = {}): Promise<ChatResult> {
+    opts.signal?.throwIfAborted();
     const timeoutMs = opts.timeoutMs ?? 180_000;
     const ctrl = new AbortController();
     if (opts.signal) opts.signal.addEventListener("abort", () => ctrl.abort(), { once: true });
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const frameShapes = new Set<string>();
     let content = "";
+    const calls = new Map<number, { name: string; args: string }>();
     let usage: ChatUsage | null = null;
     let usedModel = model;
     try {
@@ -374,13 +391,18 @@ export class OllamaClient {
         const { done, value } = await reader.read();
         if (done) break;
         buf += dec.decode(value, { stream: true });
-        const frames = buf.split("\n\n");
+        const frames = buf.split(/\r?\n\r?\n/);
         buf = frames.pop() ?? "";
         for (const frame of frames) {
           for (const line of frame.split("\n")) {
             if (!line.startsWith("data:")) continue;
+            try {
+              const frame = JSON.parse(line.slice(5));
+              frameShapes.add(JSON.stringify({ keys: Object.keys(frame), delta: Object.keys(frame.choices?.[0]?.delta ?? {}), finish: frame.choices?.[0]?.finish_reason }));
+            } catch { /* terminal SSE marker */ }
             const part = parseSSEFrame(line.slice(5));
             if (!part) continue;
+          if (part.toolCalls) collectToolCalls(calls, part.toolCalls);
             if (part.model) usedModel = part.model;
             if (part.usage) usage = part.usage;
             if (part.token) {
@@ -390,8 +412,19 @@ export class OllamaClient {
           }
         }
       }
-      return { content, model: usedModel, usage };
+      for (const line of buf.split(/\r?\n/)) {
+        const payload = line.startsWith("data:") ? line.slice(5) : line;
+        const part = parseSSEFrame(payload);
+        if (part?.toolCalls) collectToolCalls(calls, part.toolCalls);
+        if (part?.token) { content += part.token; opts.onToken?.(part.token); }
+        if (part?.usage) usage = part.usage;
+      }
+      const output = collectedToolText(calls) || content;
+      if (!output.trim()) throw new Error(`Empty response from ${model}; type=${res.headers.get("content-type")}; pending=${buf.length}; frames=${[...frameShapes].join(";")}`);
+      return { content: output, model: usedModel, usage };
     } catch (e) {
+      // A bare local-timeout abort carries no reason; user/run cancellations carry one.
+      if (opts.signal?.aborted) throw new Error(opts.signal.reason ? String(opts.signal.reason) : `model call aborted after ${timeoutMs}ms timeout (model=${model})`);
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("abort") || msg.includes("Timeout") || (e as { name?: string })?.name === "TimeoutError") {
         throw new Error(`chatStream timeout after ${timeoutMs}ms model=${model}`);
@@ -404,7 +437,7 @@ export class OllamaClient {
 }
 
 const MODEL_FALLBACKS = ["qwen3.8:latest", "qwen3:8b", "qwen3.8", "gemma4:12b", "gemma:latest", "gemma2:2b"];
-const CLOUD_FALLBACKS = ["glm-5.2", "gemma4:31b", "gpt-oss:20b"];
+const CLOUD_FALLBACKS = ["gpt-oss:120b", "glm-5.2", "deepseek-v4-flash:0731"];
 
 function bareModel(configured: string): string {
   return configured.includes("/") ? configured.split("/").pop()! : configured;
@@ -514,17 +547,8 @@ export async function pickClientForModel(
   }
 
   if (isCloudModel(configured)) {
-    const client = OllamaClient.fromEnv(env);
-    try {
-      await client.probe(5000);
-    } catch {
-      /* key may still chat */
-    }
-    const model =
-      client.availableModels.length > 0
-        ? pickModel(bare, client.availableModels, CLOUD_FALLBACKS)
-        : bare;
-    return { client, model };
+    // Explicit cloud selections must not silently change models or providers.
+    return { client: OllamaClient.fromEnv(env), model: bare };
   }
 
   // Small / "local" = .251 qwen, then localhost gemma if needed
@@ -564,18 +588,63 @@ export function pickModel(
 }
 
 /**
- * Ordered fallback chain for a configured model.
- * - cloud (BIG) → .251 qwen → localhost gemma
- * - small/local → .251 qwen → localhost gemma → cloud glm-5.2
+ * Ordered fallback chain for a configured model. Same host kind only:
+ * a cloud model never silently degrades to a LAN/local model (that switch is
+ * an explicit user configuration decision, not an automatic fallback).
+ * - cloud → other cloud models
+ * - small/local → other local models
  */
 export function fallbackChain(configured: string): string[] {
   const chain = [configured];
   if (isCloudModel(configured)) {
-    chain.push("ollama-lan/qwen3.8:latest", "ollama/gemma:latest");
+    chain.push(...CLOUD_FALLBACKS.map((m) => `ollama-cloud/${m}`));
   } else {
-    chain.push("ollama-lan/qwen3.8:latest", "ollama/gemma:latest", "ollama-cloud/glm-5.2");
+    chain.push("ollama-lan/qwen3.8:latest", "ollama/gemma:latest");
   }
   return [...new Set(chain)];
+}
+
+export interface ModelFallbacks {
+  /** Chain applied when the primary model has no specific entry. */
+  default?: string[];
+  /** Per-model chains; keys match configured model names (prefixed or bare). */
+  models?: Record<string, string[]>;
+}
+
+/**
+ * Candidate fallback models for a configured primary, in explicit order.
+ * User-configured chains (config.fallbacks) win; without one, the built-in
+ * same-kind chain applies. Candidates are bare model names, deduplicated,
+ * with the primary removed and cross-host-kind entries skipped.
+ */
+export function resolveModelFallbacks(configured: string, fallbacks?: ModelFallbacks): string[] {
+  const primary = bareModel(configured);
+  const cloud = isCloudModel(configured);
+  const explicit =
+    fallbacks?.models?.[configured] ??
+    fallbacks?.models?.[primary] ??
+    fallbacks?.default ??
+    (cloud ? CLOUD_FALLBACKS.map((m) => `ollama-cloud/${m}`) : ["ollama-lan/qwen3.8:latest", "ollama/gemma:latest"]);
+  const out: string[] = [];
+  for (const entry of explicit) {
+    const bare = bareModel(entry);
+    if (bare === primary) continue;
+    if (isCloudModel(entry) !== cloud) continue;
+    if (!out.includes(bare)) out.push(bare);
+  }
+  return out;
+}
+
+/** Provider auth failures must fail loudly — an explicit cloud selection never falls back on a bad key. */
+export function isAuthError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /\b40[13]\b|unauthorized|forbidden|invalid api key|authentication/i.test(msg);
+}
+
+/** User cancellations (Escape, run cancel) are not provider failures. */
+export function isUserCancel(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /turn cancelled|abort/i.test(msg);
 }
 
 export interface FallbackAttempt {

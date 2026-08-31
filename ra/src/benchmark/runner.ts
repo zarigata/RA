@@ -86,8 +86,7 @@ export async function runScenario(scenarioPath: string): Promise<boolean> {
     stages: ["thoth", "ptah"],
     cwd,
   });
-  // runner already ensures artifacts; keep soft second pass for keyword checks
-  ensureBenchmarkArtifacts(ctx, scenario.prompt);
+  // Acceptance examines only actual agent output; never manufacture artifacts.
 
   for (const check of scenario.success) {
     if ("file_exists" in check) {

@@ -14,6 +14,7 @@ describe("verifyLastRun", () => {
       stages: ["thoth", "ptah"],
       models: ["qwen3.8:latest"],
       filesWritten: ["/tmp/ra-does-not-exist-xyz.py"],
+      cwd: "/tmp",
       at: 1,
     });
     expect(r.ok).toBe(false);
@@ -33,6 +34,7 @@ describe("verifyLastRun", () => {
         stages: ["thoth", "ptah"],
         models: ["qwen3.8:latest"],
         filesWritten: [path],
+        cwd,
         ms: 1200,
         intent: "code",
         timings: [{ stage: "thoth", model: "qwen3.8:latest", host: "251", ms: 1000 }],
@@ -60,6 +62,7 @@ describe("verifyLastRun", () => {
         stages: ["thoth", "ptah"],
         models: ["qwen3.8:latest"],
         filesWritten: [path],
+        cwd,
         ms: 900,
         intent: "code",
         timings: [{ stage: "thoth", model: "qwen3.8:latest", host: "251", ms: 800 }],

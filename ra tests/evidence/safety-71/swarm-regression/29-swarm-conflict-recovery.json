@@ -1,0 +1,101 @@
+{
+  "scenario": "29-swarm-conflict-recovery",
+  "status": "FAIL",
+  "seconds": 12.02,
+  "error": "alpha: started in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/alpha\nbeta: started in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/beta\nalpha: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\nbeta: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n\n{\n  \"id\": \"swarm-mtgft5tl-a6a36d9a\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery\",\n  \"base\": \"e9f5c2586e811c40edb0637cfd5d52ae7f19746e\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132311481,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"alpha\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=alpha followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    },\n    {\n      \"id\": \"beta\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=beta followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"alpha\",\n      \"branch\": \"codex/ra-swarm-mtgft5tl-a6a36d9a/alpha\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/alpha\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    },\n    {\n      \"taskId\": \"beta\",\n      \"branch\": \"codex/ra-swarm-mtgft5tl-a6a36d9a/beta\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/beta\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.07,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "[main (root-commit) e9f5c25] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 setting.txt\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "e9f5c2586e811c40edb0637cfd5d52ae7f19746e\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/29-swarm-conflict-recovery-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 11.7,
+      "stdout": "{\n  \"id\": \"swarm-mtgft5tl-a6a36d9a\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery\",\n  \"base\": \"e9f5c2586e811c40edb0637cfd5d52ae7f19746e\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132311481,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"alpha\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=alpha followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    },\n    {\n      \"id\": \"beta\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=beta followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"alpha\",\n      \"branch\": \"codex/ra-swarm-mtgft5tl-a6a36d9a/alpha\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/alpha\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    },\n    {\n      \"taskId\": \"beta\",\n      \"branch\": \"codex/ra-swarm-mtgft5tl-a6a36d9a/beta\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/beta\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n",
+      "stderr": "alpha: started in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/alpha\nbeta: started in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/beta\nalpha: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\nbeta: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n"
+    }
+  ]
+}

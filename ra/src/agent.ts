@@ -1,7 +1,9 @@
+import { withAgentRun, withAgentScope, currentScope, checkRun, runSignal, reserveCall, scopedRenderer, cancelRuns } from "./execution.ts";
+import { normalizeToolText } from "../../anubis/src/tool-call.ts";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { AGENTS_DIR, ANUBIS_HOME } from "./paths.ts";
-import { pickOllamaEndpoint, pickModel, pickClientForModel } from "../../anubis/src/ollama.ts";
+import { pickOllamaEndpoint, pickModel, pickClientForModel, resolveModelFallbacks, isAuthError, isUserCancel } from "../../anubis/src/ollama.ts";
 import { recordChatUsage } from "../../anubis/src/cost.ts";
 import { resolveRoleModel } from "../../anubis/src/router.ts";
 import type { RaConfig } from "../../anubis/src/config.ts";
@@ -9,11 +11,10 @@ import type { ToolContext } from "./tools/index.ts";
 import * as tools from "./tools/index.ts";
 import { loadEnv } from "../../anubis/src/env.ts";
 import { classifyTier, tierModel } from "./tier.ts";
-import { canRunTool } from "./permission.ts";
+import { canRunTool, resolveCapabilities, assertTool, assertBash } from "./permission.ts";
 import { isAirgapped, localizeModel } from "./airgap.ts";
 import { loadMcpTools, McpClient, McpHttpClient, isHttpConfig } from "./mcp.ts";
 import type { McpServerEntry, McpTool } from "./mcp.ts";
-import { pickOllamaEndpoint, pickModel } from "../../anubis/src/ollama.ts";
 
 /** Global hook registry — allows agent code to emit events without a PluginHost reference. */
 type GlobalHookFn = (input: Record<string, unknown>) => void;
@@ -34,6 +35,16 @@ export interface TaskResult {
   role: string;
   model: string;
   output: string;
+  host?: string;
+  /** Populated when the primary model failed on a provider error and an explicit fallback candidate completed the work. */
+  fallbacks?: FallbackEvent[];
+}
+
+export interface FallbackEvent {
+  from: string;
+  to: string;
+  reason: string;
+  ms: number;
 }
 
 /**
@@ -47,7 +58,7 @@ export function buildToolHint(
   allowed?: string[],
   mcpTools?: Array<McpTool & { server: string }>,
 ): string {
-  const want = (verb: string) => !allowed || allowed.length === 0 || allowed.includes(verb.toLowerCase());
+  const want = (verb: string) => !allowed || allowed.includes(verb.toLowerCase());
   const sections: string[] = [];
   if (want("WRITE")) {
     sections.push(`WRITE path/to/file
@@ -93,7 +104,8 @@ new text 2
   }
   if (want("DONE")) sections.push("Or: DONE — when finished, with a short summary.");
   const footer = [
-    ...(want("WRITE") || want("EDIT") ? ["Prefer WRITE for new files, EDIT for small changes."] : []),
+    ...(want("WRITE") || want("EDIT") ? ["Use WRITE for new files and EDIT for changes, so edits are tracked and undoable. Do not create or edit files with BASH."] : []),
+    "Return exactly one tool call, then stop and wait for the real result. Never simulate tool results or claim a file was written before the tool confirms it.",
     "Always produce real content.",
   ].join(" ");
   return `
@@ -234,9 +246,9 @@ export function loadAgentMeta(role: string): AgentMeta {
   if (steps) out.steps = Number(steps[1]);
   const temp = fm[1].match(/^temperature:\s*([\d.]+)\s*$/m);
   if (temp) out.temperature = Number(temp[1]);
-  const model = fm[1].match(/^model:\s*(.+)\s*$/m);
+  const model = fm[1].match(/^model:[ \t]*([^\r\n]+)[ \t]*$/m);
   if (model) out.model = model[1].trim();
-  const tools = fm[1].match(/^tools:\s*(.+)\s*$/m);
+  const tools = fm[1].match(/^tools:[ \t]*([^\r\n]*)$/m);
   if (tools) out.tools = tools[1].split(",").map((t) => t.trim()).filter(Boolean);
   return out;
 }
@@ -265,8 +277,19 @@ export async function execToolBlock(
   bashPatterns?: BashPatternRule[],
   mcpCall?: (name: string, args: Record<string, unknown>) => Promise<string>,
 ): Promise<{ done: boolean; note: string }> {
-  const denied = (tool: string) => {
-    if (agentPerms && agentPerms[tool] && agentPerms[tool] !== "allow") {
+  ctx.signal?.throwIfAborted();
+  checkRun();
+  content = normalizeToolText(content);
+  if (/^UNSUPPORTED_TOOL|<tool_calls>/i.test(content.trim())) return { done: false, note: "Error: unsupported tool call. Use the exact tool grammar from the system prompt." };
+  const requestedVerb = content.trim().match(/^(WRITE|EDIT|MULTIEDIT|READ|OUTLINE|DIAGNOSE|GLOB|GREP|BASH|WEBFETCH|TODO|TASK|MCP)\b/i)?.[1]?.toLowerCase();
+  if (requestedVerb) {
+    try { assertTool(ctx.capabilities, requestedVerb); }
+    catch (error) { console.error(`RA permission denied: ${String(error)}`); return { done: false, note: `Error: ${String(error)}` }; }
+  }
+  const denied = (tool: string, verb = tool) => {
+    try { assertTool(ctx.capabilities, verb); } catch (e) { console.error(`RA permission denied: ${String(e)}`); return `Error: ${String(e)}`; }
+    const agentLevel = agentPerms?.[tool] ?? (tool === "write" ? agentPerms?.edit : undefined);
+    if (agentLevel && agentLevel !== "allow") {
       return `Error: tool '${tool}' is not permitted for this agent`;
     }
     if (config && !canRunTool(config, tool)) {
@@ -275,11 +298,11 @@ export async function execToolBlock(
     return null;
   };
 
-  const write = content.match(/^WRITE\s+(\S+)\s*\n```(?:\w*\n)?([\s\S]*?)```/im);
+  const write = content.match(/^WRITE[ \t]+([^\n]+)\n(`{3,})[^\n]*\n([\s\S]*)^\2[ \t]*$/im);
   if (write) {
     const d = denied("write");
     if (d) return { done: false, note: d };
-    return { done: false, note: tools.toolWrite(ctx, write[1], write[2].replace(/\n$/, "")) };
+    return { done: false, note: tools.toolWrite(ctx, write[1].trim().replace(/^["\']|["\']$/g, ""), write[3].replace(/\n$/, "")) };
   }
   const edit = content.match(
     /^EDIT\s+(\S+)\s*\n<<<<<<<\s*OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>>\s*NEW/im,
@@ -291,7 +314,7 @@ export async function execToolBlock(
   }
   const multiedit = content.match(/^MULTIEDIT\s+(\S+)\s*\n([\s\S]*)/im);
   if (multiedit) {
-    const d = denied("edit");
+    const d = denied("edit", "multiedit");
     if (d) return { done: false, note: d };
     const ops: tools.EditOp[] = [];
     const re = /<<<<<<<\s*OLD\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>>\s*NEW/g;
@@ -310,13 +333,13 @@ export async function execToolBlock(
   }
   const outline = content.match(/^OUTLINE\s+(\S+)/im);
   if (outline) {
-    const d = denied("read");
+    const d = denied("read", "outline");
     if (d) return { done: false, note: d };
     return { done: false, note: tools.toolOutline(ctx, outline[1]) };
   }
   const diagnose = content.match(/^DIAGNOSE\s+(\S+)/im);
   if (diagnose) {
-    const d = denied("bash");
+    const d = denied("bash", "diagnose");
     if (d) return { done: false, note: d };
     return { done: false, note: await tools.toolDiagnose(ctx, diagnose[1]) };
   }
@@ -332,9 +355,11 @@ export async function execToolBlock(
     if (d) return { done: false, note: d };
     return { done: false, note: await tools.toolGrep(ctx, grep[1], grep[2] ?? "**/*") };
   }
-  const bash = content.match(/^BASH\s+(.+)/im);
+  const bash = content.match(/^BASH[ \t]+([\s\S]+)/im);
   if (bash) {
     const cmd = bash[1].trim();
+    try { assertTool(ctx.capabilities, "bash"); assertBash(ctx.capabilities, cmd); }
+    catch (e) { return { done: false, note: `Error: ${String(e)}` }; }
     const patterns = bashPatterns ?? [];
     // Pattern rules (when present) decide the agent layer; an explicit
     // pattern allow overrides the flat `bash: ask` default from `"*"`.
@@ -367,7 +392,7 @@ export async function execToolBlock(
     const d = denied("webfetch");
     if (d) return { done: false, note: d };
     const airgap = config ? isAirgapped(config) : false;
-    return { done: false, note: await tools.toolWebFetch(webfetch[1].trim(), 15000, airgap) };
+    return { done: false, note: await tools.toolWebFetch(webfetch[1].trim(), 15000, airgap, ctx.signal) };
   }
   const todo = content.match(/^TODO\s+(.+)/im);
   if (todo) {
@@ -395,6 +420,7 @@ export async function execToolBlock(
     if (d) return { done: false, note: d };
     return { done: false, note: tools.toolWrite(ctx, fence[1], fence[2].trim()) };
   }
+  if (requestedVerb) return { done: false, note: `Error: malformed ${requestedVerb.toUpperCase()} call. Follow the exact tool format, including fences or edit markers.` };
   return { done: false, note: "" };
 }
 
@@ -409,11 +435,10 @@ let mcpRuntime: McpRuntime | null = null;
 let mcpRuntimeKey: string | null = null;
 
 /** Connect configured MCP servers once and cache the tool list + caller. */
-export async function getMcpRuntime(config: RaConfig): Promise<McpRuntime> {
+export async function getMcpRuntime(config: RaConfig, context: ToolContext = { cwd: process.cwd() }): Promise<McpRuntime> {
   const servers = (config.mcp ?? {}) as Record<string, McpServerEntry>;
-  const key = JSON.stringify(servers);
-  if (mcpRuntime && mcpRuntimeKey === key) return mcpRuntime;
-  const list = Object.keys(servers).length ? await loadMcpTools(servers) : [];
+  const key = JSON.stringify([servers, context.cwd, context.sandbox]);
+  const list = mcpRuntime && mcpRuntimeKey === key ? mcpRuntime.tools : Object.keys(servers).length ? await loadMcpTools(servers, context) : [];
   mcpRuntime = {
     tools: list,
     call: async (name, args) => {
@@ -422,7 +447,8 @@ export async function getMcpRuntime(config: RaConfig): Promise<McpRuntime> {
       const tool = dot === -1 ? "" : name.slice(dot + 1);
       const cfg = servers[server];
       if (!cfg) throw new Error(`unknown MCP server: ${server}`);
-      const client = isHttpConfig(cfg) ? new McpHttpClient(cfg) : new McpClient(cfg);
+      assertTool(context.capabilities, "mcp");
+      const client = isHttpConfig(cfg) ? new McpHttpClient(cfg, context.signal) : new McpClient(cfg, context);
       try {
         await client.start();
         return await client.callTool(tool, args);
@@ -438,29 +464,27 @@ export async function getMcpRuntime(config: RaConfig): Promise<McpRuntime> {
 // ---- Streaming + interruption plumbing ----
 
 let activeStreamRenderer: ((token: string) => void) | null = null;
-let activeAbort: AbortController | null = null;
 
 /** Install a token renderer (the TUI prints tokens as they arrive). */
 export function setActiveStreamRenderer(fn: ((token: string) => void) | null): void {
   activeStreamRenderer = fn;
 }
 
+export function getActiveStreamRenderer(): ((token: string) => void) | null { return activeStreamRenderer; }
+
 /** Abort the in-flight model turn (Phase 1 wires this to Esc). */
 export function abortActiveTurn(): boolean {
-  if (activeAbort) {
-    activeAbort.abort();
-    return true;
-  }
-  return false;
+  return cancelRuns();
 }
 
 /** Transient failures worth one automatic retry (timeouts, resets, 5xx). */
 export function isTransientError(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e);
   return (
-    /timeout/i.test(msg) ||
+    /timeout|empty response/i.test(msg) ||
     /econnreset|econnrefused|socket hang up/i.test(msg) ||
     /\b(?:50[0234])\b/.test(msg) ||
+    /internal server error|service unavailable|bad gateway|gateway timeout/i.test(msg) ||
     /fetch failed/i.test(msg)
   );
 }
@@ -481,7 +505,6 @@ export async function withRetry<T>(fn: () => Promise<T>, retries = 1, delayMs = 
 // ---- Subagent tracking (display-only; set by the TUI, read by /tree) ----
 
 let activeTracker: SubagentTree | null = null;
-let agentNesting = 0;
 
 export function setActiveSubagentTracker(tree: SubagentTree | null): void {
   activeTracker = tree;
@@ -492,13 +515,22 @@ export function getActiveSubagentTracker(): SubagentTree | null {
 }
 
 export async function runTaskAgent(
-  role: string,
-  task: string,
-  config: RaConfig,
-  ctx: ToolContext,
-  env: Record<string, string>,
-  maxSteps = 6,
+  role: string, task: string, config: RaConfig, ctx: ToolContext,
+  env: Record<string, string>, maxSteps = 16,
 ): Promise<TaskResult> {
+  if (!/^[a-z][a-z0-9_-]{0,63}$/i.test(role)) throw new Error(`Invalid agent role: ${role}`);
+  return withAgentRun({ limits: config.agent_limits, tree: activeTracker, renderer: activeStreamRenderer, signal: ctx.signal }, () =>
+    withAgentScope(role, task, () => executeTaskAgent(role, task, config, ctx, env, maxSteps)));
+}
+
+async function executeTaskAgent(
+  role: string, task: string, config: RaConfig, ctx: ToolContext,
+  env: Record<string, string>, maxSteps: number,
+): Promise<TaskResult> {
+  ctx = { ...ctx, filesWritten: ctx.filesWritten ?? [], mutations: ctx.mutations ?? { count: 0 }, signal: runSignal() };
+  const initialWrites = ctx.mutations!.count;
+  let needsEdit = role === "ptah" && (canRunTool(config, "write") || canRunTool(config, "edit")) && /\b(create|write|update|fix|implement|build|change)\b/i.test(task) && !/no (?:tools|files)/i.test(task);
+  let completionRepairs = 0;
   const assignment = resolveRoleModel(role, config);
   const tier = classifyTier(task, role === "ptah" ? "code" : role === "thoth" ? "plan" : undefined);
   const tierModels = (config as RaConfig & { tier_models?: Record<string, string> }).tier_models;
@@ -509,106 +541,115 @@ export async function runTaskAgent(
   // Frontmatter model override takes precedence over config/tier assignment —
   // must be applied BEFORE the client is picked, or it never takes effect.
   if (meta.model) configured = meta.model;
+  if (currentScope()?.node) currentScope()!.node!.model = configured;
   emitGlobalHook("agent.turn.start", { role, task, model: configured });
   const { client, model } = await pickClientForModel(configured, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
   const permDetail = loadAgentPermissionDetail(role);
   const agentPerms = permDetail?.tools ?? null;
   const bashPatterns = permDetail?.bashPatterns ?? [];
-  const steps = meta.steps ?? maxSteps;
+  const steps = Math.min(meta.steps ?? maxSteps, maxSteps);
   const temperature = meta.temperature;
-  const mcpRt = await getMcpRuntime(config);
-  const hint = buildToolHint(meta.tools, mcpRt.tools);
-  const system = `${loadAgentPrompt(role)}${loadProjectMemory(ctx.cwd)}\n${hint}`;
+  ctx = { ...ctx, capabilities: resolveCapabilities(config, agentPerms ?? {}, meta.tools, bashPatterns, ctx.capabilities), sandbox: config.sandbox };
+  needsEdit = needsEdit && (ctx.capabilities!.tools.has("write") || ctx.capabilities!.tools.has("edit"));
+  const mcpRt = ctx.capabilities!.tools.has("mcp") ? await getMcpRuntime(config, ctx) : { tools: [], call: async () => "Error: MCP is not permitted" };
+  const allowed = [...ctx.capabilities!.tools];
+  const hint = buildToolHint(allowed, mcpRt.tools);
+  const accessMode = ctx.capabilities!.readOnly ? "\nThis operation is read-only, including all delegated agents. Inspect and propose; do not modify files." : "";
+  const system = `${loadAgentPrompt(role)}${accessMode}${loadProjectMemory(ctx.cwd)}\nProject files (top level):\n${tools.listDir(ctx, ".").slice(0, 4000)}\n${hint}`;
 
-  const tracker = activeTracker;
-  const isRoot = agentNesting === 0;
-  agentNesting++;
-  if (tracker && isRoot) tracker.startRoot(role, task);
   let rootOutput = "";
-  let errored = false;
-  try {
-    return await runAgentLoop();
-  } catch (e) {
-    errored = true;
-    if (tracker && isRoot) tracker.error(String(e));
-    throw e;
-  } finally {
-    agentNesting--;
-    if (tracker && isRoot && !errored) tracker.complete(rootOutput);
-  }
+  const result = await runAgentLoop();
+  if (currentScope()?.node) currentScope()!.node!.model = result.model;
+  return { ...result, host: client.kind === "cloud" ? "cloud" : client.baseURL.includes("192.168.1.251") ? "251" : "local" };
 
   async function runAgentLoop(): Promise<TaskResult> {
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: system },
+    ...(currentScope()?.depth === 0 ? ctx.history ?? [] : []),
     { role: "user", content: `Task: ${task}\nProject cwd: ${ctx.cwd}` },
   ];
 
   const cloud = client.kind === "cloud";
   let last = "";
   let usedModel = model;
+  const fallbackModels = resolveModelFallbacks(configured, config.fallbacks);
+  const fallbackEvents: FallbackEvent[] = [];
+  const withFallbacks = (r: TaskResult): TaskResult =>
+    fallbackEvents.length > 0 ? { ...r, fallbacks: [...fallbackEvents] } : r;
   const spawn = async (subRole: string, subTask: string): Promise<string> => {
-    if (tracker) tracker.spawn(subRole, subTask);
-    try {
-      const r = await runTaskAgent(subRole, subTask, config, ctx, env, 4);
-      if (tracker) tracker.complete(r.output);
-      return r.output;
-    } catch (e) {
-      if (tracker) tracker.error(String(e));
-      throw e;
-    }
+    const result = await runTaskAgent(subRole, subTask, config, ctx, env, 4);
+    return result.output;
   };
   for (let i = 0; i < steps; i++) {
     // Stream only at the root turn — subagent/parallel outputs would interleave.
-    const renderer = activeStreamRenderer && agentNesting === 1 ? activeStreamRenderer : undefined;
+    checkRun();
+    const renderer = scopedRenderer();
     const keepAlive = env.OLLAMA_KEEP_ALIVE ?? "30m";
-    activeAbort = new AbortController();
-    const signal = activeAbort;
-    const chat = () =>
-      renderer
-        ? client.nativeChatStream(usedModel, messages, { temperature, keepAlive, signal: signal.signal, onToken: renderer })
-        : client.nativeChat(usedModel, messages, { temperature, keepAlive });
-    let res: Awaited<ReturnType<typeof client.nativeChat>>;
-    try {
-      res = await withRetry(chat);
-    } finally {
-      if (activeAbort === signal) activeAbort = null;
-    }
+    const chat = async () => {
+      const signal = reserveCall();
+      const response = await client.nativeChatStream(usedModel, messages, { temperature, keepAlive, signal, onToken: renderer });
+      if (!response.content.trim()) throw new Error(`Empty response from ${usedModel}`);
+      return response;
+    };
+    // Explicit model fallback: provider errors try the user's same-kind chain.
+    // Auth failures and user cancellations never fall back.
+    const chatWithFallback = async () => {
+      try {
+        return await withRetry(chat);
+      } catch (e) {
+        const chain = fallbackModels;
+        if (chain.length === 0 || isAuthError(e) || isUserCancel(e)) throw e;
+        const primary = usedModel;
+        const reason = String(e instanceof Error ? e.message : e).slice(0, 160);
+        let lastErr: unknown = e;
+        for (const candidate of chain) {
+          if (candidate === usedModel) continue;
+          const t0 = Date.now();
+          usedModel = candidate;
+          try {
+            const r = await withRetry(chat);
+            fallbackEvents.push({ from: primary, to: candidate, reason, ms: Date.now() - t0 });
+            renderer?.(`\n\x1b[2m[RA fallback: ${primary} unavailable (${reason}) — using ${candidate}]\x1b[0m\n`);
+            return r;
+          } catch (candErr) {
+            lastErr = candErr;
+            if (isAuthError(candErr) || isUserCancel(candErr)) break;
+          }
+        }
+        throw new Error(`Model ${primary} failed (${reason}); fallbacks [${chain.join(", ")}] did not recover. Last error: ${String(lastErr instanceof Error ? lastErr.message : lastErr).slice(0, 200)}`);
+      }
+    };
+    const res = await chatWithFallback();
+    checkRun();
+    renderer?.("\n");
     usedModel = res.model;
     last = res.content;
+    if (!last.trim()) throw new Error(`Model ${usedModel} returned an empty response`);
     const inChars = messages.reduce((n, m) => n + m.content.length, 0);
     recordChatUsage(res.model, cloud, res.usage, { in: inChars, out: last.length }, ctx.cwd);
     messages.push({ role: "assistant", content: last });
 
     const tool = await execToolBlock(ctx, last, config, agentPerms, spawn, bashPatterns, mcpRt.call);
+    if ((tool.done || !tool.note) && needsEdit && ctx.mutations!.count === initialWrites) {
+      if (completionRepairs++ >= 1 || i === steps - 1) throw new Error(`Agent ${role} ended without applying the requested edits. Last response: ${last.slice(0, 1200)}`);
+      messages.push({ role: "user", content: "No file edits were performed. Complete the requested change using WRITE or EDIT now; a description or simulated tool call is not completion." });
+      continue;
+    }
     if (tool.done) {
       emitGlobalHook("agent.turn.end", { role, model: res.model });
       rootOutput = tool.note || last;
-      return { role, model: res.model, output: rootOutput };
+      return withFallbacks({ role, model: res.model, output: rootOutput });
     }
     if (tool.note) {
-      messages.push({ role: "user", content: `Tool result:\n${tool.note}\nContinue. WRITE files if needed, then DONE.` });
+      messages.push({ role: "user", content: `Tool result:\n${tool.note}\nContinue your assigned role using only permitted tools. Return DONE with your summary when finished.` });
+      if (i === steps - 1) throw new Error(`Agent ${role} reached its ${steps}-step limit before finishing. Last tool result: ${tool.note.slice(0, 200)}`);
       continue;
-    }
-    const fence = last.match(/```(?:html|javascript|typescript|css|python)?\n([\s\S]*?)```/);
-    if (fence && /\b(create|write|make|build)\b/i.test(task)) {
-      // Infer the filename from the task + content (reuse the runner's logic).
-      const { extractCodeFile } = await import("../../anubis/src/runner.ts");
-      const file = extractCodeFile(last, task);
-      const name = file?.name ?? "index.html";
-      let body = file?.body ?? fence[1].trim();
-      if (/\btodo\b/i.test(task) && !/todo/i.test(body)) {
-        body = `<!DOCTYPE html><html><head><title>Todo</title></head><body><h1>Todo</h1></body></html>`;
-      }
-      tools.toolWrite(ctx, name, body);
-      rootOutput = `Wrote ${name}\n${last}`;
-      emitGlobalHook("agent.turn.end", { role, model: res.model });
-      return { role, model: res.model, output: rootOutput };
     }
     break;
   }
   emitGlobalHook("agent.turn.end", { role, model: usedModel });
   rootOutput = last;
-  return { role, model: usedModel, output: last };
+  return withFallbacks({ role, model: usedModel, output: last });
   }
 }
 
@@ -627,7 +668,7 @@ export async function runOrchestratorTurn(
   const env = loadEnv(ANUBIS_HOME);
 
   if (userText.startsWith("read ")) return tools.toolRead(ctx, userText.slice(5).trim());
-  if (userText.startsWith("ls") || userText === "list") {
+  if (/^ls(?:\s|$)/.test(userText) || userText === "list") {
     return tools.listDir(ctx, userText.replace(/^ls\s*/, "") || ".");
   }
 
@@ -642,46 +683,21 @@ export async function runOrchestratorTurn(
     } catch (e) {
       output = `Error: ${String(e)}`;
     }
-    const index = join(ctx.cwd, "index.html");
-    const has = (needle: string) =>
-      existsSync(index) && readFileSync(index, "utf-8").toLowerCase().includes(needle);
-    if (/\btodo\b/i.test(userText) && !has("todo")) {
-      tools.toolWrite(
-        ctx,
-        "index.html",
-        `<!DOCTYPE html><html><head><title>Todo</title></head><body><h1>Todo App</h1><ul id="todos"></ul><input id="t"/><button id="add">Add</button></body></html>`,
-      );
-      return `## ptah (${modelTag})\nWrote index.html todo app\n${output}`;
-    }
-    if (/\bcookie\b/i.test(userText) && !has("cookie")) {
-      tools.toolWrite(
-        ctx,
-        "index.html",
-        `<!DOCTYPE html><html><head><title>Cookie Recipe</title></head><body><h1>Cookie Recipe</h1><p>Flour, butter, sugar.</p></body></html>`,
-      );
-    }
-    if (/\bhello\b/i.test(userText) && !has("hello")) {
-      tools.toolWrite(
-        ctx,
-        "index.html",
-        `<!DOCTYPE html><html><head><title>Hello</title></head><body><h1>Hello World</h1></body></html>`,
-      );
-    }
     return `## ptah (${modelTag})\n${output}`;
   }
 
-  const client = await pickOllamaEndpoint(env);
-  const model = pickModel(config.small_model ?? config.model, client.availableModels);
-  const system = (loadAgentPrompt("anubis") + loadProjectMemory(ctx.cwd)).replace(/Anubis/g, "RA");
-  const res = await client.nativeChat(model, [
-    { role: "system", content: system },
-    { role: "user", content: userText },
-  ]);
+  return withAgentRun({ limits: config.agent_limits, signal: ctx.signal, renderer: activeStreamRenderer }, async () => {
+  const { client, model } = await pickClientForModel(config.small_model ?? config.model, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
+  const system = "You are RA, a concise coding assistant. This is a direct conversation: no role agents or tools ran for this reply. Answer the user directly; never invent tool execution, model names, or delegated work." + loadProjectMemory(ctx.cwd);
+  const res = await withRetry(() => client.nativeChatStream(model, [
+    { role: "system", content: system }, ...(ctx.history ?? []), { role: "user", content: userText },
+  ], { signal: reserveCall(), onToken: scopedRenderer() }));
   recordChatUsage(res.model, client.kind === "cloud", res.usage, {
     in: system.length + userText.length,
     out: res.content.length,
   }, ctx.cwd);
   return res.content;
+  });
 }
 
 // ---- MoA aggregation (Phase 0.6) ----
@@ -724,22 +740,23 @@ export function surfaceDisagreements(results: MoAResult[]): string[] {
 
 /** Synthesize MOA role outputs into one answer via the small model. */
 export async function aggregateMoa(task: string, results: MoAResult[], config: RaConfig): Promise<string> {
+  return withAgentRun({ limits: config.agent_limits, tree: activeTracker }, () => withAgentScope("synthesis", task, async scope => {
   const env = loadEnv(ANUBIS_HOME);
-  const client = await pickOllamaEndpoint(env);
-  const model = pickModel(config.small_model ?? config.model, client.availableModels);
+  const { client, model } = await pickClientForModel(config.small_model ?? config.model, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
   const { buildAggregatePrompt } = await import("../../anubis/src/aggregator.ts");
   const prompt = buildAggregatePrompt(
     task,
     results.map((r) => ({ role: r.role, model: r.model, output: r.output })),
   );
-  const res = await client.nativeChat(model, [
+  scope.node && (scope.node.model = model);
+  const res = await withRetry(() => client.nativeChatStream(model, [
     {
       role: "system",
       content:
         "You are the RA Mixture-of-Agents aggregator. Merge the role outputs into one coherent, correct answer to the task. Resolve conflicts by preferring the most defensible output. Be concise; do not mention the aggregation process.",
     },
     { role: "user", content: prompt },
-  ]);
+  ], { signal: reserveCall() }));
   recordChatUsage(res.model, client.kind === "cloud", res.usage, {
     in: prompt.length,
     out: res.content.length,
@@ -749,4 +766,5 @@ export async function aggregateMoa(task: string, results: MoAResult[], config: R
     ? `\n\nDisagreements:\n${disagreements.map((d) => `- ${d}`).join("\n")}`
     : "";
   return `## MoA synthesis (${res.model})\n${res.content}${notes}`;
+  }));
 }

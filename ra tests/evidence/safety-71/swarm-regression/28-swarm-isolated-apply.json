@@ -1,0 +1,101 @@
+{
+  "scenario": "28-swarm-isolated-apply",
+  "status": "FAIL",
+  "seconds": 4.46,
+  "error": "sum: started in /private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/sum\nslug: started in /private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/slug\nsum: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\nslug: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n\n{\n  \"id\": \"swarm-mtgft28l-d960d885\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply\",\n  \"base\": \"534e93776754a90b5369a64ab7fcfc835c00663c\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132306837,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"sum\",\n      \"prompt\": \"Create sums.py defining sum_numbers(values) returning sum(values). Verify empty list and [2,3,-1]. No extra files.\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"id\": \"slug\",\n      \"prompt\": \"Create slug.py defining slug(text) returning lowercase whitespace-separated words joined with hyphens. Verify empty and repeated spaces. No extra files.\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"sum\",\n      \"branch\": \"codex/ra-swarm-mtgft28l-d960d885/sum\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/sum\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    },\n    {\n      \"taskId\": \"slug\",\n      \"branch\": \"codex/ra-swarm-mtgft28l-d960d885/slug\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/slug\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.1,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "[main (root-commit) 534e937] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "534e93776754a90b5369a64ab7fcfc835c00663c\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/28-swarm-isolated-apply-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 4.16,
+      "stdout": "{\n  \"id\": \"swarm-mtgft28l-d960d885\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply\",\n  \"base\": \"534e93776754a90b5369a64ab7fcfc835c00663c\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132306837,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"sum\",\n      \"prompt\": \"Create sums.py defining sum_numbers(values) returning sum(values). Verify empty list and [2,3,-1]. No extra files.\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"id\": \"slug\",\n      \"prompt\": \"Create slug.py defining slug(text) returning lowercase whitespace-separated words joined with hyphens. Verify empty and repeated spaces. No extra files.\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"sum\",\n      \"branch\": \"codex/ra-swarm-mtgft28l-d960d885/sum\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/sum\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    },\n    {\n      \"taskId\": \"slug\",\n      \"branch\": \"codex/ra-swarm-mtgft28l-d960d885/slug\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/slug\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n",
+      "stderr": "sum: started in /private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/sum\nslug: started in /private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/slug\nsum: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\nslug: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n"
+    }
+  ]
+}

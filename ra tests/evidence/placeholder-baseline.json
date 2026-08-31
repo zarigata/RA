@@ -1,0 +1,15 @@
+{
+  "command": [
+    "ra",
+    "run",
+    "Create a hello world website",
+    "--quick",
+    "--json",
+    "--cwd",
+    "/private/tmp/ra-user-sandbox/projects/baseline-placeholder"
+  ],
+  "exit": "timeout",
+  "seconds": 45,
+  "stdout": "None",
+  "stderr": "None"
+}

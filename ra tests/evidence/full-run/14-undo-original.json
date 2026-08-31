@@ -1,0 +1,42 @@
+{
+  "scenario": "14-undo-original",
+  "status": "PASS",
+  "seconds": 15.18,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Read counter.py. Change VALUE from 1 to 2 using EDIT; then change it from 2 to 3 using a second EDIT. No other files.",
+        "--quick",
+        "--json",
+        "--verify"
+      ],
+      "exit": 0,
+      "seconds": 14.74,
+      "stdout": "{\n  \"task\": \"Read counter.py. Change VALUE from 1 to 2 using EDIT; then change it from 2 to 3 using a second EDIT. No other files.\",\n  \"status\": \"completed\",\n  \"outputs\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"content\": \"\u2014 The project does not contain a `counter.py` file (no matches found with glob patterns). To proceed, we need clarification on the correct file path or name where the `VALUE` constant is defined. Please provide the exact location or confirm that the file should exist.\"\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"content\": \"Changed `counter.py`:\\n- First EDIT: `VALUE = 1` \u2192 `VALUE = 2`\\n- Second EDIT: `VALUE = 2` \u2192 `VALUE = 3`\\n\\nVerified by reading the file: it now contains `VALUE = 3`. No other files were modified.\"\n    }\n  ],\n  \"stages\": [\n    \"thoth\",\n    \"ptah\"\n  ],\n  \"models\": [\n    \"gpt-oss:120b\",\n    \"deepseek-v4-pro:0813\"\n  ],\n  \"filesWritten\": [\n    \"/private/tmp/ra-user-sandbox/projects/14-undo-original/counter.py\"\n  ],\n  \"hosts\": [\n    \"cloud\"\n  ],\n  \"ms\": 14295,\n  \"intent\": \"code\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/14-undo-original\",\n  \"timings\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"host\": \"cloud\",\n      \"ms\": 9442\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"host\": \"cloud\",\n      \"ms\": 4853\n    }\n  ],\n  \"at\": 1788127438173,\n  \"verification\": {\n    \"ok\": true,\n    \"lines\": [\n      \"RA verify\",\n      \"\u2713 python3 /private/tmp/ra-user-sandbox/projects/14-undo-original/counter.py \u2192 exit 0\",\n      \"RA verify OK\",\n      \"RA lane thoth@cloud \u2192 ptah@cloud\",\n      \"RA intent code\",\n      \"RA prefer small@cloud \u2192 big@cloud\",\n      \"elapsed: 14.3s\",\n      \"again: ra again --quick --verify\"\n    ]\n  }\n}\n",
+      "stderr": "RA verify\n\u2713 python3 /private/tmp/ra-user-sandbox/projects/14-undo-original/counter.py \u2192 exit 0\nRA verify OK\nRA lane thoth@cloud \u2192 ptah@cloud\nRA intent code\nRA prefer small@cloud \u2192 big@cloud\nelapsed: 14.3s\nagain: ra again --quick --verify\n"
+    },
+    {
+      "command": [
+        "ra",
+        "checkpoints"
+      ],
+      "exit": 0,
+      "seconds": 0.26,
+      "stdout": "RA checkpoints\n  cp-1788127435140  1 file(s)  2026-08-30T22:03:55.140Z\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "undo"
+      ],
+      "exit": 0,
+      "seconds": 0.18,
+      "stdout": "RA undo \u2192 restored 1 file(s):\n  counter.py\n",
+      "stderr": ""
+    }
+  ]
+}

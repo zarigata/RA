@@ -1,0 +1,258 @@
+[
+  {
+    "path": "ra/src/airgap.ts",
+    "sha256": "848c03aaef4d36fe1eab0a45e190615b412d8d6e08002c3a898c98e400f68da2"
+  },
+  {
+    "path": "ra/src/doctor.ts",
+    "sha256": "01d60c5912181fe45af5f71c247b1f2e0e2050c066452f3a40b48647e4f4c735"
+  },
+  {
+    "path": "ra/src/selfheal.ts",
+    "sha256": "99e573383d8dcf3b564deffcf81c7d4e55744ed8934ba10d01a5553b6b208965"
+  },
+  {
+    "path": "ra/src/eval.ts",
+    "sha256": "ee6341f366b58b1bd432c86ab6ee20ccd4059348bb2bfb95e5760c5858983d92"
+  },
+  {
+    "path": "ra/src/search.ts",
+    "sha256": "def9375da94152ec7c3828a8d8cc2f4112e7a5517361c3e6df8d707f78e8396e"
+  },
+  {
+    "path": "ra/src/diff.ts",
+    "sha256": "edf402a6bc8b0d44d094dcca0c3eacbf8f08e8c7f19f07d2d4756cf7f4e8ef13"
+  },
+  {
+    "path": "ra/src/tier.ts",
+    "sha256": "6aab76ea8f2e981cc2a484bd248165845b41385767f2d2a7999ec2658d136b13"
+  },
+  {
+    "path": "ra/src/agent.ts",
+    "sha256": "5303eeeb12dd58cec7cffc0022a3a18ff482f662c6bdea1914f70da8c414fbf8"
+  },
+  {
+    "path": "ra/src/mcp.ts",
+    "sha256": "c9a554b53fac168dd6cca01cea0bc1f8afe6a4795e0e64775d236352e441cf95"
+  },
+  {
+    "path": "ra/src/cli.ts",
+    "sha256": "58ad168805369794eeeeefff716d76eb1dcd12a13e8965ba6f7ea7909db13a29"
+  },
+  {
+    "path": "ra/src/ide.ts",
+    "sha256": "7ce57b0643ffc67bddb4383718fd01a0976c5267c03ebd7a1d5a966972adcbef"
+  },
+  {
+    "path": "ra/src/symbols.ts",
+    "sha256": "500f2f0943e9bebe87518d9ead728f18ab2fe5d07e2b00902901bd28665d93a9"
+  },
+  {
+    "path": "ra/src/sandbox.ts",
+    "sha256": "2ddf0865ad91ab1c155f5e52c74a306198f4a6d5ac11e0e021be3e9300eb2d77"
+  },
+  {
+    "path": "ra/src/team.ts",
+    "sha256": "006746dda8abbdf26c1117db8337b4170d57e5be2dd6d281bba12914c4ebb95d"
+  },
+  {
+    "path": "ra/src/diagnostics.ts",
+    "sha256": "6dff7f2a11a1906af8e312b55a8dceaddb2cf32dd5034466e2fb06f9398abd82"
+  },
+  {
+    "path": "ra/src/permission.ts",
+    "sha256": "8c47b0056892ce1d437f5a9ddd1bc9835ba0e9dece0cee21a49d3b5292431fd5"
+  },
+  {
+    "path": "ra/src/paths.ts",
+    "sha256": "786e2200f7f09f1180ad8deaac7b348c87e77e1171dd7ac2145a18f49f1cbcb7"
+  },
+  {
+    "path": "ra/src/execution.ts",
+    "sha256": "4397489ca76ed51053635dc6fe9d2f07ac1c9d459a6bf3bedcb9e2dcf0dfbef0"
+  },
+  {
+    "path": "ra/src/swarm.ts",
+    "sha256": "d2331424e5f738b830095d42b82c9ca5945f4b9f237fc4e77c1642f6d5b0f43a"
+  },
+  {
+    "path": "ra/src/benchmark/runner.ts",
+    "sha256": "f1983a10397b9568b05ba19081a55f2611088b14af14113345d71f4ab6ff4929"
+  },
+  {
+    "path": "ra/src/tools/index.ts",
+    "sha256": "1a408f71badfa2db52c46f8a6228cceed90c09ad02f9cdf726d7bedb5996ffdd"
+  },
+  {
+    "path": "ra/src/tui/app.ts",
+    "sha256": "8e85d1d1f966324113f210a4928fc624aaec829c62580d5b01ce7feaaa6e5c8c"
+  },
+  {
+    "path": "ra/src/tui/tree.ts",
+    "sha256": "10c16285ba18b673cabbe8a9f6c82318ee0234cf639bd19bbd03700814dccc29"
+  },
+  {
+    "path": "ra/src/plugins/host.ts",
+    "sha256": "c30fbc04eed2d08f07543b99fb329abd522677a366074f1112e4c21e1b94f4b4"
+  },
+  {
+    "path": "ra/src/server/daemon.ts",
+    "sha256": "7838db6274cce70d1a4c0a4662c88212d195e7c0bafbec65cd769d1705c96a90"
+  },
+  {
+    "path": "ra/src/server/replay.ts",
+    "sha256": "24dd209f393a1bba17bf9e244175c0fdf8cb192b43372edec039e697f40114f4"
+  },
+  {
+    "path": "ra/src/server/session.ts",
+    "sha256": "a45ee45f58c453820c388b3a3caa7ffbe971c9890590a14415c86c4c10f76965"
+  },
+  {
+    "path": "ra/src/server/remote.ts",
+    "sha256": "b3cb77a427706139e49ee2cd16a746c3865bd99d71047bfa109ac8b3afd9b218"
+  },
+  {
+    "path": "ra/src/server/checkpoint.ts",
+    "sha256": "802b17ff371b12d4aca91a4ef29fa91b4b646de800456961459264d48c9dbdc4"
+  },
+  {
+    "path": "ra/src/commands/sandbox.ts",
+    "sha256": "f9b04acaa7c0acb1fa8e0e014af70174341709474212e9f3c6e8ff2daad5d7bd"
+  },
+  {
+    "path": "ra/src/commands/teams.ts",
+    "sha256": "7a5adca6c202066e7b35d62ff53f6d53d9ee9997c30637c01f200ff4a6888773"
+  },
+  {
+    "path": "ra/src/commands/index.ts",
+    "sha256": "f902b7f4be8bb7c4197ff2482035d538a0f84e3e9a51812c930ccfe17d894e29"
+  },
+  {
+    "path": "anubis/src/validation.ts",
+    "sha256": "567129819f8aa449882ae9f5c5ad038af5696019ff41916c6c34667cd9704234"
+  },
+  {
+    "path": "anubis/src/history.ts",
+    "sha256": "9f2a4eb2c86643b46dcb2c1f19f410255b3e5e99ba6653363f142bd0eef25e0e"
+  },
+  {
+    "path": "anubis/src/ping.ts",
+    "sha256": "11d13a874248cf6519f0db04c2fba831f84c03a5aa042e3b954946d3455c5518"
+  },
+  {
+    "path": "anubis/src/hello-py.ts",
+    "sha256": "c04c1bfb3d2037024df1f5c892fbdde7c2dd5e537fd47b69710461cfd2afa4b7"
+  },
+  {
+    "path": "anubis/src/ollama.ts",
+    "sha256": "72cd08ee7cf63875aa1619182720d8a5575b0ab273b4afc361917fb65a8e3551"
+  },
+  {
+    "path": "anubis/src/languages.ts",
+    "sha256": "8e94c94e4ef844a28e17e87d497cb669050cdbcac99364625850d629d6b8d309"
+  },
+  {
+    "path": "anubis/src/which.ts",
+    "sha256": "2c6dc92c95661cc2f19fc837f8a4f4fdd3499b2e46f99bc69580b341942dfbe0"
+  },
+  {
+    "path": "anubis/src/ra-env.ts",
+    "sha256": "a4bd704097c55cd728b7268ff69a635659790f73903398b2b8ed13cd40d1b437"
+  },
+  {
+    "path": "anubis/src/cost.ts",
+    "sha256": "da6a39ee0f91b107ea3bbe1378b472517c19217bb0f2be9fb2b972042ebb45f7"
+  },
+  {
+    "path": "anubis/src/verify.ts",
+    "sha256": "0d8337f55ae916f89aef86b3d48e3d4f7f96a2013379016bc9b3cc06537aad5b"
+  },
+  {
+    "path": "anubis/src/router.ts",
+    "sha256": "3e01772084e24b81b4b8a6ccc55eeac33ec0b2a7d35a22563d1ba6a971a23ede"
+  },
+  {
+    "path": "anubis/src/tui.ts",
+    "sha256": "ca824c1ee0d447bab14f06327c14d6694ff7f905b74ecb68b366aeda9c77a3b6"
+  },
+  {
+    "path": "anubis/src/tool-call.ts",
+    "sha256": "4ef27f079b23fc5f227cb1c6e103e49b9d0dee6f89270030e432c6306eb05d44"
+  },
+  {
+    "path": "anubis/src/pipeline.ts",
+    "sha256": "f5d19f23755a108f07512067cea22a3b7db38aa64aaf9feed53317152234809e"
+  },
+  {
+    "path": "anubis/src/ra-status.ts",
+    "sha256": "8ad533953c326c605d22d781ec4bb95bed87e959c06a76bbb120af12a45df7ea"
+  },
+  {
+    "path": "anubis/src/redact.ts",
+    "sha256": "7293ad9b48b33b189f5790f94407da269ff4cd43595d75805b97a10b29459f09"
+  },
+  {
+    "path": "anubis/src/ra-home.ts",
+    "sha256": "955a601ef871936b9916d49bfa43deeb77a66c63ca7bbbcfe971074425b2139d"
+  },
+  {
+    "path": "anubis/src/lan.ts",
+    "sha256": "276d6288e6ccaec450b65340df0e8085148eb22cbc084ef2611094543172335c"
+  },
+  {
+    "path": "anubis/src/aggregator.ts",
+    "sha256": "a361fc8741a364432e05b1db7a9051e847981bc6e75a593f4c3ea7f07974f1a0"
+  },
+  {
+    "path": "anubis/src/ui.ts",
+    "sha256": "929a0b20d02a487da16d4e6e7888f91d82833a4de318e15dcb1f434e0d91b4a7"
+  },
+  {
+    "path": "anubis/src/lanes.ts",
+    "sha256": "020d0cae13b209cd7862d80512fcd855cc5523a1b1f39d573744432a7b3009c0"
+  },
+  {
+    "path": "anubis/src/version.ts",
+    "sha256": "1d149d2d3c8d52d5aa72a9713e5111514e11cf8c730edd1b0c481529b9a4ff43"
+  },
+  {
+    "path": "anubis/src/env.ts",
+    "sha256": "311d4011e0b74892112085d87095c7096aee44fce0407481e85f2135ba8702e4"
+  },
+  {
+    "path": "anubis/src/last-run.ts",
+    "sha256": "b5971ac0a0cb861967415a10169d5b59879a9b42aeb20532c17fd0a50f0b18e2"
+  },
+  {
+    "path": "anubis/src/config.ts",
+    "sha256": "8ff1f350621a28ecca1d192f1b7e0897c77db1399d88a6bd4e8fc575c1fd0c9a"
+  },
+  {
+    "path": "anubis/src/selfcheck.ts",
+    "sha256": "ea36672ae8683d9217eade00df1d1d3089388a3c82ae0a5f9f3ce4e5555f2668"
+  },
+  {
+    "path": "anubis/src/models-list.ts",
+    "sha256": "7cf50d0b3823b47cf0da3f979fc1c7599d0945eccf7089d96a91abedfa37e635"
+  },
+  {
+    "path": "anubis/src/runner.ts",
+    "sha256": "34f2241ab3fe429ac45248dca8ce6d319e428b5551f5cea790e452fea283e6cd"
+  },
+  {
+    "path": "anubis/src/truncate.ts",
+    "sha256": "917e8adfeb04611cf754e9580ca160fc0cf012d149ccffe51783945945881c92"
+  },
+  {
+    "path": "anubis/src/intent.ts",
+    "sha256": "b32e12aea3e9f3596b8a733a46543393e38963091c14aa10963adfc980bb36cd"
+  },
+  {
+    "path": "anubis/src/catalog.ts",
+    "sha256": "70c8546f54cb8d1c8ae3d291aade5a0c719b7231ed56e63e40342724180b9818"
+  },
+  {
+    "path": "anubis/src/cli/main.ts",
+    "sha256": "67b58f528f77594876ac3b88fd247350373d9fdddbd7d8b59abfc448deb2abae"
+  }
+]

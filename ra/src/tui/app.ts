@@ -9,7 +9,7 @@ import { RemoteClient } from "../server/remote.ts";
 import { SubagentTree } from "./tree.ts";
 import { PluginHost } from "../plugins/host.ts";
 import { dispatchCommand, PALETTE_COMMANDS } from "../commands/index.ts";
-import { runOrchestratorTurn, onGlobalHook, setActiveSubagentTracker, getActiveSubagentTracker, setActiveStreamRenderer } from "../agent.ts";
+import { runOrchestratorTurn, onGlobalHook, setActiveSubagentTracker, getActiveSubagentTracker, setActiveStreamRenderer, abortActiveTurn } from "../agent.ts";
 import { expandMentions } from "../tools/index.ts";
 import { loadUsage, buildReport, formatReport, formatCost } from "../../../anubis/src/cost.ts";
 
@@ -22,12 +22,12 @@ export interface TuiOptions {
 export async function startTui(opts: TuiOptions): Promise<void> {
   ensureRaDirs();
   loadEnv(ANUBIS_HOME);
-  const config = applyEnvOverrides(applyProjectOverride(loadRaConfig(ANUBIS_HOME), opts.cwd));
   // Check for active session pointer (set by `ra sessions --switch`)
   const activeSession = getActiveSession();
   if (activeSession && !opts.remoteUrl) {
     opts.cwd = activeSession.cwd;
   }
+  const config = applyEnvOverrides(applyProjectOverride(loadRaConfig(ANUBIS_HOME), opts.cwd));
   const remote = opts.remoteUrl ? new RemoteClient({ url: opts.remoteUrl }) : null;
   const remoteOk = remote ? await remote.health() : false;
   const session = remoteOk ? await remote.loadSession(opts.cwd) : loadSession(opts.cwd);
@@ -51,7 +51,7 @@ export async function startTui(opts: TuiOptions): Promise<void> {
     });
   }
 
-  const ctx = { cwd: opts.cwd };
+  const ctx = { cwd: opts.cwd, get history() { return session.messages.slice(0, -1).slice(-8).map(m => ({ role: m.role, content: m.content.slice(-3000) })); } };
   const costSidebar = (): string => {
     const report = buildReport(loadUsage());
     if (!report.length) return "";
@@ -104,7 +104,7 @@ export async function startTui(opts: TuiOptions): Promise<void> {
             }`
           : "";
       console.log(
-        `\x1b[36mWelcome to RA.\x1b[0m New here? Try:\n  /simple on\n  /quick write a hello world function\n  /again  (re-run last full-dev)\n  /verify  (re-check last artifacts)\n  /palette\n  small: qwen3.8 @251 · gemma @local · BIG glm @cloud${lastLines}\n`,
+        `\x1b[36mWelcome to RA.\x1b[0m New here? Try:\n  /simple on\n  /quick write a hello world function\n  /again  (re-run last full-dev)\n  /verify  (re-check last artifacts)\n  /palette\n  small: ${config.small_model} · code: ${config.model}${lastLines}\n`,
       );
     } else {
       // Reattach: surface the prior conversation so the user has context.
@@ -113,7 +113,7 @@ export async function startTui(opts: TuiOptions): Promise<void> {
     // Phase 0.2 — background warm-up: load the small model on .251 so the
     // first turn doesn't pay the ~55s cold-load. Fire-and-forget.
     const warmEnv = loadEnv(ANUBIS_HOME);
-    void import("../../../anubis/src/ollama.ts").then(({ warmOllama }) =>
+    if (!config.small_model?.startsWith("ollama-cloud/")) void import("../../../anubis/src/ollama.ts").then(({ warmOllama }) =>
       warmOllama(warmEnv, config.small_model, warmEnv.OLLAMA_KEEP_ALIVE ?? "30m").catch(() => {})
     );
   }
@@ -138,6 +138,11 @@ export async function startTui(opts: TuiOptions): Promise<void> {
     const keybinds: Record<string, string> = { "ctrl+p": "palette", ...config.keybinds };
     process.stdin.on("keypress", (_str, key) => {
       if (!key) return;
+      if (key.name === "escape" && busy) {
+        if (abortActiveTurn()) console.log("\nCancelling…");
+        queue.length = 0;
+        return;
+      }
       const combo = (key.ctrl ? "ctrl+" : "") + key.name;
       const action = keybinds[combo];
       if (action === "palette" || (key.ctrl && key.name === "p")) {
@@ -178,12 +183,17 @@ export async function startTui(opts: TuiOptions): Promise<void> {
         paletteOpen = false;
         rl.setPrompt(`\x1b[32m${APP_NAME}\x1b[0m › `);
         const cmd = PALETTE_COMMANDS[parseInt(input, 10) - 1];
-        if (cmd) await handleInput(cmd, config, session, plugins, ctx, reply, remote, remoteOk, subagentTree);
+        if (cmd) {
+          try { await handleInput(cmd, config, session, plugins, ctx, reply, remote, remoteOk, subagentTree); }
+          catch (e) { reply(`Error: ${String(e)}`); }
+        }
         continue;
       }
       paletteOpen = false;
       rl.setPrompt(`\x1b[32m${APP_NAME}\x1b[0m › `);
-      await handleInput(input, config, session, plugins, ctx, reply, remote, remoteOk, subagentTree);
+      try {
+        await handleInput(input, config, session, plugins, ctx, reply, remote, remoteOk, subagentTree);
+      } catch (e) { reply(`Error: ${String(e)}`); }
     }
     busy = false;
     rl.prompt();
@@ -240,7 +250,10 @@ async function handleInput(
     }
   }
 
-  const enhanced = await plugins.appendPrompt(input);
+  // Local file commands take paths, not prompts; plugin instructions must not
+  // become part of a filename (or shell-like listing argument).
+  const direct = /^(?:read\s|ls(?:\s|$)|list$)/.test(input);
+  const enhanced = direct ? input : await plugins.appendPrompt(input);
 
   if (session.simpleMode && !input.startsWith("/")) {
     reply("Try /plan first, then /code — or type /help");

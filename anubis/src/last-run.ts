@@ -11,6 +11,10 @@ export interface StageTiming {
 }
 
 export interface LastRun {
+  status?: "completed" | "failed";
+  error?: string;
+  verification?: { ok: boolean; lines: string[] };
+  outputs?: Array<{ stage: string; model: string; content: string }>;
   task: string;
   stages: string[];
   models: string[];
@@ -95,13 +99,13 @@ export function formatResultLine(run: LastRun): string {
   const intent = run.intent ? ` intent=${run.intent}` : "";
   const cwd = run.cwd ? ` cwd=${run.cwd}` : "";
   const n = run.timings?.length ? ` stages_n=${run.timings.length}` : "";
-  return `RA RESULT stages=${run.stages.join("→")} models=${run.models.join(",")} files=${run.filesWritten.join(",") || "none"}${hosts}${ms}${intent}${cwd}${n}`;
+  return `RA RESULT status=${run.status ?? "unknown"} stages=${run.stages.join("→")} models=${run.models.join(",")} files=${run.filesWritten.join(",") || "none"}${hosts}${ms}${intent}${cwd}${n}`;
 }
 
 /** Compact post–full-dev snapshot for bash greps */
 export function formatLaneLine(run: LastRun): string {
-  const small = run.timings?.find((t) => t.host === "251" || t.host === "local");
-  const big = run.timings?.find((t) => t.host === "cloud");
+  const small = run.timings?.find((t) => t.stage === "thoth");
+  const big = run.timings?.find((t) => t.stage === "ptah");
   const a = small ? `${small.stage}@${small.host}` : "small@?";
   const b = big ? `${big.stage}@${big.host}` : run.hosts?.includes("cloud") ? "ptah@cloud" : "big@?";
   return `RA lane ${a} → ${b}`;
@@ -115,7 +119,7 @@ export function formatIntentLine(run: LastRun | null): string {
 
 /** Prefer line from actual last-run hosts (falls back to policy defaults) */
 export function formatPreferLine(run: LastRun | null): string {
-  const small = run?.timings?.find((t) => t.host === "251" || t.host === "local");
+  const small = run?.timings?.find((t) => t.stage === "thoth");
   const big = run?.timings?.find((t) => t.host === "cloud");
   const a = small ? `small@${small.host}` : run?.hosts?.includes("251")
     ? "small@251"

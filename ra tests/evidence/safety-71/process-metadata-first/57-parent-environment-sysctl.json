@@ -1,0 +1,27 @@
+{
+  "scenario": "57-parent-environment-sysctl",
+  "status": "PASS",
+  "seconds": 0.46,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--mode",
+        "workspace-write",
+        "--network",
+        "deny",
+        "--",
+        "python3",
+        "/private/tmp/ra-user-sandbox/projects/57-parent-environment-sysctl/check.py"
+      ],
+      "exit": 0,
+      "seconds": 0.46,
+      "stdout": "{\n  \"code\": 0,\n  \"timedOut\": false,\n  \"stdout\": \"{\\\"38\\\": {\\\"code\\\": -1, \\\"errno\\\": 1, \\\"secret_seen\\\": false}, \\\"49\\\": {\\\"code\\\": -1, \\\"errno\\\": 1, \\\"secret_seen\\\": false}}\\n\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/workspace-write; network=deny\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

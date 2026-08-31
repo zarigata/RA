@@ -41,7 +41,7 @@ describe("formatRaEnv", () => {
     const text = formatRaEnv({
       OLLAMA_LAN_URL: "http://192.168.1.251:11434",
       OLLAMA_LOCAL_URL: "http://localhost:11434",
-      OLLAMA_API_KEY: "650bd857ac004b12921a525b89f484f2.secret",
+      OLLAMA_API_KEY: "test-key-id-1234567890abcdef.secret",
     });
     expect(text).toContain("RA env");
     expect(text).toContain("192.168.1.251");

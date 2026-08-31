@@ -1,0 +1,22 @@
+{
+  "scenario": "20-tui-cancellation",
+  "status": "PASS",
+  "seconds": 2.04,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "--cwd",
+        "/private/tmp/ra-user-sandbox/projects/20-tui-cancellation"
+      ],
+      "inputs": [
+        "<cancel>/code Create a detailed 500-line implementation of a dependency-free chess engine in chess.py. Include full move generation and tests.",
+        "/help"
+      ],
+      "exit": 0,
+      "stdout": "\u256d RA TUI \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256e\r\n\u2502 \ud80c\udce1  RA  \ud80c\udce1                                               \u2502\r\n\u2502 Relic Agent \u2014 Mixture-of-Agents Terminal Dev             \u2502\r\n\u2502 v1.0.0-ra.68  \u00b7  theme: Pharaonic                        \u2502\r\n\u2502 RA prefer small@251 \u2192 big@cloud  (gemma @local fallback) \u2502\r\n\u2570 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256f\r\nProject: /private/tmp/ra-user-sandbox/projects/20-tui-cancellation | Profile: cloud-test | Ctrl+P palette | /help\r\n\r\nWelcome to RA. New here? Try:\r\n  /simple on\r\n  /quick write a hello world function\r\n  /again  (re-run last full-dev)\r\n  /verify  (re-check last artifacts)\r\n  /palette\r\n  small: ollama-cloud/gpt-oss:120b \u00b7 code: ollama-cloud/deepseek-v4-pro:0813\r\n\r\nRA \u203a /code Create a detailed 500-line implementation of a dependency-free chess engine in chess.py. Include full move generation and tests.\r\r\n\r\nRA\r\n[ptah] tier=code model=ollama-cloud/deepseek-v4-pro:0813\r\n\r\n[plugin] agent ptah starting: Create a detailed 500-line implementation of a dependency-fr\r\n\r\nCancelling\u2026\r\n\r\nRA\r\nError: Error: Turn cancelled\r\n\r\n\u256d subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n\u2717 ptah: Create a detailed 500-line implementation of a dependency\u2026\r\n\u2570\u2500\r\nRA \u203a /help\r\r\n\r\nRA\r\nRA \u2014 commands:\r\n  Build        /plan /code /quick /pipeline /again\r\n  Review       /review /critique /docs /moa /tree\r\n  Project      /ls /files /show /todos /verify\r\n  Session      /status /history /sessions /replay /clear\r\n  Models       /roles /models /env /ping /doctor /cost\r\n  Results      /result /summary /timings /lane /intent /prefer\r\n  Connection   /connect /home /which /lanes /selfcheck /lan-scan\r\n  Interface    /simple on /simple off /palette /help /exit\r\n  Ctrl+P       Command palette\r\n  Esc          Cancel the current model request\r\n\r\n\u256d subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n\u2717 ptah: Create a detailed 500-line implementation of a dependency\u2026\r\n\u2570\u2500\r\nRA \u203a /exit\r\r\n",
+      "stderr": ""
+    }
+  ]
+}

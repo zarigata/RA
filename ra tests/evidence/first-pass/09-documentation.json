@@ -1,0 +1,22 @@
+{
+  "scenario": "09-documentation",
+  "status": "FAIL",
+  "seconds": 1.33,
+  "error": "Error: Stage thoth failed: Error: Model gpt-oss:120b returned an empty response\n",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Read convert.py and create README.md describing c_to_f with examples 0 -> 32 and 100 -> 212. Do not modify Python.",
+        "--quick",
+        "--json",
+        "--verify"
+      ],
+      "exit": 1,
+      "seconds": 1.33,
+      "stdout": "",
+      "stderr": "Error: Stage thoth failed: Error: Model gpt-oss:120b returned an empty response\n"
+    }
+  ]
+}

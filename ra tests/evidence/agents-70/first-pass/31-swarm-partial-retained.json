@@ -1,0 +1,209 @@
+{
+  "scenario": "31-swarm-partial-retained",
+  "status": "PASS",
+  "seconds": 5.68,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.1,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.07,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.11,
+      "stdout": "[main (root-commit) c19a2db] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.04,
+      "stdout": "c19a2dba918664f7a910618b33146028c01846d0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/31-swarm-partial-retained-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 4.65,
+      "stdout": "{\n  \"id\": \"swarm-mtgdujwv-a107503d\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained\",\n  \"base\": \"c19a2dba918664f7a910618b33146028c01846d0\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788129017167,\n  \"status\": \"partial\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"good\",\n      \"prompt\": \"Create answer.py containing ANSWER = 42 only.\",\n      \"files\": [\n        \"answer.py\"\n      ]\n    },\n    {\n      \"id\": \"bad\",\n      \"prompt\": \"Create other.py with X = 2.\",\n      \"model\": \"ollama-cloud/ra-acceptance-no-such-model\",\n      \"files\": [\n        \"other.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"good\",\n      \"branch\": \"codex/ra-swarm-mtgdujwv-a107503d/good\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"Created `answer.py` with exactly `ANSWER = 42` and verified its contents via READ.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained/.git/ra-swarms/swarm-mtgdujwv-a107503d/worktrees/codex/ra-swarm-mtgdujwv-a107503d/good\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"bb2e91d7380add5a94a8eac9b97308fc4407e083\",\n      \"files\": [\n        \"answer.py\"\n      ]\n    },\n    {\n      \"taskId\": \"bad\",\n      \"branch\": \"codex/ra-swarm-mtgdujwv-a107503d/bad\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained/.git/ra-swarms/swarm-mtgdujwv-a107503d/worktrees/codex/ra-swarm-mtgdujwv-a107503d/bad\",\n      \"error\": \"Error: chatStream 404: {\\\"error\\\":{\\\"message\\\":\\\"model \\\\\\\"ra-acceptance-no-such-model\\\\\\\" not found\\\",\\\"type\\\":\\\"not_found_error\\\",\\\"param\\\":null,\\\"code\\\":null}}\\n\"\n    }\n  ]\n}\n",
+      "stderr": "good: started in /private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained/.git/ra-swarms/swarm-mtgdujwv-a107503d/worktrees/codex/ra-swarm-mtgdujwv-a107503d/good\nbad: started in /private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained/.git/ra-swarms/swarm-mtgdujwv-a107503d/worktrees/codex/ra-swarm-mtgdujwv-a107503d/bad\nbad: failed \u00b7 Error: chatStream 404: {\"error\":{\"message\":\"model \\\"ra-acceptance-no-such-model\\\" not found\",\"type\":\"not_found_error\",\"param\":null,\"code\":null}}\n\ngood: ready [deepseek-v4-pro:0813] \u00b7 1 files\n"
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "c19a2dba918664f7a910618b33146028c01846d0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtgdujwv-a107503d/good"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "bb2e91d7380add5a94a8eac9b97308fc4407e083\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "apply",
+        "swarm-mtgdujwv-a107503d",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 0.39,
+      "stdout": "{\"status\":\"failed\",\"error\":\"Error: All swarm tasks must be ready before apply. Failed worktrees are preserved for inspection.\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "c19a2dba918664f7a910618b33146028c01846d0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

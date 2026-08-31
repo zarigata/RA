@@ -1,0 +1,316 @@
+{
+  "scenario": "28-swarm-isolated-apply",
+  "status": "PASS",
+  "seconds": 10.67,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.1,
+      "stdout": "[main (root-commit) 10969db] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "10969db44cfa3d5ebb80eaf089eaa1e454a9ee01\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/28-swarm-isolated-apply-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 6.4,
+      "stdout": "{\n  \"id\": \"swarm-mtge09qi-0b6c6d08\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply\",\n  \"base\": \"10969db44cfa3d5ebb80eaf089eaa1e454a9ee01\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788129283914,\n  \"status\": \"ready\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"sum\",\n      \"prompt\": \"Create sums.py defining sum_numbers(values) returning sum(values). Verify empty list and [2,3,-1]. No extra files.\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"id\": \"slug\",\n      \"prompt\": \"Create slug.py defining slug(text) returning lowercase whitespace-separated words joined with hyphens. Verify empty and repeated spaces. No extra files.\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"sum\",\n      \"branch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/sum\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"\u2014 Created sums.py with sum_numbers(values) returning sum(values). Verified via python3: empty list returns 0 and [2,3,-1] returns 4.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/sum\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"772b9c92ba9a1dc3685ae148e2de2783e479b607\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"taskId\": \"slug\",\n      \"branch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/slug\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"\u2014 Created slug.py with `slug(text)` that lowercases input, splits on whitespace (handling repeated spaces), and joins with hyphens. Verified via Python: `slug('Hello   World')` \u2192 `'hello-world'`, `slug('  ')` \u2192 `''`, `slug('A  B C')` \u2192 `'a-b-c'`.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/slug\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"fe91710eb69923410440e8f8495d79abdfb0374f\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ]\n}\n",
+      "stderr": "sum: started in /private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/sum\nslug: started in /private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/slug\nsum: ready [deepseek-v4-pro:0813] \u00b7 1 files\nslug: ready [deepseek-v4-pro:0813] \u00b7 1 files\n"
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "10969db44cfa3d5ebb80eaf089eaa1e454a9ee01\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtge09qi-0b6c6d08/sum"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "772b9c92ba9a1dc3685ae148e2de2783e479b607\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtge09qi-0b6c6d08/slug"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "fe91710eb69923410440e8f8495d79abdfb0374f\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "list",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 0.44,
+      "stdout": "[\n  {\n    \"id\": \"swarm-mtge09qi-0b6c6d08\",\n    \"repo\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply\",\n    \"base\": \"10969db44cfa3d5ebb80eaf089eaa1e454a9ee01\",\n    \"baseRef\": \"refs/heads/main\",\n    \"created\": 1788129283914,\n    \"status\": \"ready\",\n    \"concurrency\": 2,\n    \"tasks\": [\n      {\n        \"id\": \"sum\",\n        \"prompt\": \"Create sums.py defining sum_numbers(values) returning sum(values). Verify empty list and [2,3,-1]. No extra files.\",\n        \"files\": [\n          \"sums.py\"\n        ]\n      },\n      {\n        \"id\": \"slug\",\n        \"prompt\": \"Create slug.py defining slug(text) returning lowercase whitespace-separated words joined with hyphens. Verify empty and repeated spaces. No extra files.\",\n        \"files\": [\n          \"slug.py\"\n        ]\n      }\n    ],\n    \"results\": [\n      {\n        \"taskId\": \"sum\",\n        \"branch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/sum\",\n        \"status\": \"ready\",\n        \"ok\": true,\n        \"output\": \"\u2014 Created sums.py with sum_numbers(values) returning sum(values). Verified via python3: empty list returns 0 and [2,3,-1] returns 4.\",\n        \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/sum\",\n        \"model\": \"deepseek-v4-pro:0813\",\n        \"commit\": \"772b9c92ba9a1dc3685ae148e2de2783e479b607\",\n        \"files\": [\n          \"sums.py\"\n        ]\n      },\n      {\n        \"taskId\": \"slug\",\n        \"branch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/slug\",\n        \"status\": \"ready\",\n        \"ok\": true,\n        \"output\": \"\u2014 Created slug.py with `slug(text)` that lowercases input, splits on whitespace (handling repeated spaces), and joins with hyphens. Verified via Python: `slug('Hello   World')` \u2192 `'hello-world'`, `slug('  ')` \u2192 `''`, `slug('A  B C')` \u2192 `'a-b-c'`.\",\n        \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/slug\",\n        \"model\": \"deepseek-v4-pro:0813\",\n        \"commit\": \"fe91710eb69923410440e8f8495d79abdfb0374f\",\n        \"files\": [\n          \"slug.py\"\n        ]\n      }\n    ]\n  }\n]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "status",
+        "swarm-mtge09qi-0b6c6d08",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 0.42,
+      "stdout": "{\n  \"id\": \"swarm-mtge09qi-0b6c6d08\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply\",\n  \"base\": \"10969db44cfa3d5ebb80eaf089eaa1e454a9ee01\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788129283914,\n  \"status\": \"ready\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"sum\",\n      \"prompt\": \"Create sums.py defining sum_numbers(values) returning sum(values). Verify empty list and [2,3,-1]. No extra files.\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"id\": \"slug\",\n      \"prompt\": \"Create slug.py defining slug(text) returning lowercase whitespace-separated words joined with hyphens. Verify empty and repeated spaces. No extra files.\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"sum\",\n      \"branch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/sum\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"\u2014 Created sums.py with sum_numbers(values) returning sum(values). Verified via python3: empty list returns 0 and [2,3,-1] returns 4.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/sum\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"772b9c92ba9a1dc3685ae148e2de2783e479b607\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"taskId\": \"slug\",\n      \"branch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/slug\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"\u2014 Created slug.py with `slug(text)` that lowercases input, splits on whitespace (handling repeated spaces), and joins with hyphens. Verified via Python: `slug('Hello   World')` \u2192 `'hello-world'`, `slug('  ')` \u2192 `''`, `slug('A  B C')` \u2192 `'a-b-c'`.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/slug\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"fe91710eb69923410440e8f8495d79abdfb0374f\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "apply",
+        "swarm-mtge09qi-0b6c6d08",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 1.94,
+      "stdout": "{\n  \"id\": \"swarm-mtge09qi-0b6c6d08\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply\",\n  \"base\": \"10969db44cfa3d5ebb80eaf089eaa1e454a9ee01\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788129283914,\n  \"status\": \"applied\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"sum\",\n      \"prompt\": \"Create sums.py defining sum_numbers(values) returning sum(values). Verify empty list and [2,3,-1]. No extra files.\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"id\": \"slug\",\n      \"prompt\": \"Create slug.py defining slug(text) returning lowercase whitespace-separated words joined with hyphens. Verify empty and repeated spaces. No extra files.\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"sum\",\n      \"branch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/sum\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"\u2014 Created sums.py with sum_numbers(values) returning sum(values). Verified via python3: empty list returns 0 and [2,3,-1] returns 4.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/sum\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"772b9c92ba9a1dc3685ae148e2de2783e479b607\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"taskId\": \"slug\",\n      \"branch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/slug\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"\u2014 Created slug.py with `slug(text)` that lowercases input, splits on whitespace (handling repeated spaces), and joins with hyphens. Verified via Python: `slug('Hello   World')` \u2192 `'hello-world'`, `slug('  ')` \u2192 `''`, `slug('A  B C')` \u2192 `'a-b-c'`.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/slug\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"fe91710eb69923410440e8f8495d79abdfb0374f\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ],\n  \"integrationBranch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/integration\",\n  \"integrationWorktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/integration/codex/ra-swarm-mtge09qi-0b6c6d08/integration\",\n  \"conflicts\": []\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtge09qi-0b6c6d08/sum"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "772b9c92ba9a1dc3685ae148e2de2783e479b607\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtge09qi-0b6c6d08/slug"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "fe91710eb69923410440e8f8495d79abdfb0374f\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "-c",
+        "from sums import sum_numbers; from slug import slug; assert sum_numbers([])==0; assert sum_numbers([2,3,-1])==4; assert slug(\"  Red  FOX \")==\"red-fox\"; assert slug(\"\")==\"\""
+      ],
+      "exit": 0,
+      "seconds": 0.24,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.04,
+      "stdout": "2f1db0219a5eb2c314000a54a16303aceea596a8\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "apply",
+        "swarm-mtge09qi-0b6c6d08",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 0.36,
+      "stdout": "{\n  \"id\": \"swarm-mtge09qi-0b6c6d08\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply\",\n  \"base\": \"10969db44cfa3d5ebb80eaf089eaa1e454a9ee01\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788129283914,\n  \"status\": \"applied\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"sum\",\n      \"prompt\": \"Create sums.py defining sum_numbers(values) returning sum(values). Verify empty list and [2,3,-1]. No extra files.\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"id\": \"slug\",\n      \"prompt\": \"Create slug.py defining slug(text) returning lowercase whitespace-separated words joined with hyphens. Verify empty and repeated spaces. No extra files.\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"sum\",\n      \"branch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/sum\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"\u2014 Created sums.py with sum_numbers(values) returning sum(values). Verified via python3: empty list returns 0 and [2,3,-1] returns 4.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/sum\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"772b9c92ba9a1dc3685ae148e2de2783e479b607\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"taskId\": \"slug\",\n      \"branch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/slug\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"\u2014 Created slug.py with `slug(text)` that lowercases input, splits on whitespace (handling repeated spaces), and joins with hyphens. Verified via Python: `slug('Hello   World')` \u2192 `'hello-world'`, `slug('  ')` \u2192 `''`, `slug('A  B C')` \u2192 `'a-b-c'`.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/worktrees/codex/ra-swarm-mtge09qi-0b6c6d08/slug\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"fe91710eb69923410440e8f8495d79abdfb0374f\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ],\n  \"integrationBranch\": \"codex/ra-swarm-mtge09qi-0b6c6d08/integration\",\n  \"integrationWorktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtge09qi-0b6c6d08/integration/codex/ra-swarm-mtge09qi-0b6c6d08/integration\",\n  \"conflicts\": []\n}\n",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "scenario": "21-conversation-context",
+  "status": "PASS",
+  "seconds": 3.57,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "--cwd",
+        "/private/tmp/ra-user-sandbox/projects/21-conversation-context"
+      ],
+      "inputs": [
+        "Remember the project codename is violet-lantern-91. Reply OK.",
+        "What is the project codename I just gave you? Reply only with it."
+      ],
+      "exit": 0,
+      "stdout": "\u256d RA TUI \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256e\r\n\u2502 \ud80c\udce1  RA  \ud80c\udce1                                               \u2502\r\n\u2502 Relic Agent \u2014 Mixture-of-Agents Terminal Dev             \u2502\r\n\u2502 v1.0.0-ra.68  \u00b7  theme: Pharaonic                        \u2502\r\n\u2502 RA prefer small@251 \u2192 big@cloud  (gemma @local fallback) \u2502\r\n\u2570 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256f\r\nProject: /private/tmp/ra-user-sandbox/projects/21-conversation-context | Profile: cloud-test | Ctrl+P palette | /help\r\n\r\nWelcome to RA. New here? Try:\r\n  /simple on\r\n  /quick write a hello world function\r\n  /again  (re-run last full-dev)\r\n  /verify  (re-check last artifacts)\r\n  /palette\r\n  small: ollama-cloud/gpt-oss:120b \u00b7 code: ollama-cloud/deepseek-v4-pro:0813\r\n\r\nRA \u203a Remember the project codename is violet-lantern-91. Reply OK.\r\r\nOK.\r\n\r\nI\u2019ve recorded that the project\u2019s codename is **violet\u2011lantern\u201191** as you requested.\r\nRA (streamed above)\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/gpt-oss:120b: 117 tok \u00b7 subscription\r\n  TOTAL: 117 tok \u00b7 $0.0000\r\n\u2570\u2500\r\nRA \u203a What is the project codename I just gave you? Reply only with it.\r\r\nviolet-lantern-91  \r\n\r\nI recorded this as the project codename you gave me earlier.\r\nRA (streamed above)\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/gpt-oss:120b: 233 tok \u00b7 subscription\r\n  TOTAL: 233 tok \u00b7 $0.0000\r\n\u2570\u2500\r\nRA \u203a /exit\r\r\n",
+      "stderr": ""
+    }
+  ]
+}

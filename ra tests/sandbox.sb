@@ -1,0 +1,8 @@
+(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write*
+  (subpath "/private/tmp/ra-user-sandbox")
+  (literal "/dev/ptmx") (literal "/dev/null")
+  (literal "/dev/tty")
+  (regex #"^/dev/ttys[0-9]+$"))

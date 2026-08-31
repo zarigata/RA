@@ -1,0 +1,37 @@
+{
+  "scenario": "17-cli-errors",
+  "status": "PASS",
+  "seconds": 0.57,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra"
+      ],
+      "exit": 1,
+      "seconds": 0.18,
+      "stdout": "",
+      "stderr": "RA: interactive mode needs a terminal. Use ra run \"task\" or ra help.\n"
+    },
+    {
+      "command": [
+        "ra",
+        "run"
+      ],
+      "exit": 1,
+      "seconds": 0.17,
+      "stdout": "",
+      "stderr": "RA run: missing task. Usage: ra run \"task\" [--quick] [--verify] [--json] [--cwd DIR]\n"
+    },
+    {
+      "command": [
+        "ra",
+        "unknown-command"
+      ],
+      "exit": 1,
+      "seconds": 0.21,
+      "stdout": "",
+      "stderr": "RA: unknown command 'unknown-command'. Try: ra help\n"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "platform": "macOS Seatbelt via sandbox-exec",
+  "policy": "ra tests/sandbox.sb",
+  "allowed_write_root": "/private/tmp/ra-user-sandbox",
+  "negative_write_probe": "/private/tmp/ra-sandbox-negative-probe.txt",
+  "result": "PermissionError: write outside sandbox denied",
+  "pty_allocation": "passed after permitting /dev/ptmx",
+  "limits": "Read access and network access are not restricted by this policy. This is not a VM."
+}

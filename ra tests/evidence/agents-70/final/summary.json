@@ -1,0 +1,102 @@
+{
+  "pass": 16,
+  "fail": 0,
+  "scenarios": [
+    {
+      "scenario": "22-team-discovery",
+      "status": "PASS",
+      "seconds": 1.04,
+      "error": ""
+    },
+    {
+      "scenario": "23-bounded-moa",
+      "status": "PASS",
+      "seconds": 15.41,
+      "error": ""
+    },
+    {
+      "scenario": "24-partial-moa",
+      "status": "PASS",
+      "seconds": 5.61,
+      "error": ""
+    },
+    {
+      "scenario": "25-moa-readonly",
+      "status": "PASS",
+      "seconds": 6.66,
+      "error": ""
+    },
+    {
+      "scenario": "26-shared-call-budget",
+      "status": "PASS",
+      "seconds": 4.52,
+      "error": ""
+    },
+    {
+      "scenario": "27-moa-tui-cancel",
+      "status": "PASS",
+      "seconds": 2.02,
+      "error": ""
+    },
+    {
+      "scenario": "28-swarm-isolated-apply",
+      "status": "PASS",
+      "seconds": 10.67,
+      "error": ""
+    },
+    {
+      "scenario": "29-swarm-conflict-recovery",
+      "status": "PASS",
+      "seconds": 9.68,
+      "error": ""
+    },
+    {
+      "scenario": "30-swarm-validation",
+      "status": "PASS",
+      "seconds": 3.41,
+      "error": ""
+    },
+    {
+      "scenario": "31-swarm-partial-retained",
+      "status": "PASS",
+      "seconds": 5.49,
+      "error": ""
+    },
+    {
+      "scenario": "32-swarm-tui",
+      "status": "PASS",
+      "seconds": 10.64,
+      "error": ""
+    },
+    {
+      "scenario": "33-swarm-cancel-shell",
+      "status": "PASS",
+      "seconds": 10.58,
+      "error": ""
+    },
+    {
+      "scenario": "34-swarm-ownership-reject",
+      "status": "PASS",
+      "seconds": 10.16,
+      "error": ""
+    },
+    {
+      "scenario": "35-pipeline-shared-budget",
+      "status": "PASS",
+      "seconds": 1.65,
+      "error": ""
+    },
+    {
+      "scenario": "36-swarm-target-guard",
+      "status": "PASS",
+      "seconds": 7.95,
+      "error": ""
+    },
+    {
+      "scenario": "37-mixed-model-swarm",
+      "status": "PASS",
+      "seconds": 11.81,
+      "error": ""
+    }
+  ]
+}

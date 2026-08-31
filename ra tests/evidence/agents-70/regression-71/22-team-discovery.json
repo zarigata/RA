@@ -1,0 +1,50 @@
+{
+  "scenario": "22-team-discovery",
+  "status": "PASS",
+  "seconds": 1.41,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "help"
+      ],
+      "exit": 0,
+      "seconds": 0.39,
+      "stdout": "RA \u2014 Relic Agent Terminal Coding Agent\n\nUsage:\n  ra                         Interactive TUI\n  ra help                    This help\n  ra version                 Print RA version\n  ra splash                  Print RA TUI splash (branding check)\n  ra home                    Show anubis + ~/.ra paths\n  ra palette                 List TUI slash commands\n  ra --task \"...\" [--quick] [--verify] [--json]  Full pipeline with RA TUI (--quick = 2 stages)\n  ra run \"...\" [--quick] [--verify] [--json] [--cwd DIR]  Headless full-dev (no TUI, for CI/scripting)\n  ra agents [--json]         List built-in/configured agents\n  ra moa \"task\" [--roles A,B] [--concurrency N] [--json]  Read-only team proposals\n  ra swarm help              Isolated worktree teams; explicit apply\n  ra roles                   Show role assignments\n  ra status                  Snapshot: profile, last run, usage\n  ra last [--json]           Show last full-dev run\n  ra history [--json]        Recent full-dev runs\n  ra sessions [--kill ID | --switch ID]  List persisted sessions (kill or switch)\n  ra export [--cwd DIR] [--out FILE]  Export sanitized session transcript\n  ra undo [--cwd DIR]        Restore the most recent edit checkpoint\n  ra checkpoints [--cwd DIR] List pending edit checkpoints\n  ra diff <file> [--cwd DIR] Show checkpoint \u2192 current diff\n  ra daemon [--port N]       Start the background session daemon\n  ra ide                     Serve the IDE JSON-RPC bridge over stdio\n  ra eval                    Run the eval harness across configured models\n  ra catalog [--json]        Fetch models.dev provider catalog\n  ra result                  One-line RA RESULT (bash greppable)\n  ra lane                    One-line RA lane (thoth@251 \u2192 ptah@cloud)\n  ra intent                  One-line RA intent (code|debug|plan|\u2026)\n  ra prefer                  One-line RA prefer (small@251 \u2192 big@cloud)\n  ra files                   List files from last full-dev\n  ra again [--quick] [--verify]  Re-run last full-dev task (same cwd)\n  ra summary                 Last full-dev snapshot (status+result+timings)\n  ra timings                 Per-stage host/model timings\n  ra show                    Print last written file\n  ra verify                  Re-check last full-dev artifacts (no LLM)\n  ra env                     Show Ollama endpoints (keys masked)\n  ra ping                    Latency check .251 / localhost / cloud\n  ra which                   Which small host is active (@251 or @local)\n  ra lanes                   Small@251 vs BIG@cloud routing map\n  ra models                  Probe qwen/gemma on .251 + cloud BIG\n  ra cost [--session]        Usage / cost report (per-session with --session)\n  ra init                    Mark cwd as RA project\n  ra demo                    One-shot RA TUI full-dev (hello.py) + verify\n  ra sandbox status|exec     Inspect or use the command sandbox\n  ra doctor                  Health check\n  ra selfcheck               Splash + ping + lanes + models (no LLM)\n  ra benchmark init|smoke|run <name|all>\n  ra --remote <URL>          Connect TUI to a running daemon (or set RA_REMOTE env)\n\nSmall models: 192.168.1.251 qwen3.8 (fallback: localhost gemma)\nBIG models: Ollama Cloud glm-5.2\n\nIn TUI:\n  /quick /again /plan /code /pipeline /help /simple on /status /files /show /result /lane /intent /prefer /summary /timings /verify /history /clear\n  /replay [list|N|keyword]   Session replay + time-travel\n  /connect [URL]             Connect to a daemon\n  /tree                      Show subagent tree\n  Ctrl+P                     Command palette\n  /exit                      Quit\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "version"
+      ],
+      "exit": 0,
+      "seconds": 0.32,
+      "stdout": "RA 1.0.0-ra.71\nRA prefer small@251 \u2192 big@cloud  (gemma @local fallback)\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "agents",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 0.39,
+      "stdout": "[\n  {\n    \"role\": \"anubis\",\n    \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n    \"maxSteps\": 16\n  },\n  {\n    \"role\": \"auditdiag\",\n    \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n    \"maxSteps\": 5\n  },\n  {\n    \"role\": \"auditlist\",\n    \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n    \"maxSteps\": 4\n  },\n  {\n    \"role\": \"auditmcp\",\n    \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n    \"maxSteps\": 5\n  },\n  {\n    \"role\": \"auditparent\",\n    \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n    \"maxSteps\": 4\n  },\n  {\n    \"role\": \"auditreview\",\n    \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n    \"maxSteps\": 4\n  },\n  {\n    \"role\": \"explore\",\n    \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n    \"maxSteps\": 6\n  },\n  {\n    \"role\": \"general\",\n    \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n    \"maxSteps\": 8\n  },\n  {\n    \"role\": \"horus\",\n    \"model\": \"ollama-cloud/glm-5.3-flash\",\n    \"maxSteps\": 4\n  },\n  {\n    \"role\": \"isis\",\n    \"model\": \"ollama-cloud/glm-5.3-flash\",\n    \"maxSteps\": 6\n  },\n  {\n    \"role\": \"maat\",\n    \"model\": \"ollama-cloud/glm-5.3-flash\",\n    \"maxSteps\": 8\n  },\n  {\n    \"role\": \"ptah\",\n    \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n    \"maxSteps\": 16\n  },\n  {\n    \"role\": \"scout\",\n    \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n    \"maxSteps\": 8\n  },\n  {\n    \"role\": \"sekhmet\",\n    \"model\": \"ollama-cloud/glm-5.3-flash\",\n    \"maxSteps\": 8\n  },\n  {\n    \"role\": \"seshat\",\n    \"model\": \"ollama-cloud/glm-5.3-flash\",\n    \"maxSteps\": 6\n  },\n  {\n    \"role\": \"thoth\",\n    \"model\": \"ollama-cloud/glm-5.3-flash\",\n    \"maxSteps\": 10\n  }\n]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "help"
+      ],
+      "exit": 0,
+      "seconds": 0.32,
+      "stdout": "RA swarm \u2014 isolated coding teams\n  ra swarm run TASKS.json [--concurrency N] [--merge] [--json]\n  ra swarm list [--json]\n  ra swarm status ID [--json]\n  ra swarm apply ID [--json]\n\nTASKS.json is an array: [{\"id\":\"api\",\"prompt\":\"Implement the API\",\"files\":[\"src/api/\"]}]\nOptional task fields: model (provider/model), files (owned paths or directories).\nRun requires a clean Git checkout and preserves every worktree. Apply is explicit;\n--merge applies automatically only when every task succeeded and integration is clean.\nAfter a conflict, resolve and commit in the reported integration worktree, then apply again.\n",
+      "stderr": ""
+    }
+  ]
+}

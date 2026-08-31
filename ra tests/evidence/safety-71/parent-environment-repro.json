@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0-ra.71 development",
+  "probe": "sysctl CTL_KERN/KERN_PROCARGS2 against parent PID, searching only for a synthetic marker",
+  "sysctl_code": 0,
+  "parent_synthetic_secret_recovered": true,
+  "actual_credentials_printed": false
+}

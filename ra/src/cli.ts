@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { ANUBIS_HOME } from "./paths.ts";
 import { startTui } from "./tui/app.ts";
-import { loadRaConfig, ensureRaDirs } from "../../anubis/src/config.ts";
+import { loadRaConfig, ensureRaDirs, applyProjectOverride, applyEnvOverrides } from "../../anubis/src/config.ts";
 import { loadEnv } from "../../anubis/src/env.ts";
 import { APP_NAME, renderSplash } from "../../anubis/src/tui.ts";
 import { RA_VERSION } from "../../anubis/src/version.ts";
@@ -69,6 +69,9 @@ Usage:
   ra palette                 List TUI slash commands
   ra --task "..." [--quick] [--verify] [--json]  Full pipeline with RA TUI (--quick = 2 stages)
   ra run "..." [--quick] [--verify] [--json] [--cwd DIR]  Headless full-dev (no TUI, for CI/scripting)
+  ra agents [--json]         List built-in/configured agents
+  ra moa "task" [--roles A,B] [--concurrency N] [--json]  Read-only team proposals
+  ra swarm help              Isolated worktree teams; explicit apply
   ra roles                   Show role assignments
   ra status                  Snapshot: profile, last run, usage
   ra last [--json]           Show last full-dev run
@@ -100,6 +103,7 @@ Usage:
   ra cost [--session]        Usage / cost report (per-session with --session)
   ra init                    Mark cwd as RA project
   ra demo                    One-shot RA TUI full-dev (hello.py) + verify
+  ra sandbox status|exec     Inspect or use the command sandbox
   ra doctor                  Health check
   ra selfcheck               Splash + ping + lanes + models (no LLM)
   ra benchmark init|smoke|run <name|all>
@@ -120,6 +124,61 @@ In TUI:
 
 ensureRaDirs();
 loadEnv(ANUBIS_HOME);
+
+if (["agents", "moa", "swarm", "sandbox"].includes(args[0])) {
+  const ownArgs = args[0] === "sandbox" && args.includes("--") ? args.slice(0, args.indexOf("--")) : args;
+  const asJson = ownArgs.includes("--json");
+  const cwdFlag = ownArgs.indexOf("--cwd");
+  const cwd = cwdFlag < 0 ? process.cwd() : ownArgs[cwdFlag + 1];
+  const { abortActiveTurn } = await import("./agent.ts");
+  let interrupted = false;
+  process.on("SIGINT", () => { interrupted = true; abortActiveTurn(); });
+  try {
+    if (!cwd || cwd.startsWith("--")) throw new Error("--cwd needs a directory");
+    const config = applyEnvOverrides(applyProjectOverride(loadRaConfig(ANUBIS_HOME), cwd));
+    const { agentCatalog, swarmCommand } = await import("./commands/teams.ts");
+    if (args[0] === "sandbox") {
+      const { sandboxCommand } = await import("./commands/sandbox.ts");
+      const { withAgentRun } = await import("./execution.ts");
+      const filtered = args.slice(1);
+      const cwdIndex = filtered.indexOf("--cwd");
+      const separator = filtered.indexOf("--");
+      if (cwdIndex >= 0 && (separator < 0 || cwdIndex < separator)) filtered.splice(cwdIndex, 2);
+      const result = await withAgentRun({ limits: config.agent_limits }, () => sandboxCommand(filtered, cwd, config));
+      console.log(asJson ? JSON.stringify(result.data, null, 2) : result.text);
+      process.exit(result.code);
+    }
+
+    if (args[0] === "agents") {
+      const agents = agentCatalog(config);
+      console.log(asJson ? JSON.stringify(agents, null, 2) : agents.map(a => `${a.role}: ${a.model} · max ${a.maxSteps} steps`).join("\n"));
+      process.exit(0);
+    }
+    if (args[0] === "swarm") {
+      const result = await swarmCommand(args.slice(1), cwd, config, message => console.error(message));
+      console.log(asJson ? JSON.stringify(result.data, null, 2) : result.text);
+      process.exit(result.code);
+    }
+    const { runMoaTeam, formatTeam } = await import("./team.ts");
+    if (!args[1] || args[1].startsWith("--")) throw new Error('Usage: ra moa "task" [--roles A,B] [--concurrency N] [--json]');
+    for (let i = 2; i < args.length; i++) {
+      if (args[i] === "--json") continue;
+      if (!["--cwd", "--roles", "--concurrency"].includes(args[i])) throw new Error(`Unexpected moa argument: ${args[i]}`);
+      if (!args[++i] || args[i].startsWith("--")) throw new Error(`${args[i - 1]} needs a value`);
+    }
+    const result = await runMoaTeam(args[1], config, { cwd }, {
+      roles: arg("--roles")?.split(","),
+      concurrency: arg("--concurrency") === undefined ? undefined : Number(arg("--concurrency")),
+      onProgress: message => console.error(message),
+    });
+    console.log(asJson ? JSON.stringify(result, null, 2) : formatTeam(result));
+    process.exit(result.status === "completed" ? 0 : result.status === "cancelled" ? 130 : result.status === "partial" ? 2 : 1);
+  } catch (error) {
+    if (asJson) console.log(JSON.stringify({ status: interrupted ? "cancelled" : "failed", error: String(error) }));
+    else console.error(String(error));
+    process.exit(interrupted ? 130 : 1);
+  }
+}
 
 if (args[0] === "doctor") {
   process.exit(await runDoctor());
@@ -578,7 +637,7 @@ if (args[0] === "again") {
 
 if (args[0] === "run") {
   const runTask = args[1];
-  if (!runTask) {
+  if (!runTask || runTask.startsWith("--")) {
     console.error(`${APP_NAME} run: missing task. Usage: ra run "task" [--quick] [--verify] [--json] [--cwd DIR]`);
     process.exit(1);
   }
@@ -594,27 +653,26 @@ if (args[0] === "run") {
       quiet: true,
     });
     if (!result.summary) process.exit(1);
-    if (runJson) {
-      const { loadLastRun } = await import("../../anubis/src/last-run.ts");
-      console.log(JSON.stringify(loadLastRun(), null, 2));
-    } else {
-      const { loadLastRun, formatResultLine, formatLaneLine, formatIntentLine, formatPreferLine } = await import("../../anubis/src/last-run.ts");
-      const last = loadLastRun();
+    const { loadLastRun, saveLastRun, formatResultLine, formatLaneLine, formatIntentLine, formatPreferLine } = await import("../../anubis/src/last-run.ts");
+    let last = loadLastRun();
+    let exitCode = 0;
+    if (runVerify) {
+      const { verifyLastRun } = await import("../../anubis/src/verify.ts");
+      const verification = await verifyLastRun(last);
+      (runJson ? console.error : console.log)(verification.lines.join("\n"));
+      exitCode = verification.ok ? 0 : 1;
       if (last) {
-        console.log(formatResultLine(last));
-        console.log(formatLaneLine(last));
-        console.log(formatIntentLine(last));
-        console.log(formatPreferLine(last));
+        last = saveLastRun({ ...last, verification, ...(!verification.ok ? { status: "failed" as const, error: "Artifact verification failed" } : {}) });
       }
     }
-    if (runVerify) {
-      const { loadLastRun } = await import("../../anubis/src/last-run.ts");
-      const { verifyLastRun } = await import("../../anubis/src/verify.ts");
-      const { ok, lines } = await verifyLastRun(loadLastRun());
-      console.log(lines.join("\n"));
-      process.exit(ok ? 0 : 1);
+    if (runJson) console.log(JSON.stringify(last, null, 2));
+    else if (last) {
+      console.log(formatResultLine(last));
+      console.log(formatLaneLine(last));
+      console.log(formatIntentLine(last));
+      console.log(formatPreferLine(last));
     }
-    process.exit(0);
+    process.exit(exitCode);
   } catch (e) {
     console.error(String(e));
     process.exit(1);
@@ -632,6 +690,7 @@ if (task) {
       root: ANUBIS_HOME,
       stages,
       cwd: arg("--cwd") ?? process.cwd(),
+      quiet: asJson,
     });
     if (!result.summary) process.exit(1);
     if (asJson) {
@@ -642,7 +701,7 @@ if (task) {
       const { loadLastRun } = await import("../../anubis/src/last-run.ts");
       const { verifyLastRun } = await import("../../anubis/src/verify.ts");
       const { ok, lines } = await verifyLastRun(loadLastRun());
-      console.log(lines.join("\n"));
+      (asJson ? console.error : console.log)(lines.join("\n"));
       process.exit(ok ? 0 : 1);
     }
     process.exit(0);
@@ -652,7 +711,7 @@ if (task) {
   }
 }
 
-const cwd = arg("--project") ?? process.cwd();
+const cwd = arg("--project") ?? arg("--cwd") ?? process.cwd();
 const remoteUrl = args.includes("--remote") ? arg("--remote") : process.env.RA_REMOTE ?? null;
 if (args.length > 0) {
   const first = args[0]!;
@@ -660,5 +719,11 @@ if (args.length > 0) {
     console.error(`${APP_NAME}: unknown command '${first}'. Try: ra help`);
     process.exit(1);
   }
+}
+// Non-interactive stdin stays a hard error (scenario 17) unless the caller
+// explicitly opts in — the test gate drives the TUI through pipes.
+if (!process.stdin.isTTY && process.env.RA_FORCE_TUI !== "1") {
+  console.error("RA: interactive mode needs a terminal. Use ra run \"task\" or ra help.");
+  process.exit(1);
 }
 await startTui({ cwd, remoteUrl });

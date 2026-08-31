@@ -1,0 +1,22 @@
+{
+  "scenario": "07-typescript",
+  "status": "FAIL",
+  "seconds": 38.66,
+  "error": "RA verify: no files from last full-dev.\n",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create unique.ts exporting function unique(values: number[]): number[] preserving first occurrence order. No dependencies. Check [3,1,3,2] produces [3,1,2].",
+        "--quick",
+        "--json",
+        "--verify"
+      ],
+      "exit": 1,
+      "seconds": 38.66,
+      "stdout": "{\n  \"task\": \"Create unique.ts exporting function unique(values: number[]): number[] preserving first occurrence order. No dependencies. Check [3,1,3,2] produces [3,1,2].\",\n  \"status\": \"completed\",\n  \"stages\": [\n    \"thoth\",\n    \"ptah\"\n  ],\n  \"models\": [\n    \"gpt-oss:120b\",\n    \"deepseek-v4-pro:0813\"\n  ],\n  \"filesWritten\": [],\n  \"hosts\": [\n    \"cloud\"\n  ],\n  \"ms\": 38335,\n  \"intent\": \"code\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/07-typescript\",\n  \"timings\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"host\": \"cloud\",\n      \"ms\": 37327\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"host\": \"cloud\",\n      \"ms\": 1007\n    }\n  ],\n  \"at\": 1788126077656\n}\n",
+      "stderr": "RA verify: no files from last full-dev.\n"
+    }
+  ]
+}

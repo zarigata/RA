@@ -1,0 +1,22 @@
+{
+  "scenario": "05-project-memory",
+  "status": "FAIL",
+  "seconds": 8.86,
+  "error": "RA verify: no files from last full-dev.\n",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create greeting.py defining greet(name) returning \"Welcome, \" plus name. Follow project conventions.",
+        "--quick",
+        "--json",
+        "--verify"
+      ],
+      "exit": 1,
+      "seconds": 8.86,
+      "stdout": "{\n  \"task\": \"Create greeting.py defining greet(name) returning \\\"Welcome, \\\" plus name. Follow project conventions.\",\n  \"status\": \"completed\",\n  \"stages\": [\n    \"thoth\",\n    \"ptah\"\n  ],\n  \"models\": [\n    \"gpt-oss:120b\",\n    \"deepseek-v4-pro:0813\"\n  ],\n  \"filesWritten\": [],\n  \"hosts\": [\n    \"cloud\"\n  ],\n  \"ms\": 8421,\n  \"intent\": \"code\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/05-project-memory\",\n  \"timings\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"host\": \"cloud\",\n      \"ms\": 7222\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"host\": \"cloud\",\n      \"ms\": 1197\n    }\n  ],\n  \"at\": 1788126037317\n}\n",
+      "stderr": "RA verify: no files from last full-dev.\n"
+    }
+  ]
+}

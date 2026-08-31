@@ -1,6 +1,11 @@
-#!/usr/bin/env bash
+#!/bin/sh
+# Do not allow startup/loader environment hooks to run before the trusted control process.
+unset BASH_ENV ENV NODE_OPTIONS PYTHONPATH PYTHONHOME RUBYOPT PERL5OPT LD_PRELOAD LD_LIBRARY_PATH DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH
 TARGET="$(readlink "$0" 2>/dev/null || echo "$0")"
-[[ "$TARGET" != /* ]] && TARGET="$(cd "$(dirname "$0")" && pwd)/$TARGET"
+case "$TARGET" in
+  /*) ;;
+  *) TARGET="$(cd "$(dirname "$0")" && pwd)/$TARGET" ;;
+esac
 ANUBIS_HOME="$(cd "$(dirname "$TARGET")/.." && pwd)"
 RA_ROOT="$(cd "$ANUBIS_HOME/.." && pwd)"
 export ANUBIS_HOME RA_HOME="$RA_ROOT"

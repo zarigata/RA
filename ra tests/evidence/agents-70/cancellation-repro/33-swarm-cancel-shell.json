@@ -1,0 +1,102 @@
+{
+  "scenario": "33-swarm-cancel-shell",
+  "status": "FAIL",
+  "seconds": 10.14,
+  "error": "Cancelled shell leaked a detached child that wrote orphan.txt",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.18,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/33-swarm-cancel-shell/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.11,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.13,
+      "stdout": "[main (root-commit) e6276f5] test: seed swarm acceptance\n 1 file changed, 6 insertions(+)\n create mode 100644 wait.py\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.04,
+      "stdout": "e6276f50299f9e4ec14bfc2c75445961eb1d5b8e\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/33-swarm-cancel-shell-tasks.json",
+        "--concurrency",
+        "1",
+        "--json"
+      ],
+      "exit": 130,
+      "seconds": 3.66,
+      "stdout": "{\n  \"id\": \"swarm-mtgdw53m-a7f2e2e1\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/33-swarm-cancel-shell\",\n  \"base\": \"e6276f50299f9e4ec14bfc2c75445961eb1d5b8e\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788129091282,\n  \"status\": \"cancelled\",\n  \"concurrency\": 1,\n  \"tasks\": [\n    {\n      \"id\": \"running\",\n      \"prompt\": \"First run exactly python3 wait.py with BASH and wait for its result. Do not inspect or modify wait.py. Only after this command completes create answer.py with ANSWER=42.\",\n      \"files\": [\n        \"answer.py\"\n      ]\n    },\n    {\n      \"id\": \"queued\",\n      \"prompt\": \"Create queued.py containing X=1.\",\n      \"files\": [\n        \"queued.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"running\",\n      \"branch\": \"codex/ra-swarm-mtgdw53m-a7f2e2e1/running\",\n      \"status\": \"cancelled\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/33-swarm-cancel-shell/.git/ra-swarms/swarm-mtgdw53m-a7f2e2e1/worktrees/codex/ra-swarm-mtgdw53m-a7f2e2e1/running\",\n      \"error\": \"Turn cancelled by user\"\n    },\n    {\n      \"taskId\": \"queued\",\n      \"branch\": \"codex/ra-swarm-mtgdw53m-a7f2e2e1/queued\",\n      \"status\": \"cancelled\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"error\": \"Error: Turn cancelled by user\"\n    }\n  ]\n}\n",
+      "stderr": "running: started in /private/tmp/ra-user-sandbox/projects/33-swarm-cancel-shell/.git/ra-swarms/swarm-mtgdw53m-a7f2e2e1/worktrees/codex/ra-swarm-mtgdw53m-a7f2e2e1/running\nrunning: cancelled \u00b7 Turn cancelled by user\n",
+      "signal": "SIGINT after shell child-started marker"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "command": [
+    "ra",
+    "status"
+  ],
+  "exit": 0,
+  "seconds": 0.16,
+  "stdout": "RA status\ncwd: /Users/zari/Desktop/PROJETOS MAC/RA\nprofile: cloud-test\nmodel: ollama-cloud/deepseek-v4-pro:0813\nsmall: ollama-cloud/gpt-oss:120b\nNo previous RA full-dev run.\nRA prefer small@251 \u2192 big@cloud\nollama-lan/gemma:latest: 67 in / 61 out \u2014 $0.000000\nTOTAL: $0.000000\n",
+  "stderr": ""
+}

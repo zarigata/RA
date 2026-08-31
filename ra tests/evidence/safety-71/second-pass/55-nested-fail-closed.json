@@ -1,0 +1,27 @@
+{
+  "scenario": "55-nested-fail-closed",
+  "status": "PASS",
+  "seconds": 0.54,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/private/tmp/ra-user-sandbox/policy.sb",
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--",
+        "python3",
+        "-c",
+        "from pathlib import Path; Path(\"nested-escape.txt\").write_text(\"LEAK\")"
+      ],
+      "exit": 1,
+      "seconds": 0.54,
+      "stdout": "{\"status\":\"failed\",\"error\":\"Error: macOS refused sandbox initialization (nested sandboxes are unsupported). The command was not run; RA will not retry it without sandboxing.\"}\n",
+      "stderr": ""
+    }
+  ]
+}

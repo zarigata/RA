@@ -1,0 +1,16 @@
+# Remaining goal work
+
+The user requested the best open-source coding tool with a complete, simple CLI/TUI. The installed-user reliability pass is a measurable milestone toward that goal, not its completion.
+
+Priorities requiring separate acceptance work:
+
+1. **Provider reliability — first slice landed in .72:** provider failures (timeouts, 5xx, stream errors, unknown model) now walk an explicit user-configured fallback chain (`RA_CONFIG` `fallbacks` or `RA_FALLBACK`/`RA_SMALL_FALLBACK`) with visible attribution on stderr/TUI/`ra last --json`; same-host-kind only, auth failures and cancellations never fall back (installed scenarios 61–64, unit 360/360). Still needed: rate-limit-specific handling, per-role chains, MoA participant fallback, and attribution inside exported transcripts.
+2. **Agent lifecycle:** .70 adds per-operation scopes/budgets, bounded fan-out, partial MoA results, and retained worktree swarms. Still needed: per-session daemon cancellation, crash/model-task resume, OS-enforced ownership, and cancellation for independently concurrent daemon sessions and trusted plugins. Stdio MCP and compiler commands now use the shared command lifecycle; broader transport/timeout coverage remains.
+3. **Sandbox coverage:** .71 adds native macOS command isolation, inherited TASK restrictions, execution-time tool whitelists, private subprocess environments, stdio MCP/diagnostics/Python verification, and isolated swarm Git orchestration. Expand package-manager/dev-server workflows and adversarial/race coverage; add independently tested Linux/Windows backends. Trusted plugins, HTTP tools, unwired LSP SDK paths, and the controller are outside this subprocess boundary. Do not claim universal plugin isolation or complete secret protection.
+4. **Long projects:** durable conversation state, configurable context budgets and verified compaction, restart/crash recovery, atomic persistence under concurrent sessions.
+5. **Complete interface:** searchable palette, readable Markdown/diffs, explicit approval UI, editor composition, model/profile switching, and terminal resize/accessibility checks.
+6. **Integrations:** independently exercise MCP, IDE/LSP, remote daemon authentication and execution, custom agents/commands/plugins. Worktree isolation and merge conflict recovery now have installed acceptance; crash recovery and concurrent external Git operations need broader coverage.
+7. **Distribution and maintenance:** clean installs on supported platforms, upgrade/rollback tests, CI aligned with the changed behavior, dependency and license checks.
+8. **Competitive evidence — first full matrix measured in .72:** `competitive_acceptance.py` runs identical fixed-budget tasks (300 s, headless) on fresh clones of real repositories (karpathy/micrograd, sindresorhus/slugify) with independent checkers; installed `ra` 3/3 and fastest per task (7–12 s) vs codex 3/3 (gpt-5.6-sol, 32–60 s), claude 3/3 (claude harness on Z.AI GLM, 54–98 s), opencode 0/6 across two runs (same Ollama model as RA). Results and per-column caveats: [COMPETITIVE_RESULTS.md](COMPETITIVE_RESULTS.md). Remaining: more repositories and harder tasks, repeated runs for variance, Anthropic first-party credentials for the claude column, and cost measurement.
+
+No external deployment, release, commit, or PR publication was performed by this pass.

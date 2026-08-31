@@ -1,0 +1,337 @@
+{
+  "scenario": "29-swarm-conflict-recovery",
+  "status": "PASS",
+  "seconds": 9.6,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.07,
+      "stdout": "[main (root-commit) e9c2841] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 setting.txt\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.07,
+      "stdout": "e9c284105e25416d72bbe835dd0caafe5822f2d0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/29-swarm-conflict-recovery-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 6.26,
+      "stdout": "{\n  \"id\": \"swarm-mtgdu9ti-f357fc5e\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery\",\n  \"base\": \"e9c284105e25416d72bbe835dd0caafe5822f2d0\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788129004087,\n  \"status\": \"ready\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"alpha\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=alpha followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    },\n    {\n      \"id\": \"beta\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=beta followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"alpha\",\n      \"branch\": \"codex/ra-swarm-mtgdu9ti-f357fc5e/alpha\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"Changed setting.txt content from `mode=base` to `mode=alpha` (with trailing newline preserved). Verified by reading the file: it now contains exactly `mode=alpha` followed by a newline.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/worktrees/codex/ra-swarm-mtgdu9ti-f357fc5e/alpha\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"5b2efb2a768233a4112931678bed6f343a1e2f58\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    },\n    {\n      \"taskId\": \"beta\",\n      \"branch\": \"codex/ra-swarm-mtgdu9ti-f357fc5e/beta\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"Changed setting.txt from `mode=base` to `mode=beta` and verified the file now contains exactly `mode=beta` followed by a newline.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/worktrees/codex/ra-swarm-mtgdu9ti-f357fc5e/beta\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"9c98d4f0251f7f70156fc81b0332e3882a8b851c\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    }\n  ]\n}\n",
+      "stderr": "alpha: started in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/worktrees/codex/ra-swarm-mtgdu9ti-f357fc5e/alpha\nbeta: started in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/worktrees/codex/ra-swarm-mtgdu9ti-f357fc5e/beta\nalpha: ready [deepseek-v4-pro:0813] \u00b7 1 files\nbeta: ready [deepseek-v4-pro:0813] \u00b7 1 files\n"
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "e9c284105e25416d72bbe835dd0caafe5822f2d0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "apply",
+        "swarm-mtgdu9ti-f357fc5e",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 1.36,
+      "stdout": "{\n  \"id\": \"swarm-mtgdu9ti-f357fc5e\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery\",\n  \"base\": \"e9c284105e25416d72bbe835dd0caafe5822f2d0\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788129004087,\n  \"status\": \"conflict\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"alpha\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=alpha followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    },\n    {\n      \"id\": \"beta\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=beta followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"alpha\",\n      \"branch\": \"codex/ra-swarm-mtgdu9ti-f357fc5e/alpha\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"Changed setting.txt content from `mode=base` to `mode=alpha` (with trailing newline preserved). Verified by reading the file: it now contains exactly `mode=alpha` followed by a newline.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/worktrees/codex/ra-swarm-mtgdu9ti-f357fc5e/alpha\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"5b2efb2a768233a4112931678bed6f343a1e2f58\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    },\n    {\n      \"taskId\": \"beta\",\n      \"branch\": \"codex/ra-swarm-mtgdu9ti-f357fc5e/beta\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"Changed setting.txt from `mode=base` to `mode=beta` and verified the file now contains exactly `mode=beta` followed by a newline.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/worktrees/codex/ra-swarm-mtgdu9ti-f357fc5e/beta\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"9c98d4f0251f7f70156fc81b0332e3882a8b851c\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    }\n  ],\n  \"integrationBranch\": \"codex/ra-swarm-mtgdu9ti-f357fc5e/integration\",\n  \"integrationWorktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/integration/codex/ra-swarm-mtgdu9ti-f357fc5e/integration\",\n  \"conflicts\": [\n    \"setting.txt\"\n  ],\n  \"error\": \"Merge failed for beta. Resolve and commit in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/integration/codex/ra-swarm-mtgdu9ti-f357fc5e/integration, then run ra swarm apply swarm-mtgdu9ti-f357fc5e. Auto-merging setting.txt\\nCONFLICT (content): Merge conflict in setting.txt\\nAutomatic merge failed; fix conflicts and then commit the result.\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "e9c284105e25416d72bbe835dd0caafe5822f2d0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtgdu9ti-f357fc5e/alpha"
+      ],
+      "exit": 0,
+      "seconds": 0.07,
+      "stdout": "5b2efb2a768233a4112931678bed6f343a1e2f58\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtgdu9ti-f357fc5e/beta"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "9c98d4f0251f7f70156fc81b0332e3882a8b851c\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "setting.txt"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "fix: resolve swarm setting conflict"
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "[codex/ra-swarm-mtgdu9ti-f357fc5e/integration 2c4dd3e] fix: resolve swarm setting conflict\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "apply",
+        "swarm-mtgdu9ti-f357fc5e",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 1.05,
+      "stdout": "{\n  \"id\": \"swarm-mtgdu9ti-f357fc5e\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery\",\n  \"base\": \"e9c284105e25416d72bbe835dd0caafe5822f2d0\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788129004087,\n  \"status\": \"applied\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"alpha\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=alpha followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    },\n    {\n      \"id\": \"beta\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=beta followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"alpha\",\n      \"branch\": \"codex/ra-swarm-mtgdu9ti-f357fc5e/alpha\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"Changed setting.txt content from `mode=base` to `mode=alpha` (with trailing newline preserved). Verified by reading the file: it now contains exactly `mode=alpha` followed by a newline.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/worktrees/codex/ra-swarm-mtgdu9ti-f357fc5e/alpha\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"5b2efb2a768233a4112931678bed6f343a1e2f58\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    },\n    {\n      \"taskId\": \"beta\",\n      \"branch\": \"codex/ra-swarm-mtgdu9ti-f357fc5e/beta\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"Changed setting.txt from `mode=base` to `mode=beta` and verified the file now contains exactly `mode=beta` followed by a newline.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/worktrees/codex/ra-swarm-mtgdu9ti-f357fc5e/beta\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"9c98d4f0251f7f70156fc81b0332e3882a8b851c\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    }\n  ],\n  \"integrationBranch\": \"codex/ra-swarm-mtgdu9ti-f357fc5e/integration\",\n  \"integrationWorktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgdu9ti-f357fc5e/integration/codex/ra-swarm-mtgdu9ti-f357fc5e/integration\",\n  \"conflicts\": []\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtgdu9ti-f357fc5e/alpha"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "5b2efb2a768233a4112931678bed6f343a1e2f58\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtgdu9ti-f357fc5e/beta"
+      ],
+      "exit": 0,
+      "seconds": 0.07,
+      "stdout": "9c98d4f0251f7f70156fc81b0332e3882a8b851c\n",
+      "stderr": ""
+    }
+  ]
+}

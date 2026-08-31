@@ -5,7 +5,10 @@
 export interface SubagentNode {
   role: string;
   task: string;
-  status: "running" | "done" | "error";
+  status: "running" | "done" | "error" | "cancelled";
+  model?: string;
+  started?: number;
+  ended?: number;
   result?: string;
   children: SubagentNode[];
   depth: number;
@@ -16,9 +19,23 @@ export class SubagentTree {
   private stack: SubagentNode[] = [];
 
   /** Start tracking a root agent (e.g. ptah). */
-  startRoot(role: string, task: string): void {
-    this.root = { role, task, status: "running", children: [], depth: 0 };
+  startRoot(role: string, task: string): SubagentNode {
+    this.root = { role, task, status: "running", children: [], depth: 0, started: Date.now() };
     this.stack = [this.root];
+    return this.root;
+  }
+
+  /** Explicit ownership is safe when sibling agents complete out of order. */
+  beginNode(role: string, task: string, parent: SubagentNode): SubagentNode {
+    const node: SubagentNode = { role, task, status: "running", children: [], depth: parent.depth + 1, started: Date.now() };
+    parent.children.push(node);
+    return node;
+  }
+
+  finishNode(node: SubagentNode, status: SubagentNode["status"], result?: string): void {
+    node.status = status;
+    node.result = result?.slice(0, 300);
+    node.ended = Date.now();
   }
 
   /** Begin a subagent spawn. Must be called inside the parent's execution. */
@@ -69,9 +86,9 @@ export class SubagentTree {
   }
 
   private renderNode(node: SubagentNode, lines: string[], prefix: string): void {
-    const icon = node.status === "running" ? "⏳" : node.status === "error" ? "✗" : "✓";
+    const icon = node.status === "running" ? "⏳" : node.status === "error" ? "✗" : node.status === "cancelled" ? "⏹" : "✓";
     const task = node.task.length > 60 ? node.task.slice(0, 57) + "…" : node.task;
-    lines.push(`${prefix}${icon} ${node.role}: ${task}`);
+    lines.push(`${prefix}${icon} ${node.role}${node.model ? ` [${node.model}]` : ""}: ${task}`);
     for (let i = 0; i < node.children.length; i++) {
       const isLast = i === node.children.length - 1;
       const childPrefix = prefix + (isLast ? "  " : "  ");

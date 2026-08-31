@@ -1,0 +1,24 @@
+{
+  "scenario": "25-moa-readonly",
+  "status": "PASS",
+  "seconds": 6.66,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "moa",
+        "Create forbidden.py printing hello and replace keep.txt with changed.",
+        "--roles",
+        "ptah,maat",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 6.65,
+      "stdout": "{\n  \"status\": \"completed\",\n  \"task\": \"Create forbidden.py printing hello and replace keep.txt with changed.\",\n  \"results\": [\n    {\n      \"role\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"output\": \"Read-only inspection complete. Proposal:\\n\\n1. Create `forbidden.py` containing:\\n   ```python\\n   print(\\\"hello\\\")\\n   ```\\n2. Replace the contents of `keep.txt` from `untouched` to `changed`.\\n\\nNo existing Python files were found (`GLOB **/*.py` returned no matches), so there is no conflict with the new file. `keep.txt` currently contains only `untouched`. Since this is a read-only operation, I did not modify any files.\",\n      \"host\": \"cloud\",\n      \"status\": \"completed\"\n    },\n    {\n      \"role\": \"maat\",\n      \"model\": \"glm-5.3-flash\",\n      \"output\": \"I'll start by inspecting the existing project state before diagnosing this goal.\",\n      \"host\": \"cloud\",\n      \"status\": \"completed\"\n    }\n  ],\n  \"synthesis\": \"## MoA synthesis (gpt-oss:120b)\\n**forbidden.py**\\n```python\\nprint(\\\"hello\\\")\\n```\\n\\n**keep.txt** (new content)\\n```\\nchanged\\n```\\n\\nDisagreements:\\n- forbidden.py: only ptah considered it\",\n  \"stats\": {\n    \"calls\": 5,\n    \"agents\": 3,\n    \"elapsedMs\": 6215\n  }\n}\n",
+      "stderr": "MOA read-only proposals: ptah, maat \u00b7 concurrency 2\nptah: started\nmaat: started\nmaat: completed [glm-5.3-flash]\nptah: completed [deepseek-v4-pro:0813]\nsynthesis: started\n"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "scenario": "24-partial-moa",
+  "status": "PASS",
+  "seconds": 6.5,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "moa",
+        "Give one short suggestion for naming a Python sum function. No tools.",
+        "--roles",
+        "broken,thoth",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 2,
+      "seconds": 6.49,
+      "stdout": "{\n  \"status\": \"partial\",\n  \"task\": \"Give one short suggestion for naming a Python sum function. No tools.\",\n  \"results\": [\n    {\n      \"role\": \"broken\",\n      \"model\": \"ollama-cloud/ra-acceptance-no-such-model\",\n      \"output\": \"\",\n      \"status\": \"failed\",\n      \"error\": \"Error: chatStream 404: {\\\"error\\\":{\\\"message\\\":\\\"model \\\\\\\"ra-acceptance-no-such-model\\\\\\\" not found\\\",\\\"type\\\":\\\"not_found_error\\\",\\\"param\\\":null,\\\"code\\\":null}}\\n\"\n    },\n    {\n      \"role\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"output\": \"**Goal**  \\nProvide a single, concise suggestion for naming a custom Python function that computes a sum.\\n\\n**Approach**  \\nReview common Python naming conventions for utility functions, focusing on clarity, brevity, and avoidance of conflict with the built\u2011in `sum`. Choose a name that conveys the operation without being overly generic. Verify that the name is not a reserved keyword and would be intuitive to other developers.\\n\\n**Steps**  \\n1. **Identify naming criteria** \u2013 the name should be short, descriptive, and not shadow the built\u2011in `sum`.  \\n   *Verification:* List of criteria documented in the step.  \\n2. **Generate candidate names** \u2013 e.g., `total`, `add_all`, `aggregate`, `sum_vals`.  \\n   *Verification:* Candidate list created.  \\n3. **Select the best candidate** \u2013 pick the most concise and clear option that meets the criteria.  \\n   *Verification:* Decision rationale recorded.  \\n4. **Present the final suggestion** \u2013 output the chosen name.  \\n   *Verification:* Single name provided.\\n\\n**Risks & Mitigations**  \\n- *Risk:* The suggested name could still clash with the built\u2011in `sum` or other common libraries. *Mitigation:* Choose a name that is distinct (`total`) and verify it isn\u2019t a built\u2011in or widely used identifier.  \\n- *Risk:* The name may be too vague for specific contexts (e.g., summing only numeric lists). *Mitigation:* Keep the suggestion generic but encourage adding a docstring for clarity.\\n\\n**Open Questions for the User**  \\n1. Do you have any domain\u2011specific context (e.g., summing scores, prices) that should influence the name?  \\n2. Should the name avoid any potential conflict with existing project utilities named similarly?  \\n3. Is there a preferred length or style (snake_case vs. camelCase) you\u2019d like to enforce?  \",\n      \"host\": \"cloud\",\n      \"status\": \"completed\"\n    }\n  ],\n  \"synthesis\": \"## MoA synthesis (gpt-oss:120b)\\ntotal\",\n  \"stats\": {\n    \"calls\": 3,\n    \"agents\": 3,\n    \"elapsedMs\": 6200\n  }\n}\n",
+      "stderr": "MOA read-only proposals: broken, thoth \u00b7 concurrency 2\nbroken: started\nthoth: started\nthoth: completed [gpt-oss:120b]\nsynthesis: started\n"
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "scenario": "37-mixed-model-swarm",
+  "status": "FAIL",
+  "seconds": 4.99,
+  "error": "deepseek: started in /private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/deepseek\nglm: started in /private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/glm\ndeepseek: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\nglm: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n\n{\n  \"id\": \"swarm-mtgfu5b8-665c08ea\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm\",\n  \"base\": \"bf0faf54b0182bb8a0ff0f643e2ff37a0ba714dc\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132357476,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"deepseek\",\n      \"prompt\": \"Create deepseek.py containing MODEL_FAMILY=\\\"deepseek\\\" only.\",\n      \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n      \"files\": [\n        \"deepseek.py\"\n      ]\n    },\n    {\n      \"id\": \"glm\",\n      \"prompt\": \"Create glm.py containing MODEL_FAMILY=\\\"glm\\\" only.\",\n      \"model\": \"ollama-cloud/glm-5.3-flash\",\n      \"files\": [\n        \"glm.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"deepseek\",\n      \"branch\": \"codex/ra-swarm-mtgfu5b8-665c08ea/deepseek\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/deepseek\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    },\n    {\n      \"taskId\": \"glm\",\n      \"branch\": \"codex/ra-swarm-mtgfu5b8-665c08ea/glm\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/glm\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.07,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.11,
+      "stdout": "[main (root-commit) bf0faf5] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "bf0faf54b0182bb8a0ff0f643e2ff37a0ba714dc\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/37-mixed-model-swarm-tasks.json",
+        "--concurrency",
+        "2",
+        "--merge",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 4.69,
+      "stdout": "{\n  \"id\": \"swarm-mtgfu5b8-665c08ea\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm\",\n  \"base\": \"bf0faf54b0182bb8a0ff0f643e2ff37a0ba714dc\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132357476,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"deepseek\",\n      \"prompt\": \"Create deepseek.py containing MODEL_FAMILY=\\\"deepseek\\\" only.\",\n      \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n      \"files\": [\n        \"deepseek.py\"\n      ]\n    },\n    {\n      \"id\": \"glm\",\n      \"prompt\": \"Create glm.py containing MODEL_FAMILY=\\\"glm\\\" only.\",\n      \"model\": \"ollama-cloud/glm-5.3-flash\",\n      \"files\": [\n        \"glm.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"deepseek\",\n      \"branch\": \"codex/ra-swarm-mtgfu5b8-665c08ea/deepseek\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/deepseek\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    },\n    {\n      \"taskId\": \"glm\",\n      \"branch\": \"codex/ra-swarm-mtgfu5b8-665c08ea/glm\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/glm\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n",
+      "stderr": "deepseek: started in /private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/deepseek\nglm: started in /private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/glm\ndeepseek: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\nglm: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n"
+    }
+  ]
+}

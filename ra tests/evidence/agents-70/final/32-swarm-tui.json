@@ -1,0 +1,196 @@
+{
+  "scenario": "32-swarm-tui",
+  "status": "PASS",
+  "seconds": 10.64,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.11,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/32-swarm-tui/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.11,
+      "stdout": "[main (root-commit) ad2fa5f] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "ad2fa5fc4f52cc6cda7e0e096af321ddce2dc245\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "--cwd",
+        "/private/tmp/ra-user-sandbox/projects/32-swarm-tui"
+      ],
+      "inputs": [
+        "/swarm run /private/tmp/ra-user-sandbox/32-swarm-tui-tasks.json --concurrency 1",
+        "/swarm list",
+        "/tree"
+      ],
+      "exit": 0,
+      "stdout": "\u256d RA TUI \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256e\r\n\u2502 \ud80c\udce1  RA  \ud80c\udce1                                               \u2502\r\n\u2502 Relic Agent \u2014 Mixture-of-Agents Terminal Dev             \u2502\r\n\u2502 v1.0.0-ra.70  \u00b7  theme: Pharaonic                        \u2502\r\n\u2502 RA prefer small@251 \u2192 big@cloud  (gemma @local fallback) \u2502\r\n\u2570 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256f\r\nProject: /private/tmp/ra-user-sandbox/projects/32-swarm-tui | Profile: cloud-acceptance | Ctrl+P palette | /help\r\n\r\nWelcome to RA. New here? Try:\r\n  /simple on\r\n  /quick write a hello world function\r\n  /again  (re-run last full-dev)\r\n  /verify  (re-check last artifacts)\r\n  /palette\r\n  small: ollama-cloud/gpt-oss:120b \u00b7 code: ollama-cloud/deepseek-v4-pro:0813\r\n\r\nRA \u203a /swarm run /private/tmp/ra-user-sandbox/32-swarm-tui-tasks.json --concurrency 1\r\r\n\r\nRA\r\ntui: started in /private/tmp/ra-user-sandbox/projects/32-swarm-tui/.git/ra-swarms/swarm-mtge0w9t-a48e6ef6/worktrees/codex/ra-swarm-mtge0w9t-a48e6ef6/tui\r\n\r\n\u256d subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n\u23f3 swarm: /private/tmp/ra-user-sandbox/32-swarm-tui-tasks.json\r\n\u2570\u2500\r\n[plugin] agent ptah starting: Create banner.py defining BANNER = \"copper-moon\" only.\r\nOnly \r\n[plugin] agent ptah done (deepseek-v4-pro:0813)\r\n\r\nRA\r\ntui: ready [deepseek-v4-pro:0813] \u00b7 1 files\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/deepseek-v4-pro:0813: 1476 tok \u00b7 subscription\r\n  TOTAL: 1476 tok \u00b7 $0.0000\r\n\u2570\u2500\r\n\u256d subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n\u23f3 swarm: /private/tmp/ra-user-sandbox/32-swarm-tui-tasks.json\r\n  \u2713 ptah [deepseek-v4-pro:0813]: Create banner.py defining BANNER = \"copper-moon\" only.\r\nOn\u2026\r\n\u2570\u2500\r\n\r\nRA\r\nRA swarm swarm-mtge0w9t-a48e6ef6 \u00b7 ready \u00b7 concurrency 1\r\n  ready: tui [deepseek-v4-pro:0813]\r\n    branch: codex/ra-swarm-mtge0w9t-a48e6ef6/tui\r\n    worktree: /private/tmp/ra-user-sandbox/projects/32-swarm-tui/.git/ra-swarms/swarm-mtge0w9t-a48e6ef6/worktrees/codex/ra-swarm-mtge0w9t-a48e6ef6/tui\r\nReview the branches, then: ra swarm apply swarm-mtge0w9t-a48e6ef6\r\nTask branches and worktrees are retained. No automatic force-cleanup is performed.\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/deepseek-v4-pro:0813: 1476 tok \u00b7 subscription\r\n  TOTAL: 1476 tok \u00b7 $0.0000\r\n\u2570\u2500\r\n\u256d subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n\u2713 swarm: /private/tmp/ra-user-sandbox/32-swarm-tui-tasks.json\r\n  \u2713 ptah [deepseek-v4-pro:0813]: Create banner.py defining BANNER = \"copper-moon\" only.\r\nOn\u2026\r\n\u2570\u2500\r\nRA \u203a /swarm list\r\r\n\r\nRA\r\nswarm-mtge0w9t-a48e6ef6 \u00b7 ready \u00b7 1 tasks\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/deepseek-v4-pro:0813: 1476 tok \u00b7 subscription\r\n  TOTAL: 1476 tok \u00b7 $0.0000\r\n\u2570\u2500\r\n\u256d subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n\u2713 swarm: /private/tmp/ra-user-sandbox/32-swarm-tui-tasks.json\r\n  \u2713 ptah [deepseek-v4-pro:0813]: Create banner.py defining BANNER = \"copper-moon\" only.\r\nOn\u2026\r\n\u2570\u2500\r\nRA \u203a /tree\r\r\n\r\nRA\r\n\u256d subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n\u2713 swarm: /private/tmp/ra-user-sandbox/32-swarm-tui-tasks.json\r\n  \u2713 ptah [deepseek-v4-pro:0813]: Create banner.py defining BANNER = \"copper-moon\" only.\r\nOn\u2026\r\n\u2570\u2500\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/deepseek-v4-pro:0813: 1476 tok \u00b7 subscription\r\n  TOTAL: 1476 tok \u00b7 $0.0000\r\n\u2570\u2500\r\n\u256d subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n\u2713 swarm: /private/tmp/ra-user-sandbox/32-swarm-tui-tasks.json\r\n  \u2713 ptah [deepseek-v4-pro:0813]: Create banner.py defining BANNER = \"copper-moon\" only.\r\nOn\u2026\r\n\u2570\u2500\r\nRA \u203a /exit\r\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.11,
+      "stdout": "ad2fa5fc4f52cc6cda7e0e096af321ddce2dc245\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "list",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 0.61,
+      "stdout": "[\n  {\n    \"id\": \"swarm-mtge0w9t-a48e6ef6\",\n    \"repo\": \"/private/tmp/ra-user-sandbox/projects/32-swarm-tui\",\n    \"base\": \"ad2fa5fc4f52cc6cda7e0e096af321ddce2dc245\",\n    \"baseRef\": \"refs/heads/main\",\n    \"created\": 1788129313121,\n    \"status\": \"ready\",\n    \"concurrency\": 1,\n    \"tasks\": [\n      {\n        \"id\": \"tui\",\n        \"prompt\": \"Create banner.py defining BANNER = \\\"copper-moon\\\" only.\",\n        \"files\": [\n          \"banner.py\"\n        ]\n      }\n    ],\n    \"results\": [\n      {\n        \"taskId\": \"tui\",\n        \"branch\": \"codex/ra-swarm-mtge0w9t-a48e6ef6/tui\",\n        \"status\": \"ready\",\n        \"ok\": true,\n        \"output\": \"Created `banner.py` with the single line `BANNER = \\\"copper-moon\\\"` and verified the file contents by reading it back. No other files were changed.\",\n        \"worktree\": \"/private/tmp/ra-user-sandbox/projects/32-swarm-tui/.git/ra-swarms/swarm-mtge0w9t-a48e6ef6/worktrees/codex/ra-swarm-mtge0w9t-a48e6ef6/tui\",\n        \"model\": \"deepseek-v4-pro:0813\",\n        \"commit\": \"5beba24dc5e0c83cc06ff93d09aba119cc59d2e1\",\n        \"files\": [\n          \"banner.py\"\n        ]\n      }\n    ]\n  }\n]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtge0w9t-a48e6ef6/tui"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "5beba24dc5e0c83cc06ff93d09aba119cc59d2e1\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "--cwd",
+        "/private/tmp/ra-user-sandbox/projects/32-swarm-tui"
+      ],
+      "inputs": [
+        "/swarm apply swarm-mtge0w9t-a48e6ef6",
+        "/swarm status swarm-mtge0w9t-a48e6ef6"
+      ],
+      "exit": 0,
+      "stdout": "\u256d RA TUI \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256e\r\n\u2502 \ud80c\udce1  RA  \ud80c\udce1                                               \u2502\r\n\u2502 Relic Agent \u2014 Mixture-of-Agents Terminal Dev             \u2502\r\n\u2502 v1.0.0-ra.70  \u00b7  theme: Pharaonic                        \u2502\r\n\u2502 RA prefer small@251 \u2192 big@cloud  (gemma @local fallback) \u2502\r\n\u2570 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256f\r\nProject: /private/tmp/ra-user-sandbox/projects/32-swarm-tui | Profile: cloud-acceptance | Ctrl+P palette | /help\r\n\r\nReattached to session (8 messages). Last: [assistant] \u256d subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n\u2713 swarm: /private/tmp/ra-user-sandbox/32-swarm-tui-tasks.json\r\n  \u2713 ptah [deepseek-v4-pro:0813]\u2026.\r\n  /history to review \u00b7 /clear to reset\r\n\r\nRA \u203a /swarm apply swarm-mtge0w9t-a48e6ef6\r\r\n\r\nRA\r\nRA swarm swarm-mtge0w9t-a48e6ef6 \u00b7 applied \u00b7 concurrency 1\r\n  ready: tui [deepseek-v4-pro:0813]\r\n    branch: codex/ra-swarm-mtge0w9t-a48e6ef6/tui\r\n    worktree: /private/tmp/ra-user-sandbox/projects/32-swarm-tui/.git/ra-swarms/swarm-mtge0w9t-a48e6ef6/worktrees/codex/ra-swarm-mtge0w9t-a48e6ef6/tui\r\nTask branches and worktrees are retained. No automatic force-cleanup is performed.\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/deepseek-v4-pro:0813: 1476 tok \u00b7 subscription\r\n  TOTAL: 1476 tok \u00b7 $0.0000\r\n\u2570\u2500\r\nRA \u203a /swarm status swarm-mtge0w9t-a48e6ef6\r\r\n\r\nRA\r\nRA swarm swarm-mtge0w9t-a48e6ef6 \u00b7 applied \u00b7 concurrency 1\r\n  ready: tui [deepseek-v4-pro:0813]\r\n    branch: codex/ra-swarm-mtge0w9t-a48e6ef6/tui\r\n    worktree: /private/tmp/ra-user-sandbox/projects/32-swarm-tui/.git/ra-swarms/swarm-mtge0w9t-a48e6ef6/worktrees/codex/ra-swarm-mtge0w9t-a48e6ef6/tui\r\nTask branches and worktrees are retained. No automatic force-cleanup is performed.\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/deepseek-v4-pro:0813: 1476 tok \u00b7 subscription\r\n  TOTAL: 1476 tok \u00b7 $0.0000\r\n\u2570\u2500\r\nRA \u203a /exit\r\r\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "-c",
+        "from banner import BANNER; assert BANNER==\"copper-moon\""
+      ],
+      "exit": 0,
+      "seconds": 0.23,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

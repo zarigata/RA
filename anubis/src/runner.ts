@@ -3,30 +3,28 @@
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadRaConfig, applyProjectOverride, applyEnvOverrides, type RaConfig } from "./config.ts";
-import { pickClientForModel, runWithFallback } from "./ollama.ts";
 import { resolveRoleModel, resolveAll, formatAssignments, type RouterConfig } from "./router.ts";
 import { DEFAULT_PIPELINE_STAGES, planPipeline } from "./pipeline.ts";
 import { renderSplash, renderStageProgress, renderTaskComplete, renderRolesTable } from "./tui.ts";
 import { loadEnv } from "./env.ts";
-import { recordChatUsage, formatReport, buildReport, loadUsage } from "./cost.ts";
+import { formatReport, buildReport, loadUsage } from "./cost.ts";
 import { saveLastRun, formatResultLine, formatLaneLine, formatIntentLine, formatPreferLine, type StageTiming } from "./last-run.ts";
 import { appendHistory } from "./history.ts";
 import { detectIntent } from "./intent.ts";
 import { HELLO_PY_STUB, ensureHelloPyBody } from "./hello-py.ts";
 
 const ROLE_PROMPTS: Record<string, string> = {
-  thoth: "You are Thoth — planner. Outline steps only. Be brief.",
-  ptah: "You are Ptah — implementer. Write working code in one fenced block. Prefer a single file. For hello world Python use def hello(): print(\"Hello, World!\") — never recurse. For websites write complete HTML in one ```html fence.",
-  maat: "You are Maat — reviewer. Find bugs and gaps. Be brief.",
-  sekhmet: "You are Sekhmet — adversarial critic. Challenge the solution briefly.",
-  seshat: "You are Seshat — documenter. Summarize what was built in 5 lines.",
-  horus: "You are Horus — fast helper. Be brief.",
+  thoth: "Plan the user's task; inspect existing files if needed. Do not implement or edit files. Finish with a concise plan.",
+  ptah: "Implement the user's task using file tools. Inspect existing code first; preserve unrelated content. Verify the change.",
+  maat: "Review the implemented files for bugs. Read files and report findings; do not implement or edit anything.",
+  sekhmet: "Critique the implementation and identify edge cases. Read files and report findings; do not edit anything.",
+  seshat: "Document the implementation, using actual files as evidence.",
 };
 
 export interface RunResult {
   task: string;
   stages: string[];
-  outputs: Array<{ stage: string; model: string; content: string }>;
+  outputs: Array<{ stage: string; model: string; content: string; fallbacks?: Array<{ from: string; to: string; reason: string; ms: number }> }>;
   summary: string;
   filesWritten: string[];
 }
@@ -128,6 +126,10 @@ export async function runFullDevTask(
   const plan = planPipeline(task, stages);
   if (!plan) throw new Error("invalid pipeline stages");
 
+  const { withAgentRun } = await import("../../ra/src/execution.ts");
+  const { runTaskAgent, getActiveSubagentTracker, getActiveStreamRenderer } = await import("../../ra/src/agent.ts");
+  return withAgentRun({ label: "pipeline", task, limits: config.agent_limits, tree: getActiveSubagentTracker(), renderer: getActiveStreamRenderer() }, async () => {
+
   if (!opts.quiet) console.log(renderSplash());
 
   const t0 = Date.now();
@@ -142,45 +144,31 @@ export async function runFullDevTask(
     let usedModel = assignment.model;
     let usedHost = "lan";
     const stageT0 = Date.now();
-    const system = ROLE_PROMPTS[stage] ?? `You are ${stage}.`;
-    const prior = outputs.map((o) => `[${o.stage}]: ${o.content.slice(0, 300)}`).join("\n");
-    const user = prior
-      ? `Task: ${task}\n\nPrior work:\n${prior}\n\nYour turn (${stage}):`
-      : `Task: ${task}\n\nYour turn (${stage}):`;
+    const prior = outputs.map((o) => `[${o.stage}]: ${o.content.slice(-6000)}`).join("\n");
+    const prompt = `User goal: ${task}\n\nYour assignment (${stage}): ${ROLE_PROMPTS[stage] ?? "Complete your assigned role."}${prior ? `\n\nPrior work (verify against actual files):\n${prior}` : ""}`;
+    let stageFallbacks: RunResult["outputs"][number]["fallbacks"];
     try {
-      const { result, attempts } = await runWithFallback(assignment.model, env, (client, model) =>
-        client.nativeChat(model, [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ], { timeoutMs: 120_000 }),
-        (candidate, e) => pickClientForModel(candidate, e, config.provider as Record<string, import("./ollama.ts").ProviderDef> | undefined),
-      );
-      content = result.content;
+      mkdirSync(workDir, { recursive: true });
+      const result = await runTaskAgent(stage, prompt, config, { cwd: workDir, filesWritten }, env);
+      content = result.output;
       usedModel = result.model;
-      const okAttempt = attempts.find((a) => a.ok);
-      usedHost = okAttempt?.host ?? "lan";
-      recordChatUsage(result.model, usedHost === "cloud", result.usage, {
-        in: system.length + user.length,
-        out: content.length,
-      }, workDir);
-    } catch (e) {
-      content = `(stage ${stage} failed: ${String(e)})`;
-    }
-
-    if (stage === "ptah") {
-      const file = extractCodeFile(content, task);
-      if (file) {
-        mkdirSync(workDir, { recursive: true });
-        const path = join(workDir, file.name);
-        writeFileSync(path, file.body + "\n", "utf-8");
-        filesWritten.push(path);
-        if (!opts.quiet) console.log(`\x1b[2m  → wrote ${path}\x1b[0m`);
+      usedHost = result.host ?? "unknown";
+      for (const f of result.fallbacks ?? []) {
+        console.error(`RA fallback: ${f.from} unavailable → ${f.to} (${f.reason})`);
       }
+      stageFallbacks = result.fallbacks;
+    } catch (e) {
+      const error = `Stage ${stage} failed: ${String(e)}`;
+      const failed = saveLastRun({ task, stages: plan.stages, models: outputs.map(o => o.model), filesWritten,
+        hosts: hostsUsed, ms: Date.now() - t0, intent: detectIntent(task), cwd: workDir, timings,
+        status: "failed", error, outputs });
+      appendHistory(failed);
+      throw new Error(error);
     }
 
     const stageMs = Date.now() - stageT0;
     timings.push({ stage, model: usedModel, host: usedHost, ms: stageMs });
-    outputs.push({ stage, model: usedModel, content });
+    outputs.push({ stage, model: usedModel, content, ...(stageFallbacks?.length ? { fallbacks: stageFallbacks } : {}) });
     if (!hostsUsed.includes(usedHost)) hostsUsed.push(usedHost);
     if (!opts.quiet) {
       console.log(
@@ -192,15 +180,11 @@ export async function runFullDevTask(
     }
   }
 
-  // If ptah returned prose without a fence, still land a usable file for known tasks
-  for (const extra of ensureTaskArtifacts(workDir, task, filesWritten)) {
-    filesWritten.push(extra);
-    if (!opts.quiet) console.log(`\x1b[2m  → wrote ${extra} (ensure)\x1b[0m`);
-  }
-
   const summary = outputs.map((o) => `## ${o.stage}\n${o.content}`).join("\n\n");
   const last = saveLastRun({
     task,
+    status: "completed",
+    outputs,
     stages: plan.stages,
     models: outputs.map((o) => o.model),
     filesWritten,
@@ -233,6 +217,7 @@ export async function runFullDevTask(
   }
 
   return { task, stages: plan.stages, outputs, summary, filesWritten };
+  });
 }
 
 export function renderRoles(config: RouterConfig): string {

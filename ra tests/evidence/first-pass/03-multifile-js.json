@@ -1,0 +1,22 @@
+{
+  "scenario": "03-multifile-js",
+  "status": "FAIL",
+  "seconds": 9.63,
+  "error": "RA verify: no files from last full-dev.\n",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create math.mjs exporting sum(values) and app.mjs importing sum from ./math.mjs and printing sum([2,3,5]). No dependencies. Run app.mjs to check it.",
+        "--quick",
+        "--json",
+        "--verify"
+      ],
+      "exit": 1,
+      "seconds": 9.63,
+      "stdout": "{\n  \"task\": \"Create math.mjs exporting sum(values) and app.mjs importing sum from ./math.mjs and printing sum([2,3,5]). No dependencies. Run app.mjs to check it.\",\n  \"status\": \"completed\",\n  \"stages\": [\n    \"thoth\",\n    \"ptah\"\n  ],\n  \"models\": [\n    \"gpt-oss:120b\",\n    \"deepseek-v4-pro:0813\"\n  ],\n  \"filesWritten\": [],\n  \"hosts\": [\n    \"cloud\"\n  ],\n  \"ms\": 9359,\n  \"intent\": \"code\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/03-multifile-js\",\n  \"timings\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"host\": \"cloud\",\n      \"ms\": 8051\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"host\": \"cloud\",\n      \"ms\": 1308\n    }\n  ],\n  \"at\": 1788126026768\n}\n",
+      "stderr": "RA verify: no files from last full-dev.\n"
+    }
+  ]
+}

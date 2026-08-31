@@ -24,7 +24,8 @@ export function loadEnv(dir?: string): Record<string, string> {
       if (process.env[key] === undefined) process.env[key] = val;
     }
   }
-  return out;
+  // Exported values win over .env, and every caller sees the same environment.
+  return { ...out, ...Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined)) };
 }
 
 function findRoot(): string {

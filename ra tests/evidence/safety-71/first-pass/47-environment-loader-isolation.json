@@ -1,0 +1,24 @@
+{
+  "scenario": "47-environment-loader-isolation",
+  "status": "FAIL",
+  "seconds": 0.48,
+  "error": "Parent launcher sourced BASH_ENV before RA could filter it",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--",
+        "/bin/bash",
+        "-c",
+        "printf \"%s\" \"${OLLAMA_API_KEY-unset}:${BASH_ENV-unset}:${NODE_OPTIONS-unset}\""
+      ],
+      "exit": 0,
+      "seconds": 0.48,
+      "stdout": "{\n  \"code\": 0,\n  \"timedOut\": false,\n  \"stdout\": \"unset:unset:unset\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/workspace-write; network=deny\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

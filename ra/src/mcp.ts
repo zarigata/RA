@@ -1,7 +1,7 @@
 // Minimal MCP (Model Context Protocol) stdio client.
 // Spawns a server process, performs the JSON-RPC handshake, lists and calls tools.
 
-import { spawn, type Subprocess } from "bun";
+import { spawnCommand, type ManagedCommand, type CommandContext } from "./sandbox.ts";
 
 export interface McpTool {
   name: string;
@@ -55,105 +55,63 @@ interface JsonRpcResponse {
 }
 
 export class McpClient {
-  private proc: Subprocess | null = null;
+  private managed: ManagedCommand | null = null;
   private nextId = 1;
-  private pending = new Map<number, (r: JsonRpcResponse) => void>();
+  private pending = new Map<number, { resolve: (r: JsonRpcResponse) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   private buffer = "";
 
-  constructor(private config: McpServerConfig) {}
+  constructor(private config: McpServerConfig, private context: CommandContext = { cwd: process.cwd() }) {}
 
   async start(): Promise<void> {
-    this.proc = spawn({
-      cmd: [this.config.command, ...(this.config.args ?? [])],
-      env: { ...process.env, ...(this.config.env ?? {}) },
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-
-    // Accumulate newline-delimited JSON-RPC messages from stdout.
-    const reader = this.proc.stdout.getReader();
-    void (async () => {
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        this.buffer += decoder.decode(value, { stream: true });
-        let idx: number;
-        while ((idx = this.buffer.indexOf("\n")) >= 0) {
-          const line = this.buffer.slice(0, idx).trim();
-          this.buffer = this.buffer.slice(idx + 1);
-          if (!line) continue;
-          try {
-            const msg = JSON.parse(line) as JsonRpcResponse;
-            const resolve = this.pending.get(msg.id);
-            if (resolve) {
-              this.pending.delete(msg.id);
-              resolve(msg);
-            }
-          } catch {
-            /* ignore non-JSON lines (e.g. server logs) */
-          }
-        }
+    this.managed = spawnCommand(this.context, [this.config.command, ...(this.config.args ?? [])], { tool: "mcp", env: this.config.env });
+    this.managed.process.stderr.resume();
+    this.managed.process.stdout.on("data", chunk => {
+      this.buffer += chunk.toString();
+      if (this.buffer.length > 1_000_000) { this.failAll(new Error("MCP response exceeded buffer limit")); this.managed?.stop(); return; }
+      let index: number;
+      while ((index = this.buffer.indexOf("\n")) >= 0) {
+        const line = this.buffer.slice(0, index).trim(); this.buffer = this.buffer.slice(index + 1);
+        try {
+          const message = JSON.parse(line) as JsonRpcResponse;
+          const item = this.pending.get(message.id);
+          if (item) { this.pending.delete(message.id); clearTimeout(item.timer); item.resolve(message); }
+        } catch { /* non-protocol server output */ }
       }
-    })();
-
-    // Handshake: initialize.
-    await this.request("initialize", {
-      protocolVersion: "2024-11-05",
-      capabilities: {},
-      clientInfo: { name: "ra", version: "1.0.0" },
     });
-    await this.notify("notifications/initialized", {});
+    void this.managed.finished.then(() => this.failAll(new Error("MCP server exited")), error => this.failAll(new Error(String(error))));
+    await this.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "ra", version: "1.0.0" } });
+    this.send({ jsonrpc: "2.0", method: "notifications/initialized", params: {} });
   }
-
-  private send(msg: unknown): void {
-    if (!this.proc) throw new Error("MCP client not started");
-    this.proc.stdin.write(JSON.stringify(msg) + "\n");
+  private failAll(error: Error) { for (const item of this.pending.values()) { clearTimeout(item.timer); item.reject(error); } this.pending.clear(); }
+  private send(message: unknown) {
+    this.context.signal?.throwIfAborted();
+    if (!this.managed) throw new Error("MCP client not started");
+    this.managed.process.stdin.write(JSON.stringify(message) + "\n");
   }
-
   private request(method: string, params: unknown): Promise<JsonRpcResponse> {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, resolve);
-      this.send({ jsonrpc: "2.0", id, method, params });
-      // Timeout guard.
-      setTimeout(() => {
-        if (this.pending.has(id)) {
-          this.pending.delete(id);
-          reject(new Error(`MCP request timed out: ${method}`));
-        }
-      }, 10_000);
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`MCP request timed out: ${method}`)); this.managed?.stop(); }, 10000);
+      this.pending.set(id, { resolve, reject, timer });
+      try { this.send({ jsonrpc: "2.0", id, method, params }); }
+      catch (error) { clearTimeout(timer); this.pending.delete(id); reject(error); }
     });
   }
-
-  private notify(method: string, params: unknown): void {
-    this.send({ jsonrpc: "2.0", method, params });
-  }
-
   async listTools(): Promise<McpTool[]> {
-    const res = await this.request("tools/list", {});
-    if (res.error) throw new Error(`MCP tools/list error: ${res.error.message}`);
-    const tools = (res.result as { tools?: McpTool[] })?.tools ?? [];
-    return tools;
+    const response = await this.request("tools/list", {});
+    if (response.error) throw new Error(`MCP tools/list error: ${response.error.message}`);
+    return (response.result as { tools?: McpTool[] })?.tools ?? [];
   }
-
   async callTool(name: string, args: Record<string, unknown>): Promise<string> {
-    const res = await this.request("tools/call", { name, arguments: args });
-    if (res.error) throw new Error(`MCP tools/call error: ${res.error.message}`);
-    const result = res.result as { content?: Array<{ type: string; text?: string }> };
-    const text = (result.content ?? [])
-      .filter((c) => c.type === "text" && c.text)
-      .map((c) => c.text)
-      .join("\n");
-    return text || JSON.stringify(result);
+    const response = await this.request("tools/call", { name, arguments: args });
+    if (response.error) throw new Error(`MCP tools/call error: ${response.error.message}`);
+    const result = response.result as { content?: Array<{ type: string; text?: string }> };
+    return (result.content ?? []).filter(c => c.type === "text" && c.text).map(c => c.text).join("\n") || JSON.stringify(result);
   }
-
   async close(): Promise<void> {
-    if (this.proc) {
-      this.proc.kill();
-      this.proc = null;
-    }
+    const managed = this.managed; this.managed = null;
+    this.failAll(new Error("MCP client closed"));
+    if (managed) { managed.stop(); await managed.finished.catch(() => {}); }
   }
 }
 
@@ -255,7 +213,7 @@ export class McpHttpClient {
   private nextId = 1;
   private oauthManager: McpOAuthManager | null = null;
 
-  constructor(private config: McpHttpServerConfig) {
+  constructor(private config: McpHttpServerConfig, private signal?: AbortSignal) {
     if (config.oauth) {
       this.oauthManager = new McpOAuthManager(config.oauth);
     }
@@ -285,8 +243,10 @@ export class McpHttpClient {
       method: "POST",
       headers,
       body: JSON.stringify(msg),
+      signal: this.signal ? AbortSignal.any([this.signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000),
     });
     if (!res.ok) throw new Error(`MCP HTTP error: ${res.status} ${res.statusText}`);
+    if (res.status === 202 || res.status === 204) return null;
     const contentType = res.headers.get("content-type") ?? "";
     if (contentType.includes("text/event-stream")) {
       // SSE: read the stream until we get our response
@@ -357,27 +317,15 @@ export class McpHttpClient {
  * the server name. Servers that fail to start are skipped (logged to stderr).
  */
 export async function loadMcpTools(
-  servers: Record<string, McpServerEntry>,
+  servers: Record<string, McpServerEntry>, context: CommandContext = { cwd: process.cwd() },
 ): Promise<Array<McpTool & { server: string }>> {
   const out: Array<McpTool & { server: string }> = [];
   for (const [name, cfg] of Object.entries(servers)) {
-    try {
-      let tools: McpTool[];
-      if (isHttpConfig(cfg)) {
-        const client = new McpHttpClient(cfg);
-        await client.start();
-        tools = await client.listTools();
-        await client.close();
-      } else {
-        const client = new McpClient(cfg);
-        await client.start();
-        tools = await client.listTools();
-        await client.close();
-      }
-      for (const t of tools) out.push({ ...t, server: name });
-    } catch (e) {
-      console.error(`MCP server '${name}' failed to start: ${String(e)}`);
-    }
+    context.signal?.throwIfAborted();
+    const client = isHttpConfig(cfg) ? new McpHttpClient(cfg, context.signal) : new McpClient(cfg, context);
+    try { await client.start(); for (const tool of await client.listTools()) out.push({ ...tool, server: name }); }
+    catch (error) { context.signal?.throwIfAborted(); console.error(`MCP server '${name}' failed: ${String(error)}`); }
+    finally { await client.close(); }
   }
   return out;
 }

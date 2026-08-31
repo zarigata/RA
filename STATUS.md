@@ -5,6 +5,78 @@
 
 ## Current Cycle
 
+**2026-08-30 — Fallbacks, competitive evidence, tool hardening (RA 1.0.0-ra.72).**
+Provider failures now walk an explicit user-configured fallback chain
+(`RA_CONFIG` `fallbacks` / `RA_FALLBACK` / `RA_SMALL_FALLBACK`) with visible
+attribution; cloud never silently degrades to LAN/local and auth failures fail
+loudly. Installed-user acceptance: fallback scenarios **4/4**, .71 regression
+spot-check **2/2**, unit suite **360/360** (first fully green run since .71;
+four stale fixtures fixed). First fixed-budget competitive matrix on real
+repositories (micrograd, slugify), all three named competitors measured:
+**RA 3/3 and fastest per task (7–12 s)**; codex 3/3 (gpt-5.6-sol, 32–60 s,
+rerun after its quota reset); claude 3/3 (claude harness on the user's Z.AI
+GLM plan, 54–98 s); opencode 0/6 across two runs with the same Ollama model
+as RA — see [`ra tests/COMPETITIVE_RESULTS.md`](ra%20tests/COMPETITIVE_RESULTS.md).
+The benchmark exposed and fixed two real tool bugs: empty-content WRITEs are
+now rejected with a retryable error, and directory READ/EDIT paths return a
+graceful error instead of crashing the stage with EISDIR. The internal gate was
+also repaired after being silently dead since .69: 23 live checks pass, both
+unit suites run inside it, the LAN-hardware-dependent E2E records a labeled
+skip while .251 is unreachable, and MCP servers outside the workspace load
+under the sandbox.
+
+**2026-08-30 — Native sandbox regression proof (RA 1.0.0-ra.71).**
+The .71 build put every agent shell, stdio MCP server, compiler run, Python
+verification, and swarm Git operation inside the native macOS command sandbox.
+To prove that did not break real work, both installed-user suites were rerun
+against the reinstalled build with live Ollama Cloud (GLM planning/review,
+DeepSeek implementation): **coding 21/21** and **teams 16/16**, each in one
+uninterrupted run. The safety batch itself stands at 21/23 with two
+model-refusal cases retained as inconclusive. Evidence:
+[`ra tests/RESULTS.md`](ra%20tests/RESULTS.md),
+[`ra tests/AGENT_RESULTS.md`](ra%20tests/AGENT_RESULTS.md),
+[`ra tests/SAFETY_RESULTS.md`](ra%20tests/SAFETY_RESULTS.md).
+
+The goal remains open. Next priorities: explicit cloud fallbacks with visible
+attribution, per-session daemon cancellation, crash/model-task resume, durable
+long-project state, and competitive evidence on real repositories.
+
+**2026-08-30 — Agent teams and retained worktrees (RA 1.0.0-ra.70).**
+CLI/TUI now expose agent discovery, bounded read-only MoA, and coding swarms.
+Execution scopes share call/agent/depth/deadline limits, preserve partial
+outcomes, track sibling agents independently, and cancel shell process groups.
+Swarm apply integrates in a retained worktree and protects dirty/moved targets.
+
+**Installed acceptance: 16/16 new team scenarios passed in one batch.**
+Original regression batch: **20/21**, with a GPT-OSS planning Internal Server
+Error that repeated on retry. The failed bug-fix scenario passed separately with
+an explicit GLM planner. See [`ra tests/AGENT_RESULTS.md`](ra%20tests/AGENT_RESULTS.md)
+for transcripts, source hashes, the reproduced/fixed child-process leak, and
+limits. No internal test-suite success or competitive superiority is claimed.
+
+The earlier .69 and cycle notes below are historical.
+
+
+**2026-08-30 — Installed-user reliability pass (RA 1.0.0-ra.69).** See
+[`ra tests/RESULTS.md`](ra%20tests/RESULTS.md) for the current measured acceptance
+result, which supersedes old smoke-test claims for this pass. The new 21-case
+suite uses an installed macOS copy, fresh project/HOME directories, a Seatbelt
+write sandbox, live Ollama Cloud, and real PTY sessions. No existing repository
+test script was used as acceptance evidence.
+
+Changes: consistent exported environment/configuration; shared file-aware CLI
+and TUI agent loop; honest failure state and artifact verification; DeepSeek XML
+and native tool-call normalization; complete fenced-file writes; read-only role
+tool filtering; original-content undo; symlink checks; model interruption;
+bounded recent conversation context; grouped help; and transient stream errors.
+
+The broader RA 2.0 goal remains open. This pass does not establish competitive
+superiority, complete feature parity, or production security. Full internal CI,
+MCP, remote/IDE paths, long-context compaction, and built-in
+OS sandboxing still need independent acceptance work. The existing older cycle
+notes below are historical, not results from this run.
+
+
 **Cycle 44 — RA 2.0 Phase 0 (trustworthy engine).** Master plan written (`PLAN.md`, from the Claude Code/OpenCode/Crush/aider/Codex competitive audit). Landed: streaming everywhere (native NDJSON + cloud SSE, TUI token render, root-turn only), keep_alive 30m default + `ra warm` + TUI background warm-up, loop-level retry on transient errors, real MoA aggregation with disagreement surfacing, custom commands fixed (project `.ra/commands` + `~/.ra/commands`, `$ARGUMENTS`/`$N`, `agent:` frontmatter), `/todos` UI + TODO rm op.
 
 ## Last Cycle Result

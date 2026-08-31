@@ -1,0 +1,7 @@
+{
+  "command": "HOME=/private/tmp/ra-user-sandbox/home RA_INSTALL_DIR=/private/tmp/ra-user-sandbox/bin bash /private/tmp/ra-user-sandbox/app/install",
+  "sandbox": "/usr/bin/sandbox-exec -f /private/tmp/ra-user-sandbox/policy.sb",
+  "exit": 0,
+  "version": "1.0.0-ra.70",
+  "launcher": "/private/tmp/ra-user-sandbox/bin/ra"
+}

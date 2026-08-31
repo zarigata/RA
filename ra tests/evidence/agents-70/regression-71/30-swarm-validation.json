@@ -1,0 +1,245 @@
+{
+  "scenario": "30-swarm-validation",
+  "status": "PASS",
+  "seconds": 6.19,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.14,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/30-swarm-validation/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.14,
+      "stdout": "[main (root-commit) fa0c97f] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "fa0c97f38e3d60f50daa701544c8d82374bf8a26\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/30-swarm-validation-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 0.53,
+      "stdout": "{\"status\":\"failed\",\"error\":\"Error: Task IDs must be unique letters, numbers, underscores or hyphens (max 64)\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/30-swarm-validation-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 0.41,
+      "stdout": "{\"status\":\"failed\",\"error\":\"Error: Invalid file ownership for escape\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/30-swarm-validation-tasks.json",
+        "--concurrency",
+        "0",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 1.17,
+      "stdout": "{\"status\":\"failed\",\"error\":\"Error: concurrency must be an integer from 1 to 16\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "moa",
+        "x",
+        "--wat"
+      ],
+      "exit": 1,
+      "seconds": 0.56,
+      "stdout": "",
+      "stderr": "Error: Unexpected moa argument: --wat\n"
+    },
+    {
+      "command": [
+        "ra",
+        "moa",
+        "x",
+        "--concurrency"
+      ],
+      "exit": 1,
+      "seconds": 0.41,
+      "stdout": "",
+      "stderr": "Error: --concurrency needs a value\n"
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "--cwd"
+      ],
+      "exit": 1,
+      "seconds": 0.43,
+      "stdout": "",
+      "stderr": "Error: --cwd needs a directory\n"
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "status",
+        "../../escape",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 0.68,
+      "stdout": "{\"status\":\"failed\",\"error\":\"Error: Invalid swarm ID\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.1,
+      "stdout": "fa0c97f38e3d60f50daa701544c8d82374bf8a26\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.09,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "list",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 0.66,
+      "stdout": "[]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/30-swarm-validation-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 0.7,
+      "stdout": "{\"status\":\"failed\",\"error\":\"Error: Working tree is not clean. Commit or stash your changes before swarm work; RA will not stash them for you.\"}\n",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "scenario": "35-pipeline-shared-budget",
+  "status": "PASS",
+  "seconds": 4.31,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create answer.py containing ANSWER=42. Planning stage: return only a one-sentence plan without any tool calls. Implementation stage: write the file.",
+        "--quick",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 4.07,
+      "stdout": "",
+      "stderr": "Error: Stage ptah failed: Error: Model call budget exhausted (1)\n"
+    },
+    {
+      "command": [
+        "ra",
+        "last",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 0.23,
+      "stdout": "{\n  \"task\": \"Create answer.py containing ANSWER=42. Planning stage: return only a one-sentence plan without any tool calls. Implementation stage: write the file.\",\n  \"stages\": [\n    \"thoth\",\n    \"ptah\"\n  ],\n  \"models\": [\n    \"glm-5.3-flash\"\n  ],\n  \"filesWritten\": [],\n  \"hosts\": [\n    \"cloud\"\n  ],\n  \"ms\": 3820,\n  \"intent\": \"plan\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/35-pipeline-shared-budget\",\n  \"timings\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"glm-5.3-flash\",\n      \"host\": \"cloud\",\n      \"ms\": 3816\n    }\n  ],\n  \"status\": \"failed\",\n  \"error\": \"Stage ptah failed: Error: Model call budget exhausted (1)\",\n  \"outputs\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"glm-5.3-flash\",\n      \"content\": \"Plan: Create `answer.py` in the project root containing the single line `ANSWER = 42`, then verify by reading the file back to confirm its exact contents.\"\n    }\n  ],\n  \"at\": 1788132353206\n}\n",
+      "stderr": ""
+    }
+  ]
+}

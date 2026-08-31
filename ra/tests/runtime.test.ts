@@ -3,7 +3,7 @@ import { classifyTier, tierModel } from "../../ra/src/tier.ts";
 import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo, toolMultiEdit, expandMentions, toolOutline } from "../../ra/src/tools/index.ts";
 import { loadProjectMemory, loadAgentPermissions, loadAgentMeta } from "../../ra/src/agent.ts";
 import { join } from "node:path";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 describe("task tier classifier", () => {
@@ -235,11 +235,37 @@ describe("@-mention file picker", () => {
   });
 });
 
+describe("write guard", () => {
+  test("rejects empty-content WRITE so the model retries with real content", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-write-"));
+    try {
+      const out = toolWrite({ cwd }, "empty.txt", "   \n");
+      expect(out).toContain("Error:");
+      expect(out).toContain("empty content");
+      expect(existsSync(join(cwd, "empty.txt"))).toBe(false);
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("EDIT on a directory returns a graceful error instead of crashing", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-edit-dir-"));
+    try {
+      mkdirSync(join(cwd, "sub"));
+      const out = toolEdit({ cwd }, "sub", "a", "b");
+      expect(out).toContain("is a directory");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+});
+
 describe("project memory", () => {
   test("loads AGENTS.md when present", () => {
     const cwd = mkdtempSync(join(tmpdir(), "ra-mem-"));
     try {
-      toolWrite({ cwd }, "AGENTS.md", "Use tabs, not spaces.");
+      // Fixtures are written directly: .71 policy guards block agent-tool writes to AGENTS.md.
+      writeFileSync(join(cwd, "AGENTS.md"), "Use tabs, not spaces.\n");
       const mem = loadProjectMemory(cwd);
       expect(mem).toContain("AGENTS.md");
       expect(mem).toContain("Use tabs");
@@ -251,8 +277,8 @@ describe("project memory", () => {
   test("prefers AGENTS.md over RA.md", () => {
     const cwd = mkdtempSync(join(tmpdir(), "ra-mem-"));
     try {
-      toolWrite({ cwd }, "AGENTS.md", "from agents");
-      toolWrite({ cwd }, "RA.md", "from ra");
+      writeFileSync(join(cwd, "AGENTS.md"), "from agents\n");
+      writeFileSync(join(cwd, "RA.md"), "from ra\n");
       const mem = loadProjectMemory(cwd);
       expect(mem).toContain("from agents");
       expect(mem).not.toContain("from ra");

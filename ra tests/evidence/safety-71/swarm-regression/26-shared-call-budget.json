@@ -1,0 +1,24 @@
+{
+  "scenario": "26-shared-call-budget",
+  "status": "PASS",
+  "seconds": 1.67,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "moa",
+        "Reply with one word. No tools.",
+        "--roles",
+        "thoth,maat",
+        "--concurrency",
+        "1",
+        "--json"
+      ],
+      "exit": 130,
+      "seconds": 1.66,
+      "stdout": "{\n  \"status\": \"cancelled\",\n  \"task\": \"Reply with one word. No tools.\",\n  \"results\": [\n    {\n      \"role\": \"thoth\",\n      \"model\": \"glm-5.3-flash\",\n      \"output\": \"Acknowledged.\",\n      \"host\": \"cloud\",\n      \"status\": \"completed\"\n    },\n    {\n      \"role\": \"maat\",\n      \"model\": \"ollama-cloud/glm-5.3-flash\",\n      \"output\": \"\",\n      \"status\": \"cancelled\",\n      \"error\": \"Error: Model call budget exhausted (1)\"\n    }\n  ],\n  \"synthesis\": \"\",\n  \"stats\": {\n    \"calls\": 1,\n    \"agents\": 2,\n    \"elapsedMs\": 1331\n  }\n}\n",
+      "stderr": "MOA read-only proposals: thoth, maat \u00b7 concurrency 1\nthoth: started\nthoth: completed [glm-5.3-flash]\nmaat: started\n"
+    }
+  ]
+}

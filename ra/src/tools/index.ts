@@ -1,4 +1,6 @@
-import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync } from "node:fs";
+import { runCommand, assertFileAccess, type SandboxConfig } from "../sandbox.ts";
+import { assertTool, type AgentCapabilities } from "../permission.ts";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync, realpathSync, lstatSync } from "node:fs";
 import { join, relative, resolve, dirname, sep } from "node:path";
 import { redact } from "../../../anubis/src/redact.ts";
 import { snapshotFile } from "../server/checkpoint.ts";
@@ -8,6 +10,12 @@ import { isLocalUrl } from "../airgap.ts";
 
 export interface ToolContext {
   cwd: string;
+  filesWritten?: string[];
+  mutations?: { count: number };
+  signal?: AbortSignal;
+  capabilities?: AgentCapabilities;
+  sandbox?: SandboxConfig;
+  history?: Array<{ role: "user" | "assistant" | "system"; content: string }>;
 }
 
 export function safePath(cwd: string, p: string): string {
@@ -16,51 +24,80 @@ export function safePath(cwd: string, p: string): string {
   if (abs !== root && !abs.startsWith(root + sep)) {
     throw new Error(`path escapes project: ${p}`);
   }
-  return abs;
+  // Validate existing ancestors too: lexical containment does not stop symlinks.
+  const realRoot = realpathSync(root);
+  let ancestor = abs;
+  while (!existsSync(ancestor)) {
+    try { if (lstatSync(ancestor).isSymbolicLink()) throw new Error(`broken symlink: ${p}`); }
+    catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
+    ancestor = dirname(ancestor);
+  }
+  const realAncestor = realpathSync(ancestor);
+  if (realAncestor !== realRoot && !realAncestor.startsWith(realRoot + sep)) throw new Error(`symlink escapes project: ${p}`);
+  return resolve(realAncestor, relative(ancestor, abs));
 }
 
 /** Run diagnostics (compiler/linter) on a file and return errors/warnings. */
 export async function toolDiagnose(ctx: ToolContext, path: string): Promise<string> {
-  const diags = await diagnoseFile(ctx.cwd, path);
+  safePath(ctx.cwd, path);
+  assertFileAccess(resolve(ctx.cwd, path), false, ctx.cwd);
+  const diags = await diagnoseFile(ctx.cwd, path, ctx);
   return `Diagnostics for ${path}:\n${formatDiagnostics(diags)}`;
 }
 
 /** Symbol outline of a file (functions/classes/imports) for code navigation. */
 export function toolOutline(ctx: ToolContext, path: string): string {
   const abs = safePath(ctx.cwd, path);
+  assertFileAccess(abs, false, ctx.cwd);
   if (!existsSync(abs)) return `Error: file not found: ${path}`;
+  if (statSync(abs).isDirectory()) return `Error: ${path} is a directory; use LIST on it or READ a file inside it`;
   const src = readFileSync(abs, "utf-8");
   return `Outline of ${path}:\n${formatOutline(outlineSymbols(src))}`;
 }
 
 export function toolRead(ctx: ToolContext, path: string, offset = 1, limit = 200): string {
   const abs = safePath(ctx.cwd, path);
+  assertTool(ctx.capabilities, "read");
+  assertFileAccess(abs, false, ctx.cwd);
   if (!existsSync(abs)) return `Error: file not found: ${path}`;
   const st = statSync(abs);
   if (st.isDirectory()) return listDir(ctx, path);
   const lines = readFileSync(abs, "utf-8").split("\n");
   const slice = lines.slice(Math.max(0, offset - 1), offset - 1 + limit);
-  return slice.map((l, i) => `${offset + i}|${l}`).join("\n");
+  return redact(slice.map((l, i) => `${offset + i}|${l}`).join("\n")).text;
 }
 
 export function toolWrite(ctx: ToolContext, path: string, content: string): string {
   const abs = safePath(ctx.cwd, path);
+  assertTool(ctx.capabilities, "write");
+  assertFileAccess(abs, true, ctx.cwd);
+  // Empty content is almost always a truncated or malformed tool call, not
+  // intent. Fail loudly so the model retries with the actual content.
+  if (!content.trim()) return `Error: WRITE to ${path} had empty content; emit the full file body inside the tool call`;
   mkdirSync(dirname(abs), { recursive: true });
   // Snapshot before overwrite so the change is undoable.
   snapshotFile(ctx.cwd, path);
   // vibeguard: never write raw secrets into the project tree
   const safe = redact(content).text;
   writeFileSync(abs, safe, "utf-8");
+  if (ctx.mutations) ctx.mutations.count++;
+  if (ctx.filesWritten && !ctx.filesWritten.includes(abs)) ctx.filesWritten.push(abs);
   return `Wrote ${relative(ctx.cwd, abs)} (${safe.length} bytes)`;
 }
 
 export function toolEdit(ctx: ToolContext, path: string, oldStr: string, newStr: string): string {
   const abs = safePath(ctx.cwd, path);
+  assertTool(ctx.capabilities, "edit");
+  assertFileAccess(abs, true, ctx.cwd);
   if (!existsSync(abs)) return `Error: file not found: ${path}`;
+  if (statSync(abs).isDirectory()) return `Error: ${path} is a directory; use LIST on it or READ a file inside it`;
   const content = readFileSync(abs, "utf-8");
   if (!content.includes(oldStr)) return `Error: old_string not found in ${path}`;
+  if (!oldStr || content.split(oldStr).length !== 2) return `Error: old_string must match exactly once in ${path}`;
   snapshotFile(ctx.cwd, path);
-  writeFileSync(abs, content.split(oldStr).join(newStr), "utf-8");
+  writeFileSync(abs, redact(content.replace(oldStr, newStr)).text, "utf-8");
+  if (ctx.mutations) ctx.mutations.count++;
+  if (ctx.filesWritten && !ctx.filesWritten.includes(abs)) ctx.filesWritten.push(abs);
   return `Edited ${relative(ctx.cwd, abs)}`;
 }
 
@@ -76,14 +113,20 @@ export interface EditOp {
  */
 export function toolMultiEdit(ctx: ToolContext, path: string, ops: EditOp[]): string {
   const abs = safePath(ctx.cwd, path);
+  assertTool(ctx.capabilities, "multiedit");
+  assertFileAccess(abs, true, ctx.cwd);
   if (!existsSync(abs)) return `Error: file not found: ${path}`;
+  if (statSync(abs).isDirectory()) return `Error: ${path} is a directory; use LIST on it or READ a file inside it`;
   let content = readFileSync(abs, "utf-8");
   for (const op of ops) {
     if (!content.includes(op.old)) return `Error: old_string not found: ${op.old.slice(0, 40)}`;
-    content = content.split(op.old).join(op.new);
+    if (!op.old || content.split(op.old).length !== 2) return `Error: old_string must match exactly once in ${path}`;
+    content = content.replace(op.old, op.new);
   }
   snapshotFile(ctx.cwd, path);
-  writeFileSync(abs, content, "utf-8");
+  writeFileSync(abs, redact(content).text, "utf-8");
+  if (ctx.mutations) ctx.mutations.count++;
+  if (ctx.filesWritten && !ctx.filesWritten.includes(abs)) ctx.filesWritten.push(abs);
   return `Edited ${relative(ctx.cwd, abs)} (${ops.length} edits)`;
 }
 
@@ -99,20 +142,17 @@ export async function toolGlob(ctx: ToolContext, pattern: string): Promise<strin
 
 export async function toolGrep(ctx: ToolContext, pattern: string, globPat = "**/*"): Promise<string> {
   try {
-    const proc = Bun.spawn(["rg", "-l", pattern, "--glob", globPat], {
-      cwd: ctx.cwd,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const out = await new Response(proc.stdout).text();
-    await proc.exited;
-    return out.trim() || "(no matches)";
+    const result = await runCommand(ctx, ["rg", "-l", "--glob", globPat, "--", pattern], { tool: "grep", timeoutMs: 10000 });
+    if (result.code !== 0 && result.code !== 1) throw new Error(result.stderr || "rg failed");
+    return result.stdout.trim() || "(no matches)";
   } catch {
+    ctx.signal?.throwIfAborted();
     const hits: string[] = [];
     const glob = new Bun.Glob(globPat === "**/*" ? "**/*" : globPat);
     for await (const m of glob.scan({ cwd: ctx.cwd, onlyFiles: true })) {
       try {
-        if (readFileSync(join(ctx.cwd, m), "utf-8").includes(pattern)) hits.push(m);
+        const path = safePath(ctx.cwd, m); assertFileAccess(path, false, ctx.cwd);
+        if (readFileSync(path, "utf-8").includes(pattern)) hits.push(m);
       } catch {
         /* skip */
       }
@@ -123,20 +163,12 @@ export async function toolGrep(ctx: ToolContext, pattern: string, globPat = "**/
 }
 
 export async function toolBash(ctx: ToolContext, command: string, timeoutMs = 60000): Promise<string> {
-  // Strip secrets from the executed command (vibeguard)
   const safe = redact(command).text;
-  const proc = Bun.spawn(["bash", "-c", safe], { cwd: ctx.cwd, stdout: "pipe", stderr: "pipe" });
-  const timer = setTimeout(() => proc.kill(), timeoutMs);
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  clearTimeout(timer);
-  return `$ ${safe}\nexit ${code}\n${stdout}${stderr ? `\nstderr:\n${stderr}` : ""}`.trim();
+  const result = await runCommand(ctx, ["/bin/bash", "-c", safe], { timeoutMs });
+  return redact(`$ ${safe}\n[${result.sandbox}]\nexit ${result.code ?? "signal"}${result.timedOut ? " (timeout)" : ""}\n${result.stdout}${result.stderr ? `\nstderr:\n${result.stderr}` : ""}`.trim()).text;
 }
 
-export async function toolWebFetch(url: string, timeoutMs = 15000, airgap = false): Promise<string> {
+export async function toolWebFetch(url: string, timeoutMs = 15000, airgap = false, signal?: AbortSignal): Promise<string> {
   let u: URL;
   try {
     u = new URL(url);
@@ -152,7 +184,7 @@ export async function toolWebFetch(url: string, timeoutMs = 15000, airgap = fals
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(u.toString(), { signal: ctrl.signal, redirect: "follow" });
+    const res = await fetch(u.toString(), { signal: signal ? AbortSignal.any([ctrl.signal, signal]) : ctrl.signal, redirect: "follow" });
     const text = await res.text();
     // Strip <script>/<style> to keep the payload lean for the model.
     const stripped = text

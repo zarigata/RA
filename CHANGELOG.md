@@ -1,5 +1,49 @@
 # Changelog
 
+## 1.0.0-ra.72 — 2026-08-30
+
+- Add explicit user-configured model fallback chains with visible attribution. Provider failures (timeouts, 5xx, stream errors, unknown model) retry down the configured chain — per-model or default entries in `RA_CONFIG` `fallbacks`, or `RA_FALLBACK` / `RA_SMALL_FALLBACK` environment variables.
+- Same-host-kind enforcement: a cloud selection never silently degrades to LAN/local; auth failures and user cancellations fail loudly without fallback. Every switch is attributed on stderr (JSON-safe), in the TUI stream, in role-command output, and in `ra last --json` per-stage records.
+- Align the built-in chain with the live catalog (`gpt-oss:120b`, `glm-5.2`, `deepseek-v4-flash:0731`) and remove the old silent cloud→LAN→local degradation from `fallbackChain`.
+- Reject empty-content WRITE tool calls with a retryable error instead of creating 0-byte files; return graceful directory-target errors from EDIT/MULTIEDIT/OUTLINE instead of crashing the stage with EISDIR. Both bugs were exposed by the new competitive benchmark and are unit-covered.
+- Grant the sandboxed MCP stdio boundary read access to the server command's configured script/args paths, so servers living outside the project workspace load correctly.
+- Repair the internal gate: the TUI palette E2E steps had been silently dead since .69 (non-TTY refusal swallowed by `>/dev/null`); they now run under an explicit `RA_FORCE_TUI=1` gate opt-in, unit suites run from the repo root for correct sandbox workspace resolution, the LAN backtests skip unless qwen3.8 is actually serving and responsive, and the `ra demo` E2E records a labeled skip when the .251 small-model box is unreachable instead of failing opaquely. Model-timeout aborts no longer masquerade as "Turn cancelled".
+- Fix four unit tests broken by .71 guards (verify artifact `cwd`, project-memory fixtures, swarm worktree location, agent-commit contract); add `ra tests/fallback.test.ts` (9 cases) and `ra tests/fallback_acceptance.py` (4 installed-user scenarios). Unit suite fully green: 360/360.
+- Add `ra tests/competitive_acceptance.py` and record the first fixed-budget real-repo comparison against all three named competitors in `ra tests/COMPETITIVE_RESULTS.md`: RA 3/3 and fastest per task (7–12 s summed 28 s); codex 3/3 (gpt-5.6-sol, 128 s summed, rerun after quota reset); claude 3/3 (claude harness via the user's Z.AI Anthropic-compatible endpoint on GLM, 225 s summed); opencode 0/6 across two runs with the same Ollama Cloud model as RA.
+
+## 1.0.0-ra.71 — 2026-08-30 (regression proof)
+
+- Rerun both installed-user suites against the sandboxed .71 build with live Ollama Cloud: coding **21/21** and teams **16/16**, each in one uninterrupted run. Native command sandboxing introduced no coding or team regression.
+- Record results and evidence under `ra tests`: `evidence/regression-71/`, `evidence/agents-70/regression-71/`, and updated `RESULTS.md` / `AGENT_RESULTS.md` / `SAFETY_RESULTS.md`.
+
+## 1.0.0-ra.71 — 2026-08-30
+
+- Enforce agent tool whitelists and inherited TASK permissions at execution; read-only roles also constrain their shell commands and cannot start stdio MCP servers.
+- Add `ra sandbox` and `/sandbox` controls. macOS commands default to workspace writes, private HOME/cache/temp directories, filtered environments, and denied network access. Unsupported and nested sandboxes fail closed.
+- Route shell tools, compiler diagnostics, Python verification, stdio MCP, and trusted swarm Git through the shared command boundary. Bound deadlines and clean up descendant process groups.
+- Protect credential names, Git/policy files, and the installed runtime; canonicalize file-tool paths. Deny inspection of other process metadata, including the reproduced synthetic parent-environment leak.
+- Prevent launcher startup hooks from executing before environment filtering. Preserve command termination signals in JSON results.
+- Add installed-user safety scenarios 38–60 and retain failures and reruns. See `ra tests/SAFETY_RESULTS.md` for measured results and scope; no full security certification is implied.
+
+## 1.0.0-ra.70 — 2026-08-30
+
+- Add CLI/TUI agent discovery, bounded read-only MoA teams, and coding swarms on retained Git worktrees.
+- Preserve every participant outcome, synthesize successful proposals after partial failure, and expose actual models, shared call budgets, and cancellation state.
+- Replace shared nesting/stack ownership with asynchronous execution scopes and explicit tree parents. Pipelines and nested/team agents share operation limits.
+- Stage swarm integration in a separate worktree; preserve conflicts, reject dirty or moved targets, and require explicit apply unless `--merge` was requested.
+- Add installed macOS cloud acceptance for team success, partial failures, budget exhaustion, read-only proposals, cancellation, isolated coding, and merge conflict recovery. See `ra tests/AGENT_RESULTS.md` for measured outcomes and remaining limits.
+
+## 1.0.0-ra.69 — 2026-08-30
+
+- Route exported cloud credentials/models consistently; support an external `RA_CONFIG`.
+- Run CLI tasks through the actual file-aware agent loop. Persist failures and stop manufacturing success artifacts in live CLI/benchmark paths.
+- Normalize DeepSeek XML and streamed native tool requests through the permission-checked tools; handle trailing stream events and upstream errors.
+- Preserve nested Markdown fences and original checkpoint content; reject ambiguous edits and project-escaping symlinks.
+- Keep planning/review tools read-only, carry recent conversation context, cancel active model requests with Escape, and recover after TUI command errors.
+- Keep CLI JSON parseable alongside verification and expose actual role/model results.
+- Add 21 installed-terminal acceptance scenarios and retained evidence under `ra tests`. See its report for live-provider failures and the final result; internal test-suite success is not claimed.
+
+
 All notable user-facing changes to RA, grouped by version.
 
 ## [Unreleased]

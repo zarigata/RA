@@ -1,0 +1,27 @@
+{
+  "scenario": "41-native-workspace-environment",
+  "status": "PASS",
+  "seconds": 0.73,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--mode",
+        "workspace-write",
+        "--network",
+        "deny",
+        "--",
+        "python3",
+        "/private/tmp/ra-user-sandbox/projects/41-native-workspace-environment/check.py"
+      ],
+      "exit": 0,
+      "seconds": 0.73,
+      "stdout": "{\n  \"code\": 0,\n  \"signal\": null,\n  \"timedOut\": false,\n  \"stdout\": \"{\\\"key\\\": false, \\\"temp\\\": \\\"TEMP\\\", \\\"home\\\": \\\"/private/tmp/ra-user-sandbox/ra-command-YUKZvv/home\\\"}\\n\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/workspace-write; network=deny\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

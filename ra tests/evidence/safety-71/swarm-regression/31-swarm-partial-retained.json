@@ -1,0 +1,101 @@
+{
+  "scenario": "31-swarm-partial-retained",
+  "status": "FAIL",
+  "seconds": 3.65,
+  "error": "acceptance failed",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "[main (root-commit) e0e4873] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "e0e4873da1563854e108709026911f61c54e022b\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/31-swarm-partial-retained-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 3.37,
+      "stdout": "{\n  \"id\": \"swarm-mtgfthoh-47256978\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained\",\n  \"base\": \"e0e4873da1563854e108709026911f61c54e022b\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132326850,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"good\",\n      \"prompt\": \"Create answer.py containing ANSWER = 42 only.\",\n      \"files\": [\n        \"answer.py\"\n      ]\n    },\n    {\n      \"id\": \"bad\",\n      \"prompt\": \"Create other.py with X = 2.\",\n      \"model\": \"ollama-cloud/ra-acceptance-no-such-model\",\n      \"files\": [\n        \"other.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"good\",\n      \"branch\": \"codex/ra-swarm-mtgfthoh-47256978/good\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained/.git/ra-swarms/swarm-mtgfthoh-47256978/worktrees/codex/ra-swarm-mtgfthoh-47256978/good\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    },\n    {\n      \"taskId\": \"bad\",\n      \"branch\": \"codex/ra-swarm-mtgfthoh-47256978/bad\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained/.git/ra-swarms/swarm-mtgfthoh-47256978/worktrees/codex/ra-swarm-mtgfthoh-47256978/bad\",\n      \"error\": \"Error: chatStream 404: {\\\"error\\\":{\\\"message\\\":\\\"model \\\\\\\"ra-acceptance-no-such-model\\\\\\\" not found\\\",\\\"type\\\":\\\"not_found_error\\\",\\\"param\\\":null,\\\"code\\\":null}}\\n\"\n    }\n  ]\n}\n",
+      "stderr": "good: started in /private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained/.git/ra-swarms/swarm-mtgfthoh-47256978/worktrees/codex/ra-swarm-mtgfthoh-47256978/good\nbad: started in /private/tmp/ra-user-sandbox/projects/31-swarm-partial-retained/.git/ra-swarms/swarm-mtgfthoh-47256978/worktrees/codex/ra-swarm-mtgfthoh-47256978/bad\nbad: failed \u00b7 Error: chatStream 404: {\"error\":{\"message\":\"model \\\"ra-acceptance-no-such-model\\\" not found\",\"type\":\"not_found_error\",\"param\":null,\"code\":null}}\n\ngood: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n"
+    }
+  ]
+}

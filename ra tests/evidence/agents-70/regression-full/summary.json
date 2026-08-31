@@ -1,0 +1,132 @@
+{
+  "pass": 20,
+  "fail": 1,
+  "scenarios": [
+    {
+      "scenario": "01-installed-help",
+      "status": "PASS",
+      "seconds": 0.43,
+      "error": ""
+    },
+    {
+      "scenario": "02-python-cloud",
+      "status": "PASS",
+      "seconds": 7.74,
+      "error": ""
+    },
+    {
+      "scenario": "03-multifile-js",
+      "status": "PASS",
+      "seconds": 13.43,
+      "error": ""
+    },
+    {
+      "scenario": "04-existing-bugfix",
+      "status": "FAIL",
+      "seconds": 2.41,
+      "error": "Error: Stage thoth failed: Error: Provider stream error: {\"message\":\"Internal Server Error (ref: acd51a6f-27bd-4e76-992a-a5dd546a7f1a)\",\"type\":\"api_error\",\"param\":null,\"code\":null}\n"
+    },
+    {
+      "scenario": "05-project-memory",
+      "status": "PASS",
+      "seconds": 16.5,
+      "error": ""
+    },
+    {
+      "scenario": "06-write-and-run-tests",
+      "status": "PASS",
+      "seconds": 18.52,
+      "error": ""
+    },
+    {
+      "scenario": "07-typescript",
+      "status": "PASS",
+      "seconds": 15.19,
+      "error": ""
+    },
+    {
+      "scenario": "08-json-edit",
+      "status": "PASS",
+      "seconds": 8.86,
+      "error": ""
+    },
+    {
+      "scenario": "09-documentation",
+      "status": "PASS",
+      "seconds": 13.62,
+      "error": ""
+    },
+    {
+      "scenario": "10-four-agent-pipeline",
+      "status": "PASS",
+      "seconds": 54.88,
+      "error": ""
+    },
+    {
+      "scenario": "11-tui-cloud-chat",
+      "status": "PASS",
+      "seconds": 2.44,
+      "error": ""
+    },
+    {
+      "scenario": "12-tui-code-tree",
+      "status": "PASS",
+      "seconds": 5.15,
+      "error": ""
+    },
+    {
+      "scenario": "13-multi-model-moa",
+      "status": "PASS",
+      "seconds": 18.13,
+      "error": ""
+    },
+    {
+      "scenario": "14-undo-original",
+      "status": "PASS",
+      "seconds": 14.34,
+      "error": ""
+    },
+    {
+      "scenario": "15-auth-failure-no-placeholder",
+      "status": "PASS",
+      "seconds": 0.84,
+      "error": ""
+    },
+    {
+      "scenario": "16-session-export",
+      "status": "PASS",
+      "seconds": 0.64,
+      "error": ""
+    },
+    {
+      "scenario": "17-cli-errors",
+      "status": "PASS",
+      "seconds": 0.31,
+      "error": ""
+    },
+    {
+      "scenario": "18-symlink-boundary",
+      "status": "PASS",
+      "seconds": 0.15,
+      "error": ""
+    },
+    {
+      "scenario": "19-readonly-planner",
+      "status": "PASS",
+      "seconds": 6.06,
+      "error": ""
+    },
+    {
+      "scenario": "20-tui-cancellation",
+      "status": "PASS",
+      "seconds": 1.69,
+      "error": ""
+    },
+    {
+      "scenario": "21-conversation-context",
+      "status": "PASS",
+      "seconds": 3.88,
+      "error": ""
+    }
+  ]
+}

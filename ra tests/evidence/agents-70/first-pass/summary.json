@@ -1,0 +1,72 @@
+{
+  "pass": 11,
+  "fail": 0,
+  "scenarios": [
+    {
+      "scenario": "22-team-discovery",
+      "status": "PASS",
+      "seconds": 1.43,
+      "error": ""
+    },
+    {
+      "scenario": "23-bounded-moa",
+      "status": "PASS",
+      "seconds": 14.59,
+      "error": ""
+    },
+    {
+      "scenario": "24-partial-moa",
+      "status": "PASS",
+      "seconds": 6.5,
+      "error": ""
+    },
+    {
+      "scenario": "25-moa-readonly",
+      "status": "PASS",
+      "seconds": 20.0,
+      "error": ""
+    },
+    {
+      "scenario": "26-shared-call-budget",
+      "status": "PASS",
+      "seconds": 7.84,
+      "error": ""
+    },
+    {
+      "scenario": "27-moa-tui-cancel",
+      "status": "PASS",
+      "seconds": 2.03,
+      "error": ""
+    },
+    {
+      "scenario": "28-swarm-isolated-apply",
+      "status": "PASS",
+      "seconds": 11.92,
+      "error": ""
+    },
+    {
+      "scenario": "29-swarm-conflict-recovery",
+      "status": "PASS",
+      "seconds": 9.6,
+      "error": ""
+    },
+    {
+      "scenario": "30-swarm-validation",
+      "status": "PASS",
+      "seconds": 3.56,
+      "error": ""
+    },
+    {
+      "scenario": "31-swarm-partial-retained",
+      "status": "PASS",
+      "seconds": 5.68,
+      "error": ""
+    },
+    {
+      "scenario": "32-swarm-tui",
+      "status": "PASS",
+      "seconds": 8.44,
+      "error": ""
+    }
+  ]
+}

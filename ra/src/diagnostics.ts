@@ -4,6 +4,7 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { runCommand, type CommandContext } from "./sandbox.ts";
 
 export interface Diagnostic {
   file: string;
@@ -54,26 +55,20 @@ export function parseDiagnostics(stderr: string, file: string): Diagnostic[] {
 }
 
 /** Run diagnostics for a file. Returns structured diagnostics (empty if clean). */
-export async function diagnoseFile(cwd: string, file: string): Promise<Diagnostic[]> {
+export async function diagnoseFile(cwd: string, file: string, context: CommandContext = { cwd }): Promise<Diagnostic[]> {
   const check = checkCommandFor(file);
   if (!check) return [];
   const abs = join(cwd, file);
   if (!existsSync(abs)) return [];
 
   try {
-    const proc = Bun.spawn([check.cmd, ...check.args], {
-      cwd,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-    ]);
-    await proc.exited;
-    return parseDiagnostics(stderr || stdout, file);
-  } catch {
-    return [];
+    const result = await runCommand(context, [check.cmd, ...check.args], { tool: "diagnose", timeoutMs: 30000 });
+    const diagnostics = parseDiagnostics(result.stderr || result.stdout, file);
+    if (result.code !== 0 && !diagnostics.length) diagnostics.push({ file, severity: "error", message: result.stderr || result.stdout || `Diagnostic command exited ${result.code}` });
+    return diagnostics;
+  } catch (error) {
+    context.signal?.throwIfAborted();
+    return [{ file, severity: "error", message: `Diagnostic check failed: ${String(error)}` }];
   }
 }
 

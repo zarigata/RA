@@ -4,10 +4,48 @@ import type { RaConfig } from "../../anubis/src/config.ts";
 
 export type Permission = "allow" | "ask" | "deny";
 
+export const TOOL_VERBS = ["write", "edit", "multiedit", "read", "outline", "diagnose", "glob", "grep", "bash", "webfetch", "todo", "task", "mcp", "done"] as const;
+export interface BashRule { pattern: string; level: Permission }
+export interface AgentCapabilities {
+  readonly tools: ReadonlySet<string>;
+  readonly readOnly: boolean;
+  readonly bashLayers: ReadonlyArray<{ rules: ReadonlyArray<BashRule>; fallback: Permission }>;
+}
+const permissionVerb = (verb: string) => verb === "multiedit" ? "edit" : verb === "outline" ? "read" : verb === "diagnose" ? "bash" : verb;
+
+/** A child can narrow its inherited capabilities, never expand them. */
+export function resolveCapabilities(config: RaConfig, role: Record<string, Permission> = {}, whitelist?: string[], bashRules: BashRule[] = [], parent?: AgentCapabilities): AgentCapabilities {
+  const level = (tool: string) => role[tool] ?? (tool === "write" ? role.edit : undefined) ?? role["*"] ?? "allow";
+  const roleAllows = (verb: string) => {
+    const permission = permissionVerb(verb);
+    const allowed = verb !== "diagnose" && permission === "bash" && bashRules.some(r => r.level === "allow") ? true : level(permission) === "allow";
+    return allowed && canRunTool(config, permission) && canRunTool(config, verb);
+  };
+  const readOnly = parent?.readOnly === true || process.env.RA_SANDBOX === "read-only" || config.sandbox?.mode === "read-only" ||
+    ((!canRunTool(config, "write") || level("write") !== "allow") && (!canRunTool(config, "edit") || level("edit") !== "allow"));
+  const names = whitelist?.map(t => t.toLowerCase());
+  const tools = new Set(TOOL_VERBS.filter(verb => verb === "done" ||
+    ((!names || names.includes(verb)) && roleAllows(verb) && (!parent || parent.tools.has(verb)) &&
+      !(readOnly && ["write", "edit", "multiedit", "todo", "mcp"].includes(verb)))));
+  return { tools, readOnly, bashLayers: [...(parent?.bashLayers ?? []), { rules: bashRules, fallback: level("bash") }] };
+}
+
+export function assertTool(capabilities: AgentCapabilities | undefined, verb: string): void {
+  if (capabilities && !capabilities.tools.has(verb)) throw new Error(`Tool '${verb}' is not permitted by inherited agent capabilities`);
+}
+
+export function assertBash(capabilities: AgentCapabilities | undefined, command: string): void {
+  if (!capabilities) return;
+  for (const layer of capabilities.bashLayers) {
+    const match = layer.rules.find(r => r.pattern !== "*" && new RegExp("^" + r.pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$").test(command.trim()));
+    if ((match?.level ?? layer.fallback) !== "allow") throw new Error("Shell command is not permitted by inherited agent capabilities");
+  }
+}
+
 /** Map a tool name to its permission rule. Defaults to "allow" when unset. */
 export function toolPermission(config: RaConfig, tool: string): Permission {
   const rules = config.permission?.tool ?? {};
-  return rules[tool] ?? "allow";
+  return rules[tool] ?? (tool === "write" ? rules.edit : undefined) ?? rules["*"] ?? "allow";
 }
 
 /**

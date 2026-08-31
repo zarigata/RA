@@ -1,0 +1,280 @@
+{
+  "scenario": "36-swarm-target-guard",
+  "status": "PASS",
+  "seconds": 9.86,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.14,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/36-swarm-target-guard/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.15,
+      "stdout": "[main (root-commit) d9a21d9] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "d9a21d9db5c3d60f74a674752c84b868fa4b7d00\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/36-swarm-target-guard-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 6.88,
+      "stdout": "{\n  \"id\": \"swarm-mtghq4vx-632d1524\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/36-swarm-target-guard\",\n  \"base\": \"d9a21d9db5c3d60f74a674752c84b868fa4b7d00\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788135529533,\n  \"status\": \"ready\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"answer\",\n      \"prompt\": \"Create answer.py with ANSWER=42 only.\",\n      \"files\": [\n        \"answer.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"answer\",\n      \"branch\": \"codex/ra-swarm-mtghq4vx-632d1524/answer\",\n      \"status\": \"ready\",\n      \"ok\": true,\n      \"output\": \"Created `answer.py` containing only `ANSWER = 42`. Verified by reading the file back: it contains exactly that line. No other files were changed, and no git commands were run.\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/36-swarm-target-guard/.git/ra-swarms/swarm-mtghq4vx-632d1524/worktrees/codex/ra-swarm-mtghq4vx-632d1524/answer\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"commit\": \"bc65f667cee72fa9bb5278981202ab66a6bb6609\",\n      \"files\": [\n        \"answer.py\"\n      ]\n    }\n  ]\n}\n",
+      "stderr": "answer: started in /private/tmp/ra-user-sandbox/projects/36-swarm-target-guard/.git/ra-swarms/swarm-mtghq4vx-632d1524/worktrees/codex/ra-swarm-mtghq4vx-632d1524/answer\nanswer: ready [deepseek-v4-pro:0813] \u00b7 1 files\n"
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "d9a21d9db5c3d60f74a674752c84b868fa4b7d00\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "apply",
+        "swarm-mtghq4vx-632d1524",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 0.84,
+      "stdout": "{\"status\":\"failed\",\"error\":\"Error: Working tree is not clean. Commit or stash your changes before swarm work; RA will not stash them for you.\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "local.txt"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: move target after swarm"
+      ],
+      "exit": 0,
+      "seconds": 0.19,
+      "stdout": "[main 758c1a9] test: move target after swarm\n 1 file changed, 1 insertion(+)\n create mode 100644 local.txt\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "758c1a9b1e51227b823ca8d2c1cf11d605d7367a\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "apply",
+        "swarm-mtghq4vx-632d1524",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 0.95,
+      "stdout": "{\"status\":\"failed\",\"error\":\"Error: The target branch moved since this swarm started. Nothing was applied.\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "758c1a9b1e51227b823ca8d2c1cf11d605d7367a\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "status",
+        "--porcelain"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "codex/ra-swarm-mtghq4vx-632d1524/answer"
+      ],
+      "exit": 0,
+      "seconds": 0.13,
+      "stdout": "bc65f667cee72fa9bb5278981202ab66a6bb6609\n",
+      "stderr": ""
+    }
+  ]
+}

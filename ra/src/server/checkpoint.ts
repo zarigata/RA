@@ -51,6 +51,7 @@ export function snapshotFile(cwd: string, relPath: string): string | null {
     cp = { id: `cp-${Date.now()}`, cwd, ts: Date.now(), files: [] };
     list.unshift(cp);
   }
+  if (cp.files.includes(relPath)) return cp.id;
   if (!cp.files.includes(relPath)) cp.files.push(relPath);
   const store = join(checkpointDir(cwd), cp.id, relPath);
   mkdirSync(dirname(store), { recursive: true });

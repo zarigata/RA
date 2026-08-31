@@ -1,0 +1,32 @@
+{
+  "scenario": "10-four-agent-pipeline",
+  "status": "PASS",
+  "seconds": 37.48,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create parity.py defining is_even(n) returning whether integer n is even. Test 0, -2, 3. Keep the solution minimal.",
+        "--json",
+        "--verify"
+      ],
+      "exit": 0,
+      "seconds": 37.35,
+      "stdout": "{\n  \"task\": \"Create parity.py defining is_even(n) returning whether integer n is even. Test 0, -2, 3. Keep the solution minimal.\",\n  \"status\": \"completed\",\n  \"outputs\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"content\": \"We need to call a tool.GLOB **/*.pyWe need to output a tool call.GLOB **/*.pyGLOB **/*.py\"\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"content\": \"Created `parity.py` with a minimal `is_even(n)` function returning `n % 2 == 0`.\\n\\nVerified by running:\\n- `is_even(0)` \u2192 `True`\\n- `is_even(-2)` \u2192 `True`\\n- `is_even(3)` \u2192 `False`\\n\\nAll outputs match expected behavior.\"\n    },\n    {\n      \"stage\": \"maat\",\n      \"model\": \"gpt-oss:120b\",\n      \"content\": \"**Findings**\\n\\n| Location | Problem | Evidence | Suggested Fix |\\n|----------|---------|----------|---------------|\\n| `parity.py` \u2013 function implementation | No input validation / type hinting. The function assumes `n` is an integer; passing a non\u2011int (e.g., a string, list, or `None`) will raise a `TypeError`. | `def is_even(n): return n % 2 == 0` \u2013 uses the `%` operator directly on whatever is passed. | Add optional type checking or a type hint. Example:<br>`def is_even(n: int) -> bool:`<br>`    if not isinstance(n, int):`<br>`        raise TypeError(\\\"n must be an integer\\\")`<br>`    return n % 2 == 0` |\\n| `parity.py` \u2013 documentation | No docstring or comment describing the function\u2019s contract. | File contains only two lines of code. | Add a short docstring, e.g.:<br>`\\\"\\\"\\\"Return True if *n* is an even integer, otherwise False.\\\"\\\"\\\"` |\\n| `parity.py` \u2013 style (optional) | No type hints, which reduces readability for static analysis tools. | Same as above. | Include type hints as shown in the first fix. |\\n\\n**Severity**\\n\\n- Missing input validation: **minor** (does not affect the required test cases but could cause runtime errors for unexpected inputs).  \\n- Missing docstring / type hints: **minor** (documentation quality).\\n\\n**Verdict**\\n\\nThe current implementation correctly returns `True` for `0` and `-2`, and `False` for `3`. There are no functional bugs affecting the intended use case. The change is **safe to ship** as\u2011is, though adding optional input validation, type hints, and a docstring would improve robustness and maintainability. \\n\\n**Summary**\\n\\n- `is_even` works for all integer inputs, including negatives and zero.  \\n- Consider adding a docstring, type hints, and optional type checking for better safety and clarity. \\n\\nDONE\"\n    },\n    {\n      \"stage\": \"sekhmet\",\n      \"model\": \"gpt-oss:120b\",\n      \"content\": \"We need to read the file.We must output a tool call.READ parity.pyREAD parity.py\"\n    }\n  ],\n  \"stages\": [\n    \"thoth\",\n    \"ptah\",\n    \"maat\",\n    \"sekhmet\"\n  ],\n  \"models\": [\n    \"gpt-oss:120b\",\n    \"deepseek-v4-pro:0813\",\n    \"gpt-oss:120b\",\n    \"gpt-oss:120b\"\n  ],\n  \"filesWritten\": [\n    \"/private/tmp/ra-user-sandbox/projects/10-four-agent-pipeline/parity.py\"\n  ],\n  \"hosts\": [\n    \"cloud\"\n  ],\n  \"ms\": 36997,\n  \"intent\": \"code\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/10-four-agent-pipeline\",\n  \"timings\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"host\": \"cloud\",\n      \"ms\": 2127\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"host\": \"cloud\",\n      \"ms\": 4790\n    },\n    {\n      \"stage\": \"maat\",\n      \"model\": \"gpt-oss:120b\",\n      \"host\": \"cloud\",\n      \"ms\": 27619\n    },\n    {\n      \"stage\": \"sekhmet\",\n      \"model\": \"gpt-oss:120b\",\n      \"host\": \"cloud\",\n      \"ms\": 2460\n    }\n  ],\n  \"at\": 1788126952821,\n  \"verification\": {\n    \"ok\": true,\n    \"lines\": [\n      \"RA verify\",\n      \"\u2713 python3 /private/tmp/ra-user-sandbox/projects/10-four-agent-pipeline/parity.py \u2192 exit 0\",\n      \"RA verify OK\",\n      \"RA lane thoth@cloud \u2192 ptah@cloud\",\n      \"RA intent code\",\n      \"RA prefer small@cloud \u2192 big@cloud\",\n      \"elapsed: 37.0s\",\n      \"again: ra again --quick --verify\"\n    ]\n  }\n}\n",
+      "stderr": "RA verify\n\u2713 python3 /private/tmp/ra-user-sandbox/projects/10-four-agent-pipeline/parity.py \u2192 exit 0\nRA verify OK\nRA lane thoth@cloud \u2192 ptah@cloud\nRA intent code\nRA prefer small@cloud \u2192 big@cloud\nelapsed: 37.0s\nagain: ra again --quick --verify\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-c",
+        "from parity import is_even; assert is_even(0); assert is_even(-2); assert not is_even(3)"
+      ],
+      "exit": 0,
+      "seconds": 0.13,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

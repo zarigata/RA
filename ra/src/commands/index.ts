@@ -1,4 +1,4 @@
-import { formatAssignments, resolveAll } from "../../../anubis/src/router.ts";
+import { formatAssignments, resolveAll, resolveRoleModel } from "../../../anubis/src/router.ts";
 import { formatReport, buildReport, loadUsage } from "../../../anubis/src/cost.ts";
 import { scanSubnet, formatDiscovery } from "../../../anubis/src/lan.ts";
 import { buildAggregatePrompt, DEFAULT_MOA_CONFIG } from "../../../anubis/src/aggregator.ts";
@@ -80,12 +80,20 @@ const HELP_SIMPLE = `RA Simple Mode — commands:
   /help          This help
   /simple off    Pro mode`;
 
-const HELP_PRO = `RA Pro Mode — commands:
-  /plan /code /review /critique /docs
-  /quick /again /moa /pipeline /roles /models /cost /status /files /show /result /lane /intent /prefer /summary /timings /verify /history /sessions /ls /env /ping /which /lanes /home /doctor /selfcheck /palette /clear /lan-scan
-  /simple on     Grandma mode
-  /help          This help
-  Ctrl+P         Command palette`;
+const HELP_PRO = `RA — commands:
+  Build        /plan /code /quick /pipeline /again
+  Review       /review /critique /docs /moa /tree
+  Teams        /agents /swarm help /swarm list
+  Safety       /sandbox status /sandbox help
+  Project      /ls /files /show /todos /verify
+  Session      /status /history /sessions /replay /clear
+  Models       /roles /models /env /ping /doctor /cost
+  Results      /result /summary /timings /lane /intent /prefer
+  Connection   /connect /home /which /lanes /selfcheck /lan-scan
+  Interface    /simple on /simple off /palette /help /exit
+  Ctrl+P       Command palette
+  Esc          Cancel the current model request`;
+
 
 export async function dispatchCommand(raw: string, c: CommandContext): Promise<boolean> {
   const trimmed = raw.trim();
@@ -105,6 +113,14 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       c.reply(
         `RA palette\n${PALETTE_COMMANDS.map((cmd, i) => `  ${i + 1}. ${cmd}`).join("\n")}`,
       );
+      return true;
+    }
+    case "sandbox": {
+      const { sandboxCommand } = await import("./sandbox.ts");
+      const { commandWords } = await import("./teams.ts");
+      const { withAgentRun } = await import("../execution.ts");
+      const result = await withAgentRun({ limits: c.config.agent_limits }, () => sandboxCommand(commandWords(arg), c.ctx.cwd, c.config));
+      c.reply(result.text);
       return true;
     }
     case "version": {
@@ -405,6 +421,17 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       c.reply(`Files: ${result.filesWritten.join(", ") || "(none)"}`);
       return true;
     }
+    case "agents": {
+      const { agentCatalog } = await import("./teams.ts");
+      c.reply(agentCatalog(c.config).map(a => `${a.role}: ${a.model} · max ${a.maxSteps} steps`).join("\n"));
+      return true;
+    }
+    case "swarm": {
+      const { swarmCommand, commandWords } = await import("./teams.ts");
+      const result = await swarmCommand(commandWords(arg), c.ctx.cwd, c.config, c.reply);
+      c.reply(result.text);
+      return true;
+    }
     case "moa":
       return runMoa(arg, c);
     case "pipeline":
@@ -439,10 +466,11 @@ async function runRole(role: string, task: string, c: CommandContext): Promise<b
   if (!task) { c.reply(`Usage: /${role} <task>`); return true; }
   const tier = classifyTier(task, role === "ptah" ? "code" : role === "thoth" ? "plan" : undefined);
   const tierModels = (c.config as RaConfig & { tier_models?: Record<string, string> }).tier_models;
-  c.reply(`${c.session.simpleMode ? "Working on it…" : `[${role}] tier=${tier} model=${tierModel(tier, tierModels)}`}`);
+  c.reply(`${c.session.simpleMode ? "Working on it…" : `[${role}] tier=${tier} model=${tierModels ? tierModel(tier, tierModels) : resolveRoleModel(role, c.config).model}`}`);
   const env = loadEnv(ANUBIS_HOME);
   const result = await runTaskAgent(role, task, c.config, c.ctx, env);
-  c.reply(`## ${result.role} (${result.model})\n${result.output}`);
+  const fbNote = (result.fallbacks ?? []).map((f) => `↪ fallback: ${f.from} unavailable → ${f.to}`).join("\n");
+  c.reply(`## ${result.role} (${result.model})\n${result.output}${fbNote ? `\n\n${fbNote}` : ""}`);
   return true;
 }
 
@@ -465,19 +493,8 @@ async function runFullDev(task: string, stages: string[], c: CommandContext): Pr
 
 async function runMoa(task: string, c: CommandContext): Promise<boolean> {
   if (!task) { c.reply("Usage: /moa <task>"); return true; }
-  const roles = c.config.moa?.roles ?? DEFAULT_MOA_CONFIG.roles;
-  const env = loadEnv(ANUBIS_HOME);
-  c.reply(`MOA parallel: ${roles.join(", ")}`);
-  const results = await Promise.all(roles.map((r) => runTaskAgent(r, task, c.config, c.ctx, env)));
-  // Synthesize via the small model (Phase 0.6); fall back to the raw
-  // aggregation prompt only if synthesis itself fails.
-  try {
-    const { aggregateMoa } = await import("../agent.ts");
-    c.reply(await aggregateMoa(task, results, c.config));
-  } catch (e) {
-    const agg = buildAggregatePrompt(task, results.map((r) => ({ role: r.role, model: r.model, output: r.output })));
-    c.reply(`${agg}\n\n(aggregation model unavailable: ${String(e)})`);
-  }
+  const { runMoaTeam, formatTeam } = await import("../team.ts");
+  c.reply(formatTeam(await runMoaTeam(task, c.config, c.ctx, { onProgress: c.reply })));
   return true;
 }
 
@@ -485,5 +502,5 @@ export const PALETTE_COMMANDS = [
   "/help", "/plan", "/code", "/quick", "/again", "/review", "/moa", "/pipeline",
   "/roles", "/models", "/cost", "/status", "/files", "/show", "/result", "/lane", "/intent", "/prefer", "/summary", "/timings", "/verify", "/history", "/ls", "/doctor", "/selfcheck", "/lanes", "/home", "/which", "/clear", "/lan-scan", "/todos",
   "/simple on", "/simple off", "/palette",
-  "/replay list", "/connect", "/tree",
+  "/replay list", "/connect", "/tree", "/agents", "/swarm help", "/swarm list", "/sandbox status",
 ];

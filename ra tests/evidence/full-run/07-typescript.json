@@ -1,0 +1,33 @@
+{
+  "scenario": "07-typescript",
+  "status": "PASS",
+  "seconds": 12.71,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create unique.ts exporting function unique(values: number[]): number[] preserving first occurrence order. No dependencies. Check [3,1,3,2] produces [3,1,2].",
+        "--quick",
+        "--json",
+        "--verify"
+      ],
+      "exit": 0,
+      "seconds": 12.65,
+      "stdout": "{\n  \"task\": \"Create unique.ts exporting function unique(values: number[]): number[] preserving first occurrence order. No dependencies. Check [3,1,3,2] produces [3,1,2].\",\n  \"status\": \"completed\",\n  \"outputs\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"content\": \"We need to call GLOB or PRINT_TREE. Use GLOB **/*.ts.GLOB **/*.tsGLOB **/*.tsDONE \u2013 Planned: restate goal, approach, steps (create unique.ts, export function, implement using Set while preserving order, add simple test), note risks (type errors, duplicate handling), ask if any existing project structure constraints.\"\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"content\": \"Created `unique.ts` exporting `unique(values: number[]): number[]` that preserves first occurrence order using a `Set` for O(n) deduplication.\\n\\nVerified:\\n- `tsc --noEmit unique.ts` \u2014 no type errors.\\n- Runtime check: `unique([3,1,3,2])` returns `[3,1,2]`.\"\n    }\n  ],\n  \"stages\": [\n    \"thoth\",\n    \"ptah\"\n  ],\n  \"models\": [\n    \"gpt-oss:120b\",\n    \"deepseek-v4-pro:0813\"\n  ],\n  \"filesWritten\": [\n    \"/private/tmp/ra-user-sandbox/projects/07-typescript/unique.ts\"\n  ],\n  \"hosts\": [\n    \"cloud\"\n  ],\n  \"ms\": 12413,\n  \"intent\": \"code\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/07-typescript\",\n  \"timings\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"host\": \"cloud\",\n      \"ms\": 2865\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"host\": \"cloud\",\n      \"ms\": 9547\n    }\n  ],\n  \"at\": 1788127352982,\n  \"verification\": {\n    \"ok\": true,\n    \"lines\": [\n      \"RA verify\",\n      \"\u2713 syntax /private/tmp/ra-user-sandbox/projects/07-typescript/unique.ts (application tests not run)\",\n      \"RA verify OK\",\n      \"RA lane thoth@cloud \u2192 ptah@cloud\",\n      \"RA intent code\",\n      \"RA prefer small@cloud \u2192 big@cloud\",\n      \"elapsed: 12.4s\",\n      \"again: ra again --quick --verify\"\n    ]\n  }\n}\n",
+      "stderr": "RA verify\n\u2713 syntax /private/tmp/ra-user-sandbox/projects/07-typescript/unique.ts (application tests not run)\nRA verify OK\nRA lane thoth@cloud \u2192 ptah@cloud\nRA intent code\nRA prefer small@cloud \u2192 big@cloud\nelapsed: 12.4s\nagain: ra again --quick --verify\n"
+    },
+    {
+      "command": [
+        "bun",
+        "-e",
+        "import {unique} from \"./unique.ts\"; if(JSON.stringify(unique([3,1,3,2]))!==\"[3,1,2]\" || unique([]).length) process.exit(1)"
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

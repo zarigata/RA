@@ -1,0 +1,27 @@
+{
+  "scenario": "43-native-readonly",
+  "status": "PASS",
+  "seconds": 0.7,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--mode",
+        "read-only",
+        "--network",
+        "deny",
+        "--",
+        "python3",
+        "/private/tmp/ra-user-sandbox/projects/43-native-readonly/check.py"
+      ],
+      "exit": 0,
+      "seconds": 0.7,
+      "stdout": "{\n  \"code\": 0,\n  \"signal\": null,\n  \"timedOut\": false,\n  \"stdout\": \"denied\\n\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/read-only; network=deny\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "scenario": "15-auth-failure-no-placeholder",
+  "status": "PASS",
+  "seconds": 0.84,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create a hello world website",
+        "--quick",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 0.52,
+      "stdout": "",
+      "stderr": "Error: Stage thoth failed: Error: chatStream 401: {\"error\":{\"message\":\"Unauthorized\",\"type\":\"api_error\",\"param\":null,\"code\":null}}\n\n"
+    },
+    {
+      "command": [
+        "ra",
+        "last",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 0.16,
+      "stdout": "{\n  \"task\": \"Create a hello world website\",\n  \"stages\": [\n    \"thoth\",\n    \"ptah\"\n  ],\n  \"models\": [],\n  \"filesWritten\": [],\n  \"hosts\": [],\n  \"ms\": 181,\n  \"intent\": \"code\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/15-auth-failure-no-placeholder\",\n  \"timings\": [],\n  \"status\": \"failed\",\n  \"error\": \"Stage thoth failed: Error: chatStream 401: {\\\"error\\\":{\\\"message\\\":\\\"Unauthorized\\\",\\\"type\\\":\\\"api_error\\\",\\\"param\\\":null,\\\"code\\\":null}}\\n\",\n  \"outputs\": [],\n  \"at\": 1788129596316\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "verify"
+      ],
+      "exit": 1,
+      "seconds": 0.16,
+      "stdout": "RA verify: last run failed: Stage thoth failed: Error: chatStream 401: {\"error\":{\"message\":\"Unauthorized\",\"type\":\"api_error\",\"param\":null,\"code\":null}}\n\n",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "scenario": "16-session-export",
+  "status": "FAIL",
+  "seconds": 0.02,
+  "error": "out of pty devices",
+  "terminal": []
+}

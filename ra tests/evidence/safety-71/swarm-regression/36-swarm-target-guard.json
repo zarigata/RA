@@ -1,0 +1,101 @@
+{
+  "scenario": "36-swarm-target-guard",
+  "status": "FAIL",
+  "seconds": 2.92,
+  "error": "answer: started in /private/tmp/ra-user-sandbox/projects/36-swarm-target-guard/.git/ra-swarms/swarm-mtgfu30k-53d3ff4c/worktrees/codex/ra-swarm-mtgfu30k-53d3ff4c/answer\nanswer: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n\n{\n  \"id\": \"swarm-mtgfu30k-53d3ff4c\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/36-swarm-target-guard\",\n  \"base\": \"2061a618d8b5fe8015ce0bfee23300c1b863fc74\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132354500,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"answer\",\n      \"prompt\": \"Create answer.py with ANSWER=42 only.\",\n      \"files\": [\n        \"answer.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"answer\",\n      \"branch\": \"codex/ra-swarm-mtgfu30k-53d3ff4c/answer\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/36-swarm-target-guard/.git/ra-swarms/swarm-mtgfu30k-53d3ff4c/worktrees/codex/ra-swarm-mtgfu30k-53d3ff4c/answer\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n",
+  "terminal": [
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "init",
+        "-b",
+        "main"
+      ],
+      "exit": 0,
+      "seconds": 0.08,
+      "stdout": "Initialized empty Git repository in /private/tmp/ra-user-sandbox/projects/36-swarm-target-guard/.git/\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "add",
+        "."
+      ],
+      "exit": 0,
+      "seconds": 0.06,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-m",
+        "test: seed swarm acceptance"
+      ],
+      "exit": 0,
+      "seconds": 0.11,
+      "stdout": "[main (root-commit) 2061a61] test: seed swarm acceptance\n 1 file changed, 1 insertion(+)\n create mode 100644 README.md\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "user.name=RA Acceptance",
+        "-c",
+        "user.email=acceptance@localhost",
+        "-c",
+        "commit.gpgsign=false",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "seconds": 0.05,
+      "stdout": "2061a618d8b5fe8015ce0bfee23300c1b863fc74\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "swarm",
+        "run",
+        "/private/tmp/ra-user-sandbox/36-swarm-target-guard-tasks.json",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 1,
+      "seconds": 2.61,
+      "stdout": "{\n  \"id\": \"swarm-mtgfu30k-53d3ff4c\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/36-swarm-target-guard\",\n  \"base\": \"2061a618d8b5fe8015ce0bfee23300c1b863fc74\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132354500,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"answer\",\n      \"prompt\": \"Create answer.py with ANSWER=42 only.\",\n      \"files\": [\n        \"answer.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"answer\",\n      \"branch\": \"codex/ra-swarm-mtgfu30k-53d3ff4c/answer\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/36-swarm-target-guard/.git/ra-swarms/swarm-mtgfu30k-53d3ff4c/worktrees/codex/ra-swarm-mtgfu30k-53d3ff4c/answer\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n",
+      "stderr": "answer: started in /private/tmp/ra-user-sandbox/projects/36-swarm-target-guard/.git/ra-swarms/swarm-mtgfu30k-53d3ff4c/worktrees/codex/ra-swarm-mtgfu30k-53d3ff4c/answer\nanswer: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n"
+    }
+  ]
+}

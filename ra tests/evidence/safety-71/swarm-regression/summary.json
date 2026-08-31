@@ -1,0 +1,102 @@
+{
+  "pass": 9,
+  "fail": 7,
+  "scenarios": [
+    {
+      "scenario": "22-team-discovery",
+      "status": "PASS",
+      "seconds": 0.97,
+      "error": ""
+    },
+    {
+      "scenario": "23-bounded-moa",
+      "status": "PASS",
+      "seconds": 27.63,
+      "error": ""
+    },
+    {
+      "scenario": "24-partial-moa",
+      "status": "PASS",
+      "seconds": 7.82,
+      "error": ""
+    },
+    {
+      "scenario": "25-moa-readonly",
+      "status": "PASS",
+      "seconds": 9.96,
+      "error": ""
+    },
+    {
+      "scenario": "26-shared-call-budget",
+      "status": "PASS",
+      "seconds": 1.67,
+      "error": ""
+    },
+    {
+      "scenario": "27-moa-tui-cancel",
+      "status": "PASS",
+      "seconds": 1.93,
+      "error": ""
+    },
+    {
+      "scenario": "28-swarm-isolated-apply",
+      "status": "FAIL",
+      "seconds": 4.46,
+      "error": "sum: started in /private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/sum\nslug: started in /private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/slug\nsum: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\nslug: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n\n{\n  \"id\": \"swarm-mtgft28l-d960d885\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply\",\n  \"base\": \"534e93776754a90b5369a64ab7fcfc835c00663c\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132306837,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"sum\",\n      \"prompt\": \"Create sums.py defining sum_numbers(values) returning sum(values). Verify empty list and [2,3,-1]. No extra files.\",\n      \"files\": [\n        \"sums.py\"\n      ]\n    },\n    {\n      \"id\": \"slug\",\n      \"prompt\": \"Create slug.py defining slug(text) returning lowercase whitespace-separated words joined with hyphens. Verify empty and repeated spaces. No extra files.\",\n      \"files\": [\n        \"slug.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"sum\",\n      \"branch\": \"codex/ra-swarm-mtgft28l-d960d885/sum\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/sum\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    },\n    {\n      \"taskId\": \"slug\",\n      \"branch\": \"codex/ra-swarm-mtgft28l-d960d885/slug\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/28-swarm-isolated-apply/.git/ra-swarms/swarm-mtgft28l-d960d885/worktrees/codex/ra-swarm-mtgft28l-d960d885/slug\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n"
+    },
+    {
+      "scenario": "29-swarm-conflict-recovery",
+      "status": "FAIL",
+      "seconds": 12.02,
+      "error": "alpha: started in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/alpha\nbeta: started in /private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/beta\nalpha: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\nbeta: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n\n{\n  \"id\": \"swarm-mtgft5tl-a6a36d9a\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery\",\n  \"base\": \"e9f5c2586e811c40edb0637cfd5d52ae7f19746e\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132311481,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"alpha\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=alpha followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    },\n    {\n      \"id\": \"beta\",\n      \"prompt\": \"Read setting.txt and change its entire content to exactly mode=beta followed by a newline. Only edit this file.\",\n      \"files\": [\n        \"setting.txt\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"alpha\",\n      \"branch\": \"codex/ra-swarm-mtgft5tl-a6a36d9a/alpha\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/alpha\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    },\n    {\n      \"taskId\": \"beta\",\n      \"branch\": \"codex/ra-swarm-mtgft5tl-a6a36d9a/beta\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/29-swarm-conflict-recovery/.git/ra-swarms/swarm-mtgft5tl-a6a36d9a/worktrees/codex/ra-swarm-mtgft5tl-a6a36d9a/beta\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n"
+    },
+    {
+      "scenario": "30-swarm-validation",
+      "status": "PASS",
+      "seconds": 3.55,
+      "error": ""
+    },
+    {
+      "scenario": "31-swarm-partial-retained",
+      "status": "FAIL",
+      "seconds": 3.65,
+      "error": "acceptance failed"
+    },
+    {
+      "scenario": "32-swarm-tui",
+      "status": "FAIL",
+      "seconds": 3.75,
+      "error": "acceptance failed"
+    },
+    {
+      "scenario": "33-swarm-cancel-shell",
+      "status": "FAIL",
+      "seconds": 7.38,
+      "error": "Agent never started requested shell fixture"
+    },
+    {
+      "scenario": "34-swarm-ownership-reject",
+      "status": "PASS",
+      "seconds": 8.49,
+      "error": ""
+    },
+    {
+      "scenario": "35-pipeline-shared-budget",
+      "status": "PASS",
+      "seconds": 4.31,
+      "error": ""
+    },
+    {
+      "scenario": "36-swarm-target-guard",
+      "status": "FAIL",
+      "seconds": 2.92,
+      "error": "answer: started in /private/tmp/ra-user-sandbox/projects/36-swarm-target-guard/.git/ra-swarms/swarm-mtgfu30k-53d3ff4c/worktrees/codex/ra-swarm-mtgfu30k-53d3ff4c/answer\nanswer: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n\n{\n  \"id\": \"swarm-mtgfu30k-53d3ff4c\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/36-swarm-target-guard\",\n  \"base\": \"2061a618d8b5fe8015ce0bfee23300c1b863fc74\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132354500,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"answer\",\n      \"prompt\": \"Create answer.py with ANSWER=42 only.\",\n      \"files\": [\n        \"answer.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"answer\",\n      \"branch\": \"codex/ra-swarm-mtgfu30k-53d3ff4c/answer\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/36-swarm-target-guard/.git/ra-swarms/swarm-mtgfu30k-53d3ff4c/worktrees/codex/ra-swarm-mtgfu30k-53d3ff4c/answer\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n"
+    },
+    {
+      "scenario": "37-mixed-model-swarm",
+      "status": "FAIL",
+      "seconds": 4.99,
+      "error": "deepseek: started in /private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/deepseek\nglm: started in /private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/glm\ndeepseek: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\nglm: failed \u00b7 Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\n\n{\n  \"id\": \"swarm-mtgfu5b8-665c08ea\",\n  \"repo\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm\",\n  \"base\": \"bf0faf54b0182bb8a0ff0f643e2ff37a0ba714dc\",\n  \"baseRef\": \"refs/heads/main\",\n  \"created\": 1788132357476,\n  \"status\": \"failed\",\n  \"concurrency\": 2,\n  \"tasks\": [\n    {\n      \"id\": \"deepseek\",\n      \"prompt\": \"Create deepseek.py containing MODEL_FAMILY=\\\"deepseek\\\" only.\",\n      \"model\": \"ollama-cloud/deepseek-v4-pro:0813\",\n      \"files\": [\n        \"deepseek.py\"\n      ]\n    },\n    {\n      \"id\": \"glm\",\n      \"prompt\": \"Create glm.py containing MODEL_FAMILY=\\\"glm\\\" only.\",\n      \"model\": \"ollama-cloud/glm-5.3-flash\",\n      \"files\": [\n        \"glm.py\"\n      ]\n    }\n  ],\n  \"results\": [\n    {\n      \"taskId\": \"deepseek\",\n      \"branch\": \"codex/ra-swarm-mtgfu5b8-665c08ea/deepseek\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/deepseek\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    },\n    {\n      \"taskId\": \"glm\",\n      \"branch\": \"codex/ra-swarm-mtgfu5b8-665c08ea/glm\",\n      \"status\": \"failed\",\n      \"ok\": false,\n      \"output\": \"\",\n      \"worktree\": \"/private/tmp/ra-user-sandbox/projects/37-mixed-model-swarm/.git/ra-swarms/swarm-mtgfu5b8-665c08ea/worktrees/codex/ra-swarm-mtgfu5b8-665c08ea/glm\",\n      \"error\": \"Error: Agent writes to Git metadata, policy files, or the installed RA runtime are blocked\"\n    }\n  ]\n}\n"
+    }
+  ]
+}

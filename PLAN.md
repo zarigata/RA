@@ -1,5 +1,11 @@
 # RA 2.0 — Master Plan
 
+> .71 update: inherited agent/tool permissions and native macOS subprocess isolation now have installed-user safety coverage. See `ra tests/SAFETY_RESULTS.md`. Linux/Windows backends, trusted plugins/HTTP transport isolation, broad package-manager workflows, and security certification remain open. The older matrix below is a historical audit, not a current competitor comparison.
+
+
+> 2026-08-30 implementation update: `.70` wires `ra agents`, `ra moa`, and `ra swarm` into CLI/TUI, with shared execution budgets, retained partial results, isolated task worktrees, explicit integration, and conflict recovery. See `ra tests/AGENT_RESULTS.md` for installed-terminal evidence. The phase descriptions below remain the broader roadmap; automatic conflict resolution and OS isolation are not completed.
+
+
 > The long, deep plan to make RA as good as — or better than — Claude Code,
 > OpenCode, Crush, aider, and Codex CLI. Born from the 2026-08-25 competitive
 > audit (see `EVALUATION.md` for the current-state evidence).

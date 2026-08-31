@@ -1,0 +1,16 @@
+{
+ "scenario": "claude-micrograd-neuron",
+ "tool": "claude",
+ "task": "micrograd-neuron",
+ "budget_s": 300,
+ "success": true,
+ "check_error": "",
+ "new_files": [
+  "bench_neuron.py"
+ ],
+ "dirty_paths": 1,
+ "exit": 0,
+ "seconds": 72.99,
+ "output_tail": "Created `bench_neuron.py`. Output:\n\n```\n1.044268833968317\n1.0\n-2.0\n1\n```\n\nGradients check out: relu active so \u2202y/\u2202w\u2080 = x\u2080 = 1.0, \u2202y/\u2202w\u2081 = x\u2081 = -2.0, \u2202y/\u2202b = 1. No existing file touched \u2014 only new untracked `bench_neuron.py`.\n\"glm-5.3-flash\" is not a model this version of Claude Code recognizes, so auto-compact will keep this session within 200k tokens (the context window it assumes). If the model accepts more, append [1m] to the model name for 1M, or set CLAUDE_CODE_MAX_CONTEXT_TOKENS to its real window; to make it recognized, map it in the modelOverrides setting or update Claude Code; CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1 restores the previous wait-for-the-API behavior.\n[claude-code:unrecognized_model] {\"model\":\"glm-5.3-flash\",\"query_source\":\"sdk\"}\n",
+ "timeout": false
+}

@@ -1,0 +1,34 @@
+{
+  "scenario": "50-cloud-code-native-sandbox",
+  "status": "PASS",
+  "seconds": 10.24,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create sum71.py defining total(values) returning sum(values). Verify empty input and [2,3]. No extra files.",
+        "--quick",
+        "--json",
+        "--verify"
+      ],
+      "exit": 0,
+      "seconds": 10.04,
+      "stdout": "{\n  \"task\": \"Create sum71.py defining total(values) returning sum(values). Verify empty input and [2,3]. No extra files.\",\n  \"status\": \"completed\",\n  \"outputs\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"glm-5.3-flash\",\n      \"content\": \"I'll start by inspecting the project directory to see what already exists before planning.\"\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"content\": \"Created `sum71.py` with:\\n\\n```python\\ndef total(values):\\n    return sum(values)\\n```\\n\\nVerified by running `python3 -c \\\"from sum71 import total; print(total([])); print(total([2,3]))\\\"`, which printed `0` and `5` as expected. No other files were created or modified.\"\n    }\n  ],\n  \"stages\": [\n    \"thoth\",\n    \"ptah\"\n  ],\n  \"models\": [\n    \"glm-5.3-flash\",\n    \"deepseek-v4-pro:0813\"\n  ],\n  \"filesWritten\": [\n    \"/private/tmp/ra-user-sandbox/projects/50-cloud-code-native-sandbox/sum71.py\"\n  ],\n  \"hosts\": [\n    \"cloud\"\n  ],\n  \"ms\": 9620,\n  \"intent\": \"code\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/50-cloud-code-native-sandbox\",\n  \"timings\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"glm-5.3-flash\",\n      \"host\": \"cloud\",\n      \"ms\": 4950\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"host\": \"cloud\",\n      \"ms\": 4670\n    }\n  ],\n  \"at\": 1788133367538,\n  \"verification\": {\n    \"ok\": true,\n    \"lines\": [\n      \"RA verify\",\n      \"\u2713 python3 /private/tmp/ra-user-sandbox/projects/50-cloud-code-native-sandbox/sum71.py \u2192 exit 0 [macOS Seatbelt/workspace-write; network=deny]\",\n      \"RA verify OK\",\n      \"RA lane thoth@cloud \u2192 ptah@cloud\",\n      \"RA intent code\",\n      \"RA prefer small@cloud \u2192 big@cloud\",\n      \"elapsed: 9.6s\",\n      \"again: ra again --quick --verify\"\n    ]\n  }\n}\n",
+      "stderr": "RA verify\n\u2713 python3 /private/tmp/ra-user-sandbox/projects/50-cloud-code-native-sandbox/sum71.py \u2192 exit 0 [macOS Seatbelt/workspace-write; network=deny]\nRA verify OK\nRA lane thoth@cloud \u2192 ptah@cloud\nRA intent code\nRA prefer small@cloud \u2192 big@cloud\nelapsed: 9.6s\nagain: ra again --quick --verify\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "-c",
+        "from sum71 import total; assert total([])==0; assert total([2,3])==5"
+      ],
+      "exit": 0,
+      "seconds": 0.21,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

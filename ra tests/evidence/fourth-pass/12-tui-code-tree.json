@@ -1,0 +1,7 @@
+{
+  "scenario": "12-tui-code-tree",
+  "status": "FAIL",
+  "seconds": 0.04,
+  "error": "out of pty devices",
+  "terminal": []
+}

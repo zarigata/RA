@@ -1,0 +1,21 @@
+{
+  "scenario": "10-four-agent-pipeline",
+  "status": "FAIL",
+  "seconds": 14.95,
+  "error": "Error: Stage maat failed: Error: Provider stream error: {\"message\":\"Internal Server Error (ref: efdae52c-1c7a-4e70-87ff-6e71447864c3)\",\"type\":\"api_error\",\"param\":null,\"code\":null}\n",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create parity.py defining is_even(n) returning whether integer n is even. Test 0, -2, 3. Keep the solution minimal.",
+        "--json",
+        "--verify"
+      ],
+      "exit": 1,
+      "seconds": 14.95,
+      "stdout": "",
+      "stderr": "Error: Stage maat failed: Error: Provider stream error: {\"message\":\"Internal Server Error (ref: efdae52c-1c7a-4e70-87ff-6e71447864c3)\",\"type\":\"api_error\",\"param\":null,\"code\":null}\n"
+    }
+  ]
+}

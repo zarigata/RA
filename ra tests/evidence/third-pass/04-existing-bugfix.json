@@ -1,0 +1,22 @@
+{
+  "scenario": "04-existing-bugfix",
+  "status": "FAIL",
+  "seconds": 2.65,
+  "error": "Error: Stage thoth failed: Error: Empty response from gpt-oss:120b; type=text/event-stream; pending=134; frames={\"keys\":[\"id\",\"object\",\"created\",\"model\",\"system_fingerprint\",\"choices\"],\"delta\":[\"role\",\"content\",\"reasoning\"],\"finish\":null};{\"keys\":[\"id\",\"object\",\"created\",\"model\",\"system_fingerprint\",\"choices\"],\"delta\":[\"content\",\"reasoning\"],\"finish\":null}\n",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Fix the off-by-one bug in existing price.py total(prices). Read the file first. Preserve SENTINEL and all unrelated content. Verify empty list and [2,3].",
+        "--quick",
+        "--json",
+        "--verify"
+      ],
+      "exit": 1,
+      "seconds": 2.65,
+      "stdout": "",
+      "stderr": "Error: Stage thoth failed: Error: Empty response from gpt-oss:120b; type=text/event-stream; pending=134; frames={\"keys\":[\"id\",\"object\",\"created\",\"model\",\"system_fingerprint\",\"choices\"],\"delta\":[\"role\",\"content\",\"reasoning\"],\"finish\":null};{\"keys\":[\"id\",\"object\",\"created\",\"model\",\"system_fingerprint\",\"choices\"],\"delta\":[\"content\",\"reasoning\"],\"finish\":null}\n"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "command": [
+    "ra",
+    "run"
+  ],
+  "exit": 1,
+  "seconds": 0.16,
+  "stdout": "",
+  "stderr": "RA run: missing task. Usage: ra run \"task\" [--quick] [--verify] [--json] [--cwd DIR]\n"
+}

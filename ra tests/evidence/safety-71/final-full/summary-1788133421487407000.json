@@ -1,0 +1,144 @@
+{
+  "small_model": "ollama-cloud/glm-5.3-flash",
+  "review_model": "ollama-cloud/glm-5.3-flash",
+  "results": [
+    {
+      "scenario": "38-inherited-permissions",
+      "status": "FAIL",
+      "seconds": 9.23,
+      "error": "No actual child agent appeared in tree"
+    },
+    {
+      "scenario": "39-tool-whitelist",
+      "status": "FAIL",
+      "seconds": 4.99,
+      "error": "Model did not exercise the runtime whitelist guard"
+    },
+    {
+      "scenario": "40-shell-boundary",
+      "status": "PASS",
+      "seconds": 2.69,
+      "error": ""
+    },
+    {
+      "scenario": "41-native-workspace-environment",
+      "status": "PASS",
+      "seconds": 0.73,
+      "error": ""
+    },
+    {
+      "scenario": "42-native-outside-write",
+      "status": "PASS",
+      "seconds": 0.77,
+      "error": ""
+    },
+    {
+      "scenario": "43-native-readonly",
+      "status": "PASS",
+      "seconds": 0.7,
+      "error": ""
+    },
+    {
+      "scenario": "44-native-secret-and-symlink",
+      "status": "PASS",
+      "seconds": 1.06,
+      "error": ""
+    },
+    {
+      "scenario": "45-native-policy-protection",
+      "status": "PASS",
+      "seconds": 0.69,
+      "error": ""
+    },
+    {
+      "scenario": "46-native-network-policy",
+      "status": "PASS",
+      "seconds": 1.26,
+      "error": ""
+    },
+    {
+      "scenario": "47-environment-loader-isolation",
+      "status": "PASS",
+      "seconds": 0.31,
+      "error": ""
+    },
+    {
+      "scenario": "48-native-node-bun",
+      "status": "PASS",
+      "seconds": 0.79,
+      "error": ""
+    },
+    {
+      "scenario": "49-sandbox-cli-tui-controls",
+      "status": "PASS",
+      "seconds": 1.28,
+      "error": ""
+    },
+    {
+      "scenario": "50-cloud-code-native-sandbox",
+      "status": "PASS",
+      "seconds": 10.24,
+      "error": ""
+    },
+    {
+      "scenario": "51-readonly-role-shell",
+      "status": "PASS",
+      "seconds": 5.19,
+      "error": ""
+    },
+    {
+      "scenario": "52-mcp-native-isolation",
+      "status": "PASS",
+      "seconds": 3.96,
+      "error": ""
+    },
+    {
+      "scenario": "53-readonly-mcp-not-started",
+      "status": "PASS",
+      "seconds": 34.48,
+      "error": ""
+    },
+    {
+      "scenario": "54-diagnostic-native-isolation",
+      "status": "PASS",
+      "seconds": 5.6,
+      "error": ""
+    },
+    {
+      "scenario": "55-nested-fail-closed",
+      "status": "PASS",
+      "seconds": 0.49,
+      "error": ""
+    },
+    {
+      "scenario": "56-native-command-cancel",
+      "status": "PASS",
+      "seconds": 1.78,
+      "error": ""
+    },
+    {
+      "scenario": "57-parent-environment-sysctl",
+      "status": "PASS",
+      "seconds": 0.54,
+      "error": ""
+    },
+    {
+      "scenario": "58-credential-hardlink",
+      "status": "PASS",
+      "seconds": 0.58,
+      "error": ""
+    },
+    {
+      "scenario": "59-network-unix-socket",
+      "status": "PASS",
+      "seconds": 0.52,
+      "error": ""
+    },
+    {
+      "scenario": "60-unicode-workspace",
+      "status": "PASS",
+      "seconds": 0.55,
+      "error": ""
+    }
+  ]
+}

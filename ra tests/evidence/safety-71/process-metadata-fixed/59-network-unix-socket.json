@@ -1,0 +1,27 @@
+{
+  "scenario": "59-network-unix-socket",
+  "status": "PASS",
+  "seconds": 0.54,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--mode",
+        "workspace-write",
+        "--network",
+        "allow",
+        "--",
+        "python3",
+        "/private/tmp/ra-user-sandbox/projects/59-network-unix-socket/check.py"
+      ],
+      "exit": 0,
+      "seconds": 0.54,
+      "stdout": "{\n  \"code\": 0,\n  \"timedOut\": false,\n  \"stdout\": \"blocked\\n\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/workspace-write; network=allow\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

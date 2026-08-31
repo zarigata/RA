@@ -1,0 +1,21 @@
+{
+  "scenario": "40-shell-boundary",
+  "status": "PASS",
+  "seconds": 3.47,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "--cwd",
+        "/private/tmp/ra-user-sandbox/projects/40-shell-boundary"
+      ],
+      "inputs": [
+        "/code Run exactly python3 probe.py using BASH and report its output. No files should be edited."
+      ],
+      "exit": 0,
+      "stdout": "\u256d RA TUI \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256e\r\n\u2502 \ud80c\udce1  RA  \ud80c\udce1                                               \u2502\r\n\u2502 Relic Agent \u2014 Mixture-of-Agents Terminal Dev             \u2502\r\n\u2502 v1.0.0-ra.71  \u00b7  theme: Pharaonic                        \u2502\r\n\u2502 RA prefer small@251 \u2192 big@cloud  (gemma @local fallback) \u2502\r\n\u2570 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u256f\r\nProject: /private/tmp/ra-user-sandbox/projects/40-shell-boundary | Profile: cloud-acceptance | Ctrl+P palette | /help\r\n\r\nWelcome to RA. New here? Try:\r\n  /simple on\r\n  /quick write a hello world function\r\n  /again  (re-run last full-dev)\r\n  /verify  (re-check last artifacts)\r\n  /palette\r\n  small: ollama-cloud/glm-5.3-flash \u00b7 code: ollama-cloud/deepseek-v4-pro:0813\r\n\r\nRA \u203a /code Run exactly python3 probe.py using BASH and report its output. No files should be edited.\r\r\n\r\nRA\r\n[ptah] tier=code model=ollama-cloud/deepseek-v4-pro:0813\r\n\r\n[plugin] agent ptah starting: Run exactly python3 probe.py using BASH and report its outpu\r\nBASH python3 probe.py\r\nThe command ran successfully. Output from `python3 probe.py`:\r\n\r\n```\r\n[macOS Seatbelt/workspace-write; network=deny]\r\nexit 0\r\n{\"credential_in_env\": false, \"outside_write\": \"denied\"}\r\n```\r\n\r\nNo files were edited.\r\n\r\nDONE \u2014 Ran `python3 probe.py` via BASH and reported its output. The script exited 0 and printed a JSON result indicating `credential_in_env: false` and `outside_write: denied`, with a macOS Seatbelt workspace-write/network-deny banner. No files were modified.\r\n[plugin] agent ptah done (deepseek-v4-pro:0813)\r\n\r\nRA\r\n## ptah (deepseek-v4-pro:0813)\r\nThe command ran successfully. Output from `python3 probe.py`:\r\n\r\n```\r\n[macOS Seatbelt/workspace-write; network=deny]\r\nexit 0\r\n{\"credential_in_env\": false, \"outside_write\": \"denied\"}\r\n```\r\n\r\nNo files were edited.\r\n\r\nDONE \u2014 Ran `python3 probe.py` via BASH and reported its output. The script exited 0 and printed a JSON result indicating `credential_in_env: false` and `outside_write: denied`, with a macOS Seatbelt workspace-write/network-deny banner. No files were modified.\r\n\r\n\u256d context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n  ollama-cloud/deepseek-v4-pro:0813: 994 tok \u00b7 subscription\r\n  TOTAL: 994 tok \u00b7 $0.0000\r\n\u2570\u2500\r\n\u256d subagents \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r\n\u2713 ptah [deepseek-v4-pro:0813]: Run exactly python3 probe.py using BASH and report its ou\u2026\r\n\u2570\u2500\r\nRA \u203a /exit\r\r\n",
+      "stderr": ""
+    }
+  ]
+}

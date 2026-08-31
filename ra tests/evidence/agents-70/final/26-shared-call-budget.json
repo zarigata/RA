@@ -1,0 +1,24 @@
+{
+  "scenario": "26-shared-call-budget",
+  "status": "PASS",
+  "seconds": 4.52,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "moa",
+        "Reply with one word. No tools.",
+        "--roles",
+        "thoth,maat",
+        "--concurrency",
+        "1",
+        "--json"
+      ],
+      "exit": 130,
+      "seconds": 4.52,
+      "stdout": "{\n  \"status\": \"cancelled\",\n  \"task\": \"Reply with one word. No tools.\",\n  \"results\": [\n    {\n      \"role\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"output\": \"**Goal restated:**  \\nProvide a concise, single\u2011word response to the user\u2019s request.\\n\\n**Approach:**  \\n1. Identify a word that satisfies the request while remaining neutral and appropriate for any context.  \\n2. Choose a word that is universally acceptable and unlikely to cause misunderstandings or violate policy.  \\n3. Deliver the word as the sole content of the reply, without any additional punctuation, formatting, or explanation.\\n\\n**Steps:**  \\n1. **Select a safe word** \u2013 e.g., \u201cOK\u201d.  \\n   *Verification:* The word is a single token, non\u2011offensive, and conveys acknowledgment.  \\n2. **Prepare the response** \u2013 ensure the output contains only the chosen word and a trailing newline (as required by the platform).  \\n   *Verification:* No extra characters, whitespace, or markup are present.  \\n\\n**Risks and mitigations:**  \\n- *Risk:* The chosen word could be interpreted as ambiguous or insufficient. *Mitigation:* Use a universally understood acknowledgment (\u201cOK\u201d) that clearly signals compliance.  \\n- *Risk:* Platform or policy might flag overly terse replies. *Mitigation:* \u201cOK\u201d is a standard, policy\u2011safe token.  \\n- *Risk:* Future extensions of the task might require more context. *Mitigation:* Document the rationale so the response can be adjusted if the scope changes.\\n\\n**Open questions for the user:**  \\n1. Is there a preferred word or tone (e.g., \u201cYes\u201d, \u201cDone\u201d, \u201cConfirmed\u201d) you would like used instead of \u201cOK\u201d?  \\n2. Should the response include any trailing newline or is a plain word sufficient?\",\n      \"host\": \"cloud\",\n      \"status\": \"completed\"\n    },\n    {\n      \"role\": \"maat\",\n      \"model\": \"ollama-cloud/glm-5.3-flash\",\n      \"output\": \"\",\n      \"status\": \"cancelled\",\n      \"error\": \"Error: Model call budget exhausted (1)\"\n    }\n  ],\n  \"synthesis\": \"\",\n  \"stats\": {\n    \"calls\": 1,\n    \"agents\": 2,\n    \"elapsedMs\": 4174\n  }\n}\n",
+      "stderr": "MOA read-only proposals: thoth, maat \u00b7 concurrency 1\nthoth: started\nthoth: completed [gpt-oss:120b]\nmaat: started\n"
+    }
+  ]
+}

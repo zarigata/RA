@@ -1,0 +1,102 @@
+{
+  "pass": 16,
+  "fail": 0,
+  "scenarios": [
+    {
+      "scenario": "22-team-discovery",
+      "status": "PASS",
+      "seconds": 1.41,
+      "error": ""
+    },
+    {
+      "scenario": "23-bounded-moa",
+      "status": "PASS",
+      "seconds": 14.12,
+      "error": ""
+    },
+    {
+      "scenario": "24-partial-moa",
+      "status": "PASS",
+      "seconds": 9.76,
+      "error": ""
+    },
+    {
+      "scenario": "25-moa-readonly",
+      "status": "PASS",
+      "seconds": 13.13,
+      "error": ""
+    },
+    {
+      "scenario": "26-shared-call-budget",
+      "status": "PASS",
+      "seconds": 1.45,
+      "error": ""
+    },
+    {
+      "scenario": "27-moa-tui-cancel",
+      "status": "PASS",
+      "seconds": 2.21,
+      "error": ""
+    },
+    {
+      "scenario": "28-swarm-isolated-apply",
+      "status": "PASS",
+      "seconds": 18.35,
+      "error": ""
+    },
+    {
+      "scenario": "29-swarm-conflict-recovery",
+      "status": "PASS",
+      "seconds": 22.81,
+      "error": ""
+    },
+    {
+      "scenario": "30-swarm-validation",
+      "status": "PASS",
+      "seconds": 6.19,
+      "error": ""
+    },
+    {
+      "scenario": "31-swarm-partial-retained",
+      "status": "PASS",
+      "seconds": 8.74,
+      "error": ""
+    },
+    {
+      "scenario": "32-swarm-tui",
+      "status": "PASS",
+      "seconds": 13.79,
+      "error": ""
+    },
+    {
+      "scenario": "33-swarm-cancel-shell",
+      "status": "PASS",
+      "seconds": 14.14,
+      "error": ""
+    },
+    {
+      "scenario": "34-swarm-ownership-reject",
+      "status": "PASS",
+      "seconds": 10.65,
+      "error": ""
+    },
+    {
+      "scenario": "35-pipeline-shared-budget",
+      "status": "PASS",
+      "seconds": 2.49,
+      "error": ""
+    },
+    {
+      "scenario": "36-swarm-target-guard",
+      "status": "PASS",
+      "seconds": 9.86,
+      "error": ""
+    },
+    {
+      "scenario": "37-mixed-model-swarm",
+      "status": "PASS",
+      "seconds": 15.72,
+      "error": ""
+    }
+  ]
+}

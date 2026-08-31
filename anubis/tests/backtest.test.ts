@@ -7,7 +7,17 @@ let client: Awaited<ReturnType<typeof pickOllamaEndpoint>>;
 let hasOllama = false;
 try {
   client = await pickOllamaEndpoint(env);
-  hasOllama = client.availableModels.length > 0;
+  // These backtests characterize qwen3.8 specifically. The gemma localhost
+  // fallback cannot stand in for it (too slow for the longer prompts), so only
+  // run when the endpoint actually serves qwen3.8.
+  hasOllama = client.availableModels.some((m: string) => m.startsWith("qwen3.8"));
+  if (hasOllama) {
+    // Reachability is not responsiveness: a LAN box can accept the probe and
+    // then hang on generation. Only run the backtests when a tiny chat works.
+    await client.nativeChat("qwen3.8:latest", [{ role: "user", content: "reply OK" }], {
+      timeoutMs: 20_000,
+    });
+  }
 } catch {
   hasOllama = false;
 }

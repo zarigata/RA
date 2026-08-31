@@ -1,0 +1,40 @@
+{
+  "scenario": "48-native-node-bun",
+  "status": "PASS",
+  "seconds": 0.79,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--",
+        "node",
+        "-e",
+        "console.log(6*7)"
+      ],
+      "exit": 0,
+      "seconds": 0.45,
+      "stdout": "{\n  \"code\": 0,\n  \"signal\": null,\n  \"timedOut\": false,\n  \"stdout\": \"42\\n\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/workspace-write; network=deny\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--",
+        "bun",
+        "-e",
+        "console.log(6*7)"
+      ],
+      "exit": 0,
+      "seconds": 0.34,
+      "stdout": "{\n  \"code\": 0,\n  \"signal\": null,\n  \"timedOut\": false,\n  \"stdout\": \"42\\n\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/workspace-write; network=deny\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

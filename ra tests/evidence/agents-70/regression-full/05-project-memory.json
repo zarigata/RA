@@ -1,0 +1,33 @@
+{
+  "scenario": "05-project-memory",
+  "status": "PASS",
+  "seconds": 16.5,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "run",
+        "Create greeting.py defining greet(name) returning \"Welcome, \" plus name. Follow project conventions.",
+        "--quick",
+        "--json",
+        "--verify"
+      ],
+      "exit": 0,
+      "seconds": 16.38,
+      "stdout": "{\n  \"task\": \"Create greeting.py defining greet(name) returning \\\"Welcome, \\\" plus name. Follow project conventions.\",\n  \"status\": \"completed\",\n  \"outputs\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"content\": \"\u2013 Planned: restated goal, approach, ordered steps (create greeting.py with project tag, define greet(name) returning \\\"Welcome, \\\" + name, verify file creation, inspect contents, run a simple import test, compile to check syntax), identified risks (naming, tag, syntax, input handling) and listed open questions about extra functionality or tests.\"\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"content\": \"Created `greeting.py` with:\\n- `PROJECT_TAG = \\\"desert-orchid-73\\\"` per project conventions\\n- `greet(name)` returning `\\\"Welcome, \\\" + name`\\n\\nVerified:\\n- `python3 -m py_compile greeting.py` passed (exit 0)\\n- Import test printed `Welcome, Ada` as expected\"\n    }\n  ],\n  \"stages\": [\n    \"thoth\",\n    \"ptah\"\n  ],\n  \"models\": [\n    \"gpt-oss:120b\",\n    \"deepseek-v4-pro:0813\"\n  ],\n  \"filesWritten\": [\n    \"/private/tmp/ra-user-sandbox/projects/05-project-memory/greeting.py\"\n  ],\n  \"hosts\": [\n    \"cloud\"\n  ],\n  \"ms\": 15984,\n  \"intent\": \"code\",\n  \"cwd\": \"/private/tmp/ra-user-sandbox/projects/05-project-memory\",\n  \"timings\": [\n    {\n      \"stage\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"host\": \"cloud\",\n      \"ms\": 10219\n    },\n    {\n      \"stage\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"host\": \"cloud\",\n      \"ms\": 5765\n    }\n  ],\n  \"at\": 1788129444510,\n  \"verification\": {\n    \"ok\": true,\n    \"lines\": [\n      \"RA verify\",\n      \"\u2713 python3 /private/tmp/ra-user-sandbox/projects/05-project-memory/greeting.py \u2192 exit 0\",\n      \"RA verify OK\",\n      \"RA lane thoth@cloud \u2192 ptah@cloud\",\n      \"RA intent code\",\n      \"RA prefer small@cloud \u2192 big@cloud\",\n      \"elapsed: 16.0s\",\n      \"again: ra again --quick --verify\"\n    ]\n  }\n}\n",
+      "stderr": "RA verify\n\u2713 python3 /private/tmp/ra-user-sandbox/projects/05-project-memory/greeting.py \u2192 exit 0\nRA verify OK\nRA lane thoth@cloud \u2192 ptah@cloud\nRA intent code\nRA prefer small@cloud \u2192 big@cloud\nelapsed: 16.0s\nagain: ra again --quick --verify\n"
+    },
+    {
+      "command": [
+        "python3",
+        "-c",
+        "from greeting import greet,PROJECT_TAG; assert greet(\"Ada\")==\"Welcome, Ada\"; assert PROJECT_TAG==\"desert-orchid-73\""
+      ],
+      "exit": 0,
+      "seconds": 0.12,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

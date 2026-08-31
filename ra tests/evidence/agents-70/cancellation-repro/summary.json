@@ -1,0 +1,18 @@
+{
+  "pass": 1,
+  "fail": 1,
+  "scenarios": [
+    {
+      "scenario": "33-swarm-cancel-shell",
+      "status": "FAIL",
+      "seconds": 10.14,
+      "error": "Cancelled shell leaked a detached child that wrote orphan.txt"
+    },
+    {
+      "scenario": "34-swarm-ownership-reject",
+      "status": "PASS",
+      "seconds": 14.09,
+      "error": ""
+    }
+  ]
+}

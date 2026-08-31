@@ -1,0 +1,46 @@
+{
+  "scenario": "46-native-network-policy",
+  "status": "FAIL",
+  "seconds": 1.9,
+  "error": "{\n  \"code\": null,\n  \"timedOut\": false,\n  \"stdout\": \"\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/workspace-write; network=allow\"\n}\n\n",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--mode",
+        "workspace-write",
+        "--network",
+        "deny",
+        "--",
+        "python3",
+        "/private/tmp/ra-user-sandbox/projects/46-native-network-policy/check.py"
+      ],
+      "exit": 0,
+      "seconds": 0.47,
+      "stdout": "{\n  \"code\": 0,\n  \"timedOut\": false,\n  \"stdout\": \"blocked\\n\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/workspace-write; network=deny\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "ra",
+        "sandbox",
+        "exec",
+        "--json",
+        "--mode",
+        "workspace-write",
+        "--network",
+        "allow",
+        "--",
+        "python3",
+        "/private/tmp/ra-user-sandbox/projects/46-native-network-policy/check.py"
+      ],
+      "exit": 1,
+      "seconds": 0.39,
+      "stdout": "{\n  \"code\": null,\n  \"timedOut\": false,\n  \"stdout\": \"\",\n  \"stderr\": \"\",\n  \"sandbox\": \"macOS Seatbelt/workspace-write; network=allow\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

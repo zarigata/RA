@@ -1,0 +1,30 @@
+{
+  "small_model": "ollama-cloud/glm-5.3-flash",
+  "review_model": "ollama-cloud/glm-5.3-flash",
+  "results": [
+    {
+      "scenario": "46-native-network-policy",
+      "status": "PASS",
+      "seconds": 1.17,
+      "error": ""
+    },
+    {
+      "scenario": "48-native-node-bun",
+      "status": "PASS",
+      "seconds": 0.73,
+      "error": ""
+    },
+    {
+      "scenario": "57-parent-environment-sysctl",
+      "status": "PASS",
+      "seconds": 0.49,
+      "error": ""
+    },
+    {
+      "scenario": "59-network-unix-socket",
+      "status": "PASS",
+      "seconds": 0.54,
+      "error": ""
+    }
+  ]
+}

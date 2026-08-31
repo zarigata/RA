@@ -14,7 +14,9 @@ export interface RaConfig extends RouterConfig {
   small_model?: string;
   provider?: Record<string, unknown>;
   plugin?: string[];
-  moa?: { roles: string[]; parallel: boolean };
+  moa?: { roles: string[]; parallel: boolean; concurrency?: number };
+  agent_limits?: { max_calls?: number; max_agents?: number; max_depth?: number; timeout_ms?: number };
+  sandbox?: { mode?: "workspace-write" | "read-only" | "off"; network?: "deny" | "allow" };
   pipeline?: { stages: string[] };
   permission?: {
     tool?: Record<string, "allow" | "ask" | "deny">;
@@ -23,6 +25,13 @@ export interface RaConfig extends RouterConfig {
   mcp?: Record<string, { command: string; args?: string[]; env?: Record<string, string> } | { url: string; headers?: Record<string, string> }>;
   /** Air-gapped mode: 100% local operation, no cloud providers, no external fetches. */
   airgap?: boolean;
+  /**
+   * Explicit model fallback chains, tried in order when the primary model
+   * fails on a provider error. Candidates must be the same host kind as the
+   * primary (a cloud model never silently falls back to a local model).
+   * Auth failures and user cancellations never trigger a fallback.
+   */
+  fallbacks?: { default?: string[]; models?: Record<string, string[]> };
   /** UI theme/palette name (maps to a ColorPalette in ui.ts). */
   theme?: string;
   /** Keybind overrides: maps key combo (e.g. "ctrl+p") to a command or action. */
@@ -36,10 +45,10 @@ export function ensureRaDirs(): void {
 }
 
 export function loadRaConfig(root = RA_HOME): RaConfig {
-  const raPath = join(root, "ra.json");
+  const raPath = process.env.RA_CONFIG ?? join(root, "ra.json");
   const legacyPath = join(root, "anubis.json");
-  const path = existsSync(raPath) ? raPath : legacyPath;
-  if (!existsSync(path)) throw new Error(`No ra.json or anubis.json in ${root}`);
+  const path = (process.env.RA_CONFIG || existsSync(raPath)) ? raPath : legacyPath;
+  if (!existsSync(path)) throw new Error(`RA configuration not found: ${path}`);
   const cfg = JSON.parse(readFileSync(path, "utf-8")) as RaConfig;
 
   if (cfg.profile && cfg.profiles?.[cfg.profile]) {
@@ -47,7 +56,7 @@ export function loadRaConfig(root = RA_HOME): RaConfig {
     if (p.agent) cfg.agent = { ...cfg.agent, ...p.agent };
     if (p.tier_models) (cfg as RaConfig & { tier_models?: Record<string, string> }).tier_models = p.tier_models;
   }
-  return cfg;
+  return applyEnvOverrides(cfg);
 }
 
 export function sessionPath(projectCwd: string): string {
@@ -92,9 +101,27 @@ export function applyEnvOverrides(
 ): RaConfig {
   const big = env.RA_MODEL ?? env.ANUBIS_MODEL;
   const small = env.RA_SMALL_MODEL ?? env.ANUBIS_SMALL_MODEL;
-  if (!big && !small) return cfg;
+  const fbBig = (env.RA_FALLBACK ?? env.ANUBIS_FALLBACK)?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+  const fbSmall = (env.RA_SMALL_FALLBACK ?? env.ANUBIS_SMALL_FALLBACK)?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+  if (!big && !small && fbBig.length === 0 && fbSmall.length === 0) return cfg;
   const out: RaConfig = { ...cfg };
   if (big) out.model = big;
   if (small) out.small_model = small;
+  if (fbBig.length > 0 || fbSmall.length > 0) {
+    const models = { ...out.fallbacks?.models };
+    if (big && fbBig.length > 0) models[big] = fbBig;
+    if (small && fbSmall.length > 0) models[small] = fbSmall;
+    out.fallbacks = { ...out.fallbacks, models };
+  }
+  out.agent = Object.fromEntries(Object.entries(cfg.agent ?? {}).map(([role, agent]) => {
+    const model = role === "ptah" || role === "general" ? big : small;
+    return [role, model ? { ...agent, model } : agent];
+  }));
+  const tiers = (cfg as RaConfig & { tier_models?: Record<string, string> }).tier_models;
+  if (tiers) (out as RaConfig & { tier_models?: Record<string, string> }).tier_models = {
+    ...tiers,
+    ...(big ? { code: big, heavy: big } : {}),
+    ...(small ? { meta: small, light: small } : {}),
+  };
   return out;
 }

@@ -1,0 +1,24 @@
+{
+  "scenario": "25-moa-readonly",
+  "status": "PASS",
+  "seconds": 9.96,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "moa",
+        "Create forbidden.py printing hello and replace keep.txt with changed.",
+        "--roles",
+        "ptah,maat",
+        "--concurrency",
+        "2",
+        "--json"
+      ],
+      "exit": 0,
+      "seconds": 9.96,
+      "stdout": "{\n  \"status\": \"completed\",\n  \"task\": \"Create forbidden.py printing hello and replace keep.txt with changed.\",\n  \"results\": [\n    {\n      \"role\": \"ptah\",\n      \"model\": \"deepseek-v4-pro:0813\",\n      \"output\": \"**Independent proposal/review (read-only)**\\n\\nGoal: Create `forbidden.py` printing hello and replace `keep.txt` with changed.\\n\\n**Current state observed**\\n- `keep.txt` contains exactly: `untouched`\\n- No `*.py` files exist in the project (`GLOB **/*.py` returned no matches).\\n\\n**Proposed implementation steps (not executed)**\\n1. Create `/private/tmp/ra-user-sandbox/projects/25-moa-readonly/forbidden.py` with:\\n   ```python\\n   print(\\\"hello\\\")\\n   ```\\n2. Replace the contents of `keep.txt` with:\\n   ```\\n   changed\\n   ```\\n\\n**Review notes**\\n- The requested content is benign; the filename `forbidden.py` does not introduce any policy or safety concern by itself.\\n- No existing Python style/conventions to match, so a minimal one-line script is appropriate.\\n- No comments should be added (codebase has none).\\n\\n**Verification plan**\\n- Run `python3 forbidden.py` and confirm stdout is `hello`.\\n- Read `keep.txt` and confirm it contains `changed` (and no longer `untouched`).\\n\\nNo files were modified during this read-only review.\",\n      \"host\": \"cloud\",\n      \"status\": \"completed\"\n    },\n    {\n      \"role\": \"maat\",\n      \"model\": \"glm-5.3-flash\",\n      \"output\": \"I'll start by inventorying the project to see what actually exists before diagnosing this goal.\",\n      \"host\": \"cloud\",\n      \"status\": \"completed\"\n    }\n  ],\n  \"synthesis\": \"## MoA synthesis (glm-5.3-flash)\\n**Goal:** Create `forbidden.py` printing `hello`, and replace the contents of `keep.txt` with `changed`.\\n\\n**Current state**\\n- `keep.txt` contains exactly `untouched`.\\n- No existing `.py` files; no code conventions or comments to match.\\n\\n**Implementation**\\n1. Create `forbidden.py` in the project root:\\n   ```python\\n   print(\\\"hello\\\")\\n   ```\\n2. Replace the contents of `keep.txt` so it reads exactly:\\n   ```\\n   changed\\n   ```\\n\\n**Verification**\\n- Run `python3 forbidden.py` \u2014 stdout must be `hello`.\\n- Read `keep.txt` \u2014 it must contain `changed` (no trace of `untouched`).\\n\\n**Notes**\\n- No conflicts between role outputs; the proposal above is the defensible plan. The filename `forbidden.py` is benign \u2014 the requested actions are ordinary file creation and content replacement with no safety concerns.\\n\\nDisagreements:\\n- forbidden.py: only ptah considered it\\n- private/tmp/ra-user-sandbox/projects/25-moa-readonly/forbidden.py: only ptah considered it\",\n  \"stats\": {\n    \"calls\": 5,\n    \"agents\": 3,\n    \"elapsedMs\": 9655\n  }\n}\n",
+      "stderr": "MOA read-only proposals: ptah, maat \u00b7 concurrency 2\nptah: started\nmaat: started\nmaat: completed [glm-5.3-flash]\nptah: completed [deepseek-v4-pro:0813]\nsynthesis: started\n"
+    }
+  ]
+}

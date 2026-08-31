@@ -1,0 +1,24 @@
+{
+  "scenario": "26-shared-call-budget",
+  "status": "PASS",
+  "seconds": 7.84,
+  "error": "",
+  "terminal": [
+    {
+      "command": [
+        "ra",
+        "moa",
+        "Reply with one word. No tools.",
+        "--roles",
+        "thoth,maat",
+        "--concurrency",
+        "1",
+        "--json"
+      ],
+      "exit": 130,
+      "seconds": 7.83,
+      "stdout": "{\n  \"status\": \"cancelled\",\n  \"task\": \"Reply with one word. No tools.\",\n  \"results\": [\n    {\n      \"role\": \"thoth\",\n      \"model\": \"gpt-oss:120b\",\n      \"output\": \"**Goal restated:**  \\nProvide an independent proposal/review of the request to \u201creply with one word,\u201d while remaining read\u2011only (no code changes or tool usage).\\n\\n**Approach:**  \\nI will treat the request as a meta\u2011task: the user wants a concise evaluation of the feasibility and implications of replying with a single word, rather than actually delivering that word. I\u2019ll outline the reasoning, identify any constraints, and suggest a clear, minimal response that satisfies the original intent without performing any modifications.\\n\\n**Steps**\\n\\n1. **Interpret the request** \u2013 Confirm that the user asks for a review/proposal, not the one\u2011word answer itself.  \\n   *Verification:* The user explicitly says \u201cProvide your role's independent proposal or review\u2026 No tools.\u201d\\n\\n2. **Assess feasibility** \u2013 Determine whether replying with a single word is technically possible and aligns with policy.  \\n   *Verification:* A single\u2011word reply is allowed; no policy violation is apparent.\\n\\n3. **Identify constraints** \u2013 Note the read\u2011only requirement (no file edits, no tool calls) and the need to keep the response self\u2011contained.  \\n   *Verification:* The plan uses only textual output.\\n\\n4. **Draft the proposal** \u2013 Produce a concise recommendation: either (a) confirm that a one\u2011word reply is acceptable and suggest the word, or (b) advise the user to specify the desired word if they need a particular meaning.  \\n   *Verification:* The draft includes a clear recommendation and optional next steps.\\n\\n5. **Present risks and mitigations** \u2013 Highlight any ambiguity (e.g., the user might expect the actual word) and suggest clarifying communication.  \\n   *Verification:* Risks are listed and mitigations offered.\\n\\n**Risks and mitigations**\\n\\n| Risk | Impact | Mitigation |\\n|------|--------|------------|\\n| Ambiguity about which word to use | The user may feel the proposal is incomplete | Ask the user to specify the intended word or context if a particular term is required |\\n| Misinterpretation that the assistant is refusing to comply | User may think the request is denied | Clearly state that the one\u2011word reply is feasible and we are only providing a review, not the actual word |\\n| Over\u2011explaining beyond the \u201cone\u2011word\u201d spirit | Might be seen as unnecessary verbosity | Keep the proposal succinct and focused on the meta\u2011analysis |\\n\\n**Open questions for the user**\\n\\n1. Do you need a specific word suggested, or is the confirmation that a one\u2011word reply is permissible sufficient?  \\n2. If you have a particular word in mind, could you share the intended meaning or context so the proposal can reference it accurately?  \",\n      \"host\": \"cloud\",\n      \"status\": \"completed\"\n    },\n    {\n      \"role\": \"maat\",\n      \"model\": \"ollama-cloud/glm-5.3-flash\",\n      \"output\": \"\",\n      \"status\": \"cancelled\",\n      \"error\": \"Error: Model call budget exhausted (1)\"\n    }\n  ],\n  \"synthesis\": \"\",\n  \"stats\": {\n    \"calls\": 1,\n    \"agents\": 2,\n    \"elapsedMs\": 7503\n  }\n}\n",
+      "stderr": "MOA read-only proposals: thoth, maat \u00b7 concurrency 1\nthoth: started\nthoth: completed [gpt-oss:120b]\nmaat: started\n"
+    }
+  ]
+}

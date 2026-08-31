@@ -21,6 +21,13 @@ Workflow: [`.github/workflows/linux-acceptance.yml`](../.github/workflows/linux-
 2. **Userns-forbidden loopback** — `--unshare-net` needs loopback setup rights CI runners forbid (`RTM_NEWADDR: Operation not permitted`); the capability probe now decides net isolation and reports `network=shared (netns unavailable)` honestly.
 3. **Double stdin key wiring** — two `stdin.on("data")` handlers double-processed every keystroke in the full-screen TUI (keys landed in the editor, onboarding blocked the palette). Single `wireKeys` now, plus a 50 ms lone-ESC disambiguation timer so Esc-then-`?` no longer merges into alt+`?`.
 
+## Local Docker run (Docker Desktop, macOS host)
+
+With the daemon healthy, the same driver ran in a local `oven/bun`+Ubuntu container. Two honest findings:
+
+- **Nested namespaces are forbidden** in Docker Desktop's Linux VM even with `seccomp=unconfined` (`Creating new namespace failed: Operation not permitted`) — so the bubblewrap probe correctly reports unusable there and RA fails closed without consent (fail-closed message proven: "No OS command sandbox on this platform…").
+- **With consent** (`RA_ALLOW_UNSANDBOXED=1`) the full pipeline runs in the container: **10/11 driver scenarios PASS** — installed version, doctor with cloud reachability, real coding task `exit=0` with `calc.py` printing 5, sandbox status, consent tag `[disabled (no isolation; user consent)]`, sandbox exec, and the full-screen TUI (splash, welcome, `/` palette). The single "FAIL" is scenario L6 (outside-write denial), which assumes bwrap isolation — impossible by definition in consent mode, i.e. the expected result of that environment, not a defect. Full log: [evidence/linux-75/local-docker-run.log](evidence/linux-75/local-docker-run.log).
+
 ## Scope
 
 Verified: Ubuntu 24.04-class runner (GitHub Actions container), real coding task, sandbox contracts, full TUI. Unverified here: Windows (consent path exists; no OS sandbox), macOS Linux-container parity of every shell tool, and desktop-Linux terminal matrix. The local Docker daemon stalled during this pass, so the container proof ran in CI; `driver`-equivalent local reproduction is [competitive/acceptance drivers](.) with `ui_acceptance.py` covering the TUI on macOS too.

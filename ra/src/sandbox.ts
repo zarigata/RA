@@ -44,15 +44,24 @@ export function resolveBackend(opts: {
   return { backend: "unavailable", unsandboxed: false };
 }
 
-let bwrapNetNsProbe: boolean | undefined;
-/** Whether --unshare-net works here (needs loopback setup rights, e.g. absent on CI runners). Cached. */
-export function bwrapNetNsAvailable(bwrapPath: string): boolean {
-  if (bwrapNetNsProbe !== undefined) return bwrapNetNsProbe;
+let bwrapProbe: { usable: boolean; netns: boolean } | undefined;
+/** Probe bubblewrap end-to-end: can it launch at all (user namespaces), and
+ *  can it isolate the network (loopback setup)? Cached; CI runners often
+ *  forbid userns entirely, desktop Linux usually allows both. */
+export function bwrapProbeResult(bwrapPath: string): { usable: boolean; netns: boolean } {
+  if (bwrapProbe) return bwrapProbe;
   try {
-    const r = spawnSync(bwrapPath, ["--dev", "/dev", "--ro-bind", "/", "/", "--unshare-net", "/bin/true"], { timeout: 8000, stdio: "ignore" });
-    bwrapNetNsProbe = r.status === 0;
-  } catch { bwrapNetNsProbe = false; }
-  return bwrapNetNsProbe;
+    const base = ["--dev", "/dev", "--ro-bind", "/", "/", "/bin/true"];
+    const r1 = spawnSync(bwrapPath, base, { timeout: 8000, stdio: "ignore" });
+    const usable = r1.status === 0;
+    let netns = false;
+    if (usable) {
+      const r2 = spawnSync(bwrapPath, ["--dev", "/dev", "--ro-bind", "/", "/", "--unshare-net", "/bin/true"], { timeout: 8000, stdio: "ignore" });
+      netns = r2.status === 0;
+    }
+    bwrapProbe = { usable, netns };
+  } catch { bwrapProbe = { usable: false, netns: false }; }
+  return bwrapProbe;
 }
 
 let bwrapPathCache: string | null | undefined;
@@ -80,8 +89,15 @@ export function sandboxSettings(context: CommandContext) {
     mode,
     consent,
     hasSeatbelt: process.platform === "darwin" && existsSync("/usr/bin/sandbox-exec"),
-    bwrapPath: process.platform === "linux" ? findBwrap() : null,
+    bwrapPath: null,
   });
+  if (resolved.backend === "unavailable" && process.platform === "linux") {
+    // bwrap exists but is only usable when user namespaces work end to end.
+    const bwrapPath = findBwrap();
+    if (bwrapPath && bwrapProbeResult(bwrapPath).usable) {
+      Object.assign(resolved, { backend: "Linux bubblewrap", unsandboxed: false, bwrapPath });
+    }
+  }
   return {
     mode,
     network: mode === "off" ? "unrestricted" : network,
@@ -211,7 +227,7 @@ function prepareCommand(context: CommandContext, args: string[], options: Launch
   const env = commandEnvironment(scratch, options.env);
   let command = args;
   if (settings.backend === "Linux bubblewrap" && settings.bwrapPath) {
-    const netIsolated = settings.network === "deny" && bwrapNetNsAvailable(settings.bwrapPath);
+    const netIsolated = settings.network === "deny" && bwrapProbeResult(settings.bwrapPath).netns;
     const bwrap: string[] = [settings.bwrapPath,
       "--dev", "/dev", "--proc", "/proc",
       "--ro-bind", "/", "/",

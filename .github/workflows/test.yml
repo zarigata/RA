@@ -18,6 +18,11 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Install Linux sandbox backend
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+
       - name: Test, compile, smoke-check, and verify repository hygiene
         run: bash scripts/verify-release.sh
 

@@ -1,0 +1,45 @@
+{
+  // Conceptual RA v2 configuration — field names may change during implementation.
+  "router": {
+    "strategy": "local-first",
+    "cloud_call_budget": 2,
+    "repair_loops_before_escalation": 3
+  },
+
+  "context": {
+    "strategy": "packet",
+    "profile": "auto",
+    "store_full_history": true,
+    "virtualize_tool_output": true
+  },
+
+  "temple": {
+    "servers": {
+      "p6000": {
+        "kind": "openai-compatible",
+        "base_url": "http://10.0.0.10:8000/v1",
+        "trust": "lan"
+      },
+      "ollama": {
+        "kind": "ollama",
+        "base_url": "http://10.0.0.11:11434",
+        "trust": "lan"
+      }
+    }
+  },
+
+  "roles": {
+    "seshat": { "preference": ["local-small"] },
+    "thoth": { "preference": ["local-strong", "frontier"] },
+    "ptah": { "preference": ["local-coder", "frontier"] },
+    "anubis": { "preference": ["local-small", "local-strong"] },
+    "maat": { "preference": ["local-strong", "frontier"] }
+  },
+
+  "tui": {
+    "theme": "pharaonic",
+    "scene": "auto",
+    "motion": "full",
+    "scene_height": 7
+  }
+}

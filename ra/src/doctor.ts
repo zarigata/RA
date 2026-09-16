@@ -43,6 +43,19 @@ export async function runDoctor(): Promise<number> {
       small.availableModels.length > 0,
       "start ollama on 192.168.1.251 (gpt-oss:20b) or localhost gemma",
     );
+    // Context registry (ra.78): show each model's USABLE window (probed max
+    // clamped by the num_ctx server cap), not the nominal marketing number.
+    try {
+      const { loadRaConfig } = await import("../../anubis/src/config.ts");
+      const { contextPolicy, formatContext, modelMaxContextLive, usableContext } = await import("../../anubis/src/context-limits.ts");
+      const config = loadRaConfig(ANUBIS_HOME);
+      const policy = contextPolicy(config);
+      console.log(`○ adaptive context ${policy.adaptive ? "ON" : "OFF"} · low/critical ${Math.round(policy.lowWatermark * 100)}%/${Math.round(policy.criticalWatermark * 100)}% · continuations ≤${policy.resumeLimit}`);
+      for (const m of small.availableModels.slice(0, 5)) {
+        const max = await modelMaxContextLive(small, m, config);
+        console.log(`    ${m} — ${formatContext(usableContext(max, m, small.kind, policy), max)}`);
+      }
+    } catch { /* registry display is best-effort */ }
   } catch {
     check("Small Ollama .251 / localhost", false, "OLLAMA_LAN_URL=http://192.168.1.251:11434");
   }

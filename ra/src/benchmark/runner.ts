@@ -1,12 +1,27 @@
-import { readFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { loadRaConfig } from "../../../anubis/src/config.ts";
+import { loadLastRun, type LastRun } from "../../../anubis/src/last-run.ts";
 import { ANUBIS_HOME } from "../paths.ts";
 import { runFullDevTask, ensureTaskArtifacts } from "../../../anubis/src/runner.ts";
 import type { ToolContext } from "../tools/index.ts";
 
 export const BENCHMARK_ROOT = join(homedir(), "Desktop", "RA-Tests");
+
+/** Per-scenario record for the JSON benchmark report (ra.78). */
+export interface ScenarioReport {
+  scenario: string;
+  passed: boolean;
+  ms: number;
+  error?: string;
+  /** The pipeline's own last-run record (models, timings, verification). */
+  lastRun?: LastRun;
+  at: string;
+}
+
+/** Reports for the most recent benchmarkRun() invocation. */
+export let lastScenarioReports: ScenarioReport[] = [];
 
 export interface Scenario {
   name: string;
@@ -58,6 +73,7 @@ export function ensureBenchmarkArtifacts(ctx: ToolContext, prompt: string): void
   ensureTaskArtifacts(ctx.cwd, prompt, []);
 }
 
+/** Run one scenario; record a ScenarioReport either way (pass, fail, or crash). */
 export async function runScenario(scenarioPath: string): Promise<boolean> {
   const raw = readFileSync(scenarioPath, "utf-8");
   const scenario = parseScenarioYaml(raw);
@@ -80,20 +96,38 @@ export async function runScenario(scenarioPath: string): Promise<boolean> {
 
   loadRaConfig(ANUBIS_HOME);
   const ctx = { cwd };
-  // Full-dev path = RA TUI boxes + .251 gpt-oss plan + cloud/code model
-  await runFullDevTask(scenario.prompt, {
-    root: ANUBIS_HOME,
-    stages: ["thoth", "ptah"],
-    cwd,
-  });
-  // Acceptance examines only actual agent output; never manufacture artifacts.
+  const t0 = Date.now();
+  let pipelineError: string | undefined;
+  try {
+    // Full-dev path = RA TUI boxes + .251 gpt-oss plan + cloud/code model
+    await runFullDevTask(scenario.prompt, {
+      root: ANUBIS_HOME,
+      stages: ["thoth", "ptah"],
+      cwd,
+    });
+  } catch (e) {
+    // A crashed pipeline is a failed scenario, not a crashed benchmark.
+    pipelineError = String(e instanceof Error ? e.message : e).slice(0, 300);
+    console.log(`  ✗ pipeline error: ${pipelineError}`);
+  }
+  const report: ScenarioReport = {
+    scenario: scenario.name,
+    passed: false,
+    ms: Date.now() - t0,
+    error: pipelineError,
+    lastRun: loadLastRun() ?? undefined,
+    at: new Date().toISOString(),
+  };
 
+  // Acceptance examines only actual agent output; never manufacture artifacts.
+  let failed = false;
   for (const check of scenario.success) {
     if ("file_exists" in check) {
       const p = join(cwd, check.file_exists);
       if (!existsSync(p)) {
         console.log(`  ✗ missing: ${check.file_exists}`);
-        return false;
+        failed = true;
+        break;
       }
       console.log(`  ✓ exists: ${check.file_exists}`);
     }
@@ -101,18 +135,32 @@ export async function runScenario(scenarioPath: string): Promise<boolean> {
       const p = join(cwd, check.file_contains.path);
       if (!existsSync(p)) {
         console.log(`  ✗ missing: ${check.file_contains.path}`);
-        return false;
+        failed = true;
+        break;
       }
       const content = readFileSync(p, "utf-8");
       if (!content.toLowerCase().includes(check.file_contains.text.toLowerCase())) {
         console.log(`  ✗ ${check.file_contains.path} missing "${check.file_contains.text}"`);
-        return false;
+        failed = true;
+        break;
       }
       console.log(`  ✓ contains "${check.file_contains.text}"`);
     }
   }
-  console.log(`  ✓ ${scenario.name} PASSED`);
-  return true;
+  report.passed = !failed && !pipelineError;
+  lastScenarioReports.push(report);
+  console.log(`  ${report.passed ? `✓ ${scenario.name} PASSED` : `✗ ${scenario.name} FAILED`} (${report.ms}ms)`);
+  return report.passed;
+}
+
+/** Write the accumulated scenario reports as JSON under RA-Tests/runs/. */
+export function writeBenchmarkReport(): string {
+  if (!lastScenarioReports.length) return "";
+  const dir = join(BENCHMARK_ROOT, "runs");
+  mkdirSync(dir, { recursive: true });
+  const p = join(dir, `report-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+  writeFileSync(p, JSON.stringify(lastScenarioReports, null, 2), "utf-8");
+  return p;
 }
 
 export async function benchmarkSmoke(): Promise<number> {
@@ -127,6 +175,7 @@ export async function benchmarkRun(name: string): Promise<number> {
   console.log("RA benchmark");
   console.log("RA prefer small@251 → big@cloud  (gemma @local fallback)");
   benchmarkInit();
+  lastScenarioReports = [];
   const root = join(ANUBIS_HOME, "..", "benchmarks");
   if (name === "all") {
     const dirs = ["smoke", "cookie-website", "todo-app", "fix-bug"];
@@ -135,6 +184,8 @@ export async function benchmarkRun(name: string): Promise<number> {
       const p = join(root, d, "scenario.yaml");
       if (existsSync(p) && !(await runScenario(p))) fail++;
     }
+    const report = writeBenchmarkReport();
+    if (report) console.log(`  report: ${report}`);
     console.log(fail > 0 ? "RA benchmark FAIL" : "RA benchmark OK");
     return fail > 0 ? 1 : 0;
   }
@@ -151,6 +202,8 @@ export async function benchmarkRun(name: string): Promise<number> {
     writeFileSync(join(cwd, "hello.py"), "def hello():\n    hello()\n\nhello()\n");
   }
   const ok = await runScenario(p);
+  const report = writeBenchmarkReport();
+  if (report) console.log(`  report: ${report}`);
   console.log(ok ? "RA benchmark OK" : "RA benchmark FAIL");
   return ok ? 0 : 1;
 }

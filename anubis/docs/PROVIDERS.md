@@ -604,3 +604,66 @@ Example: with `GOOGLE_API_KEY` set and a google provider block, isis
 (research) routes to `google/gemini-3-pro` automatically; when its quota
 exhausts mid-task, RA marks it and reroutes research to the next-best
 (deepseek or the local lane) without losing the turn.
+
+---
+
+## Context windows & adaptive runs (ra.78)
+
+RA never trusts a nominal context window. Every model gets a **usable**
+window, resolved as:
+
+1. **config override** — `"context": 131072` on a provider model entry, or
+   `context.model_overrides["qwen3.8"] = 262144`;
+2. **live probe** — `OllamaClient.showContext`: Ollama `/api/show`
+   `*.context_length`, or `/v1/models` annotations (LM Studio), cached 60s;
+3. **static table** — curated per family (qwen3.8 → 262k nominal,
+   gemma2 → 8k, gemma3+ → 128k, llama3.1+ → 128k, gpt-oss → 128k…);
+4. **conservative default** — unknown local 8k / unknown cloud 32k.
+
+then clamped by the serving host's ceiling: `context.server_cap` per provider
+(default local cap **32768** tokens — VRAM guard for the LAN box; cloud is
+never capped). A "262k" qwen3.8 on a 32k-capped box is a 32k model, full
+stop. Measured on this Mac's localhost Ollama: `glm-5.2:cloud` probes at 1M
+nominal → 32k usable; `gemma:latest` probes at **8k**, beating the table's
+128k guess.
+
+```json
+"context": {
+  "adaptive": true,
+  "resume_limit": 3,
+  "low_watermark": 0.7,
+  "critical_watermark": 0.9,
+  "min_context_tokens": 8192,
+  "server_cap": { "ollama-lan": 32768, "ollama": 32768, "lmstudio": 32768 }
+}
+```
+
+### What the runtime does with it
+
+- **`num_ctx` is sent** on every native Ollama chat (`options.num_ctx`,
+  plus `num_predict` when an output cap applies) so the server reserves the
+  window instead of silently truncating to its default. OpenAI-compat
+  endpoints get `max_tokens`.
+- **Token ledger**: prompt pressure is tracked per run against the usable
+  window, calibrated by the provider's real usage counts when reported
+  (estimate = max(chars/4, real-based)).
+- **Low watermark (70%)**: the model is told to restate its objective +
+  TODO state and wrap up the current sub-step — remaining steps cap at 2,
+  subagent spawns disable, compaction re-fires (now repeatable and
+  per-model instead of once-per-run at 60k chars).
+- **Critical watermark (90%) or a context-overflow error**: the run
+  checkpoints a handoff packet — objective verbatim, files touched, TODO
+  state, recent exchanges, next steps — under `~/.ra/handoffs/` and ends
+  cleanly. A fresh, **shorter** run (step budget ×0.75 → ×0.5) resumes with
+  the original objective + handoff, up to `resume_limit` (3) continuations.
+  Then one escalation to a bigger-window model with the reason recorded
+  (`context exhausted after N continuations`), or an honest `partial`
+  result in airgap/local-only setups. `RA_NO_ADAPTIVE=1` restores the old
+  single-run behavior.
+- **Routing floor**: models whose usable window is below the job floor
+  (code/reasoning 16k, others 8k, raised by `min_context_tokens`) are
+  skipped with the reason shown in `/providers`.
+
+Surfaces: `/context` (live pressure + per-model windows), `ra doctor`
+(registry section), `ra providers` (ctx column), `ra eval --model <id>`
+(sweep one model with continuation/compaction/escalation telemetry).

@@ -478,6 +478,28 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       c.reply(formatProviders(c.config, loadEnv(ANUBIS_HOME)));
       return true;
     }
+    case "context": {
+      const { getLiveContextState } = await import("../agent.ts");
+      const { contextPolicy, formatContext, modelMaxContext, usableContext } = await import("../../../anubis/src/context-limits.ts");
+      const { candidateModels } = await import("../../../anubis/src/capability.ts");
+      const policy = contextPolicy(c.config);
+      const lines = [
+        `RA adaptive context — ${policy.adaptive ? "ON" : "OFF"} · low/critical ${Math.round(policy.lowWatermark * 100)}%/${Math.round(policy.criticalWatermark * 100)}% · continuations ≤${policy.resumeLimit} (RA_NO_ADAPTIVE=1 disables)`,
+      ];
+      const live = getLiveContextState();
+      if (live) {
+        const pct = Math.min(100, Math.round((live.usedTokens / Math.max(1, live.budgetTokens)) * 100));
+        lines.push("", `live run: ${live.model} — ${live.usedTokens}/${live.windowTokens} tok (${pct}% of usable window) · pressure: ${live.pressure}`);
+      } else {
+        lines.push("", "(no agent run active — configured models below)");
+      }
+      for (const cand of candidateModels(c.config, process.env)) {
+        const max = modelMaxContext(cand.model, c.config);
+        lines.push(`  ${cand.model} — ${formatContext(usableContext(max, cand.model, cand.kind, policy), max)}`);
+      }
+      c.reply(lines.join("\n"));
+      return true;
+    }
     case "pipeline":
       return runFullDev(arg, c.config.pipeline?.stages ?? DEFAULT_PIPELINE_STAGES, c);
     default: {
@@ -612,5 +634,5 @@ export const PALETTE_COMMANDS = [
   "/roles", "/models", "/cost", "/status", "/files", "/show", "/result", "/lane", "/intent", "/prefer", "/summary", "/timings", "/verify", "/history", "/ls", "/doctor", "/selfcheck", "/lanes", "/home", "/which", "/clear", "/lan-scan", "/todos",
   "/simple on", "/simple off", "/palette",
   "/replay list", "/connect", "/tree", "/agents", "/swarm help", "/swarm list", "/sandbox status",
-  "/team list", "/board list", "/board", "/diff", "/providers",
+  "/team list", "/board list", "/board", "/diff", "/providers", "/context",
 ];

@@ -32,6 +32,14 @@ export interface StreamChatOptions {
   temperature?: number;
   /** Ollama keep-alive for the loaded model (e.g. "30m") — native servers only. */
   keepAlive?: string;
+  /**
+   * Context window to reserve on native Ollama (sent as options.num_ctx).
+   * Without it the server silently uses its small default and truncates the
+   * prompt — the "262k model, 2k reality" trap. From the context registry.
+   */
+  contextTokens?: number;
+  /** Output cap (native: options.num_predict; OpenAI-compat: max_tokens). */
+  maxTokens?: number;
   /** External abort (Esc-to-interrupt plumbing). */
   signal?: AbortSignal;
   /** Called per generated token chunk as it arrives. */
@@ -116,6 +124,18 @@ export function keepAliveMs(keepAlive?: string): number | undefined {
   return unit === "ms" ? n : unit === "s" ? n * 1000 : unit === "m" ? n * 60_000 : n * 3_600_000;
 }
 
+/**
+ * Build the native /api/chat `options` object: temperature, num_ctx (reserve
+ * the context window the registry promised), num_predict (output cap).
+ */
+export function nativeOptions(opts: { temperature?: number; contextTokens?: number; maxTokens?: number }): { options?: Record<string, number> } {
+  const options: Record<string, number> = {};
+  if (opts.temperature != null) options.temperature = opts.temperature;
+  if (opts.contextTokens != null && opts.contextTokens > 0) options.num_ctx = Math.max(2048, Math.floor(opts.contextTokens));
+  if (opts.maxTokens != null && opts.maxTokens > 0) options.num_predict = Math.floor(opts.maxTokens);
+  return Object.keys(options).length ? { options } : {};
+}
+
 export class OllamaClient {
   availableModels: string[] = [];
 
@@ -186,6 +206,46 @@ export class OllamaClient {
     return (data.data ?? []).map((m) => m.id);
   }
 
+  /**
+   * Best-effort context window for a served model (ra.78 context registry).
+   * Native Ollama: POST /api/show model_info `*.context_length`. OpenAI-compat:
+   * some servers (LM Studio) annotate /v1/models entries. Returns null when
+   * the host doesn't say — callers fall back to the static table.
+   */
+  async showContext(model: string, timeoutMs = 3000): Promise<number | null> {
+    try {
+      if (this.cfg.kind === "local" && !this.cfg.openaiCompat) {
+        const base = this.cfg.baseURL.replace(/\/v1$/, "");
+        const res = await fetch(`${base}/api/show`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model }),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        if (!res.ok) return null;
+        const data = (await res.json()) as { model_info?: Record<string, unknown> };
+        for (const [k, v] of Object.entries(data.model_info ?? {})) {
+          if (/\.context_length$/.test(k) && typeof v === "number" && v > 0) return Math.floor(v);
+        }
+        return null;
+      }
+      const res = await fetch(`${this.cfg.baseURL}/models`, {
+        headers: { Authorization: `Bearer ${this.cfg.apiKey}` },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { data?: Array<Record<string, unknown>> };
+      const entry = (data.data ?? []).find((m) => m.id === model);
+      for (const key of ["max_context_length", "context_length", "context_window", "max_model_len"]) {
+        const v = entry?.[key];
+        if (typeof v === "number" && v > 0) return Math.floor(v);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   async chat(model: string, messages: ChatMessage[], opts: { maxTokens?: number; timeoutMs?: number; temperature?: number } = {}): Promise<ChatResult> {
     const timeoutMs = opts.timeoutMs ?? 180_000;
     const ctrl = new AbortController();
@@ -232,7 +292,7 @@ export class OllamaClient {
   async nativeChat(
     model: string,
     messages: ChatMessage[],
-    opts: { timeoutMs?: number; temperature?: number; keepAlive?: string } = {},
+    opts: { timeoutMs?: number; temperature?: number; keepAlive?: string; contextTokens?: number; maxTokens?: number } = {},
   ): Promise<ChatResult> {
     if (this.cfg.kind === "cloud" || this.cfg.openaiCompat) return this.chat(model, messages, opts);
     const base = this.cfg.baseURL.replace(/\/v1$/, "");
@@ -250,7 +310,7 @@ export class OllamaClient {
           messages,
           stream: false,
           ...(opts.keepAlive ? { keep_alive: opts.keepAlive } : {}),
-          ...(opts.temperature != null ? { options: { temperature: opts.temperature } } : {}),
+          ...nativeOptions(opts),
         }),
       });
       if (!res.ok) throw new Error(`nativeChat ${res.status}: ${await res.text()}`);
@@ -309,7 +369,7 @@ export class OllamaClient {
           messages,
           stream: true,
           ...(ka != null ? { keep_alive: ka } : {}),
-          ...(opts.temperature != null ? { options: { temperature: opts.temperature } } : {}),
+          ...nativeOptions(opts),
         }),
       });
       if (!res.ok) throw new Error(`nativeChatStream ${res.status}: ${await res.text()}`);
@@ -382,6 +442,7 @@ export class OllamaClient {
           messages,
           stream: true,
           ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
+          ...(opts.maxTokens != null ? { max_tokens: opts.maxTokens } : {}),
         }),
       });
       if (!res.ok) throw new Error(`chatStream ${res.status}: ${await res.text()}`);
@@ -640,6 +701,16 @@ export function resolveModelFallbacks(configured: string, fallbacks?: ModelFallb
 export function isAuthError(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e);
   return /\b40[13]\b|unauthorized|forbidden|invalid api key|authentication/i.test(msg);
+}
+
+/**
+ * The provider refused the prompt because it exceeds the model's context
+ * window. This is not a provider outage: falling back to same-kind models
+ * rarely helps, so the agent loop checkpoints and resumes instead (ra.78).
+ */
+export function isContextOverflowError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /context length|context window|context_length_exceeded|too many tokens|maximum context|prompt too long|exceeds (?:the )?context|input (?:is )?too large|requested tokens exceed/i.test(msg);
 }
 
 /** User cancellations (Escape, run cancel) are not provider failures. */

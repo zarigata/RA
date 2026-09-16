@@ -3,8 +3,9 @@ import { normalizeToolText } from "../../anubis/src/tool-call.ts";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { AGENTS_DIR, ANUBIS_HOME } from "./paths.ts";
-import { pickOllamaEndpoint, pickModel, pickClientForModel, resolveModelFallbacks, isAuthError, isUserCancel } from "../../anubis/src/ollama.ts";
+import { pickOllamaEndpoint, pickModel, pickClientForModel, resolveModelFallbacks, isAuthError, isUserCancel, isContextOverflowError } from "../../anubis/src/ollama.ts";
 import { recordChatUsage } from "../../anubis/src/cost.ts";
+import { contextPolicy, modelMaxContext, modelMaxContextLive, usableContext, modelKind, ContextLedger, type ContextInfo, type ContextPressure } from "../../anubis/src/context-limits.ts";
 import { resolveRoleModel } from "../../anubis/src/router.ts";
 import type { RaConfig } from "../../anubis/src/config.ts";
 import type { ToolContext } from "./tools/index.ts";
@@ -22,6 +23,7 @@ import { applyRoutingMode, downshiftForBudget, escalationChain } from "../../anu
 import { jobForRole } from "../../anubis/src/profiles.ts";
 import { pickForJobLive } from "../../anubis/src/capability.ts";
 import { isQuotaError, markExhausted } from "../../anubis/src/quota.ts";
+import { buildHandoff, saveHandoff, buildContinuationTask, resumeStepBudget, lowContextNotice, pickContextEscalation, todoState, type ContextStats, type HandoffReason } from "./resume.ts";
 
 /** Global hook registry — allows agent code to emit events without a PluginHost reference. */
 type GlobalHookFn = (input: Record<string, unknown>) => void;
@@ -45,6 +47,20 @@ export interface TaskResult {
   host?: string;
   /** Populated when the primary model failed on a provider error and an explicit fallback candidate completed the work. */
   fallbacks?: FallbackEvent[];
+  /**
+   * Adaptive low-context runs (ra.78): "done" (default) | "resumable" (handoff
+   * ready — runTaskAgent continues it) | "partial" (context exhausted, no
+   * bigger model available — output says so honestly).
+   */
+  status?: "done" | "resumable" | "partial";
+  /** Handoff packet carried onto the continuation run. */
+  handoff?: string;
+  /** Where the handoff packet was persisted (~/.ra/handoffs/...). */
+  handoffPath?: string;
+  /** Context telemetry for /context, eval and benchmark reports. */
+  context?: ContextStats;
+  /** Context-pressure escalations to a bigger-window model (reason recorded). */
+  escalations?: Array<{ from: string; to: string; reason: string }>;
 }
 
 export interface FallbackEvent {
@@ -515,6 +531,23 @@ export function setActiveStreamRenderer(fn: ((token: string) => void) | null): v
 
 export function getActiveStreamRenderer(): ((token: string) => void) | null { return activeStreamRenderer; }
 
+// ---- Live context state (for the /context TUI command) ----
+
+export interface LiveContextState {
+  model: string;
+  windowTokens: number;
+  budgetTokens: number;
+  usedTokens: number;
+  pressure: ContextPressure;
+}
+
+let liveContextState: LiveContextState | null = null;
+
+/** Most recent agent-loop context telemetry, or null outside a run. */
+export function getLiveContextState(): LiveContextState | null {
+  return liveContextState;
+}
+
 /** Abort the in-flight model turn (Phase 1 wires this to Esc). */
 export function abortActiveTurn(): boolean {
   return cancelRuns();
@@ -589,11 +622,17 @@ export function planCompaction(
 async function compactConversation(plan: CompactionPlan, config: RaConfig): Promise<string> {
   const env = loadEnv(ANUBIS_HOME);
   const { client, model } = await pickClientForModel(config.small_model ?? config.model, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
-  const transcript = plan.summarize.map((m) => `${m.role}: ${m.content}`).join("\n\n").slice(0, 40_000);
+  // The summarizer is a small model with its own (small!) window — cap the
+  // transcript to what IT can read, and reserve num_ctx so it actually can.
+  const policy = contextPolicy(config);
+  const smallId = config.small_model ?? config.model;
+  const smallUsable = usableContext(modelMaxContext(smallId, config), smallId, modelKind(smallId, config), policy).windowTokens;
+  const cap = Math.min(40_000, Math.floor(smallUsable * 0.6 * 4));
+  const transcript = plan.summarize.map((m) => `${m.role}: ${m.content}`).join("\n\n").slice(0, cap);
   const res = await withRetry(() => client.nativeChatStream(model, [
     { role: "system", content: loadAgentPrompt("compaction") },
     { role: "user", content: `Summarize this agent conversation so work can continue with full fidelity:\n\n${transcript}` },
-  ], { signal: reserveCall() }));
+  ], { signal: reserveCall(), contextTokens: smallUsable }));
   recordChatUsage(res.model, client.kind === "cloud", res.usage, { in: transcript.length, out: res.content.length });
   return res.content;
 }
@@ -604,16 +643,69 @@ export async function runTaskAgent(
 ): Promise<TaskResult> {
   if (!/^[a-z][a-z0-9_-]{0,63}$/i.test(role)) throw new Error(`Invalid agent role: ${role}`);
   return withAgentRun({ limits: config.agent_limits, tree: activeTracker, renderer: activeStreamRenderer, signal: ctx.signal }, () =>
-    withAgentScope(role, task, () => executeTaskAgent(role, task, config, ctx, env, maxSteps)));
+    withAgentScope(role, task, () => runAdaptive(role, task, config, ctx, env, maxSteps)));
+}
+
+/**
+ * Adaptive run manager (ra.78): a run that ends "resumable" (context low,
+ * overflow, or pressured step-limit) is continued by a fresh, SHORTER run
+ * seeded with the handoff packet — the original objective restated verbatim.
+ * After `context.resume_limit` continuations the task escalates once to a
+ * bigger-window model with the reason recorded, or returns partial honestly.
+ * Kill switch: RA_NO_ADAPTIVE=1 restores the old single-run behavior.
+ */
+async function runAdaptive(
+  role: string, task: string, config: RaConfig, ctx: ToolContext,
+  env: Record<string, string>, maxSteps: number,
+): Promise<TaskResult> {
+  const policy = contextPolicy(config);
+  const adaptive = policy.adaptive && process.env.RA_NO_ADAPTIVE !== "1";
+  if (!adaptive) return executeTaskAgent(role, task, config, ctx, env, maxSteps);
+  const stats: ContextStats = { windowTokens: 0, usedTokens: 0, source: "", resumes: 0, compactions: 0, escalations: 0 };
+  let result = await executeTaskAgent(role, task, config, ctx, env, maxSteps, { continuation: 0, objective: task, stats });
+  const attachStats = (r: TaskResult): TaskResult => ({ ...r, context: { ...stats } });
+  let resumes = 0;
+  while (result.status === "resumable" && resumes < policy.resumeLimit) {
+    resumes++;
+    stats.resumes = resumes;
+    const contTask = buildContinuationTask(task, result.handoff ?? "", resumes, policy.resumeLimit);
+    result = await executeTaskAgent(role, contTask, config, ctx, env, resumeStepBudget(maxSteps, resumes), { continuation: resumes, objective: task, stats });
+  }
+  if (result.status === "resumable") {
+    // Context exhausted even after continuations: escalate once to a model
+    // with a larger usable window (reason recorded — the design pack's
+    // "required context exceeds the practical local-server budget" trigger),
+    // or return the partial result honestly when nothing bigger is reachable.
+    const tier = classifyTier(task, role === "ptah" ? "code" : role === "thoth" ? "plan" : undefined);
+    const currentWindow = stats.windowTokens || modelMaxContext(result.model, config).windowTokens;
+    const esc = await pickContextEscalation(jobForRole(role, tier), config, env, result.model, currentWindow);
+    if (esc) {
+      stats.escalations++;
+      const reason = `context exhausted after ${resumes} continuation${resumes === 1 ? "" : "s"}`;
+      emitGlobalHook("model.fallback", { from: result.model, to: esc, reason });
+      const escTask = buildContinuationTask(task, result.handoff ?? "", resumes, policy.resumeLimit);
+      const escalated = await executeTaskAgent(role, escTask, config, ctx, env, maxSteps, { continuation: resumes + 1, objective: task, modelOverride: esc, stats });
+      return attachStats({ ...escalated, escalations: [...(result.escalations ?? []), { from: result.model, to: esc, reason }] });
+    }
+    return attachStats({
+      ...result,
+      status: "partial",
+      output: `${result.output}\n\n[RA: context exhausted after ${resumes} continuation${resumes === 1 ? "" : "s"} — partial result. Handoff saved: ${result.handoffPath ?? "not saved"}]`,
+    });
+  }
+  return attachStats(result);
 }
 
 async function executeTaskAgent(
   role: string, task: string, config: RaConfig, ctx: ToolContext,
   env: Record<string, string>, maxSteps: number,
+  opts: { continuation?: number; modelOverride?: string; objective?: string; stats?: ContextStats } = {},
 ): Promise<TaskResult> {
   ctx = { ...ctx, filesWritten: ctx.filesWritten ?? [], mutations: ctx.mutations ?? { count: 0 }, signal: runSignal() };
   const initialWrites = ctx.mutations!.count;
-  let needsEdit = role === "ptah" && (canRunTool(config, "write") || canRunTool(config, "edit")) && /\b(create|write|update|fix|implement|build|change)\b/i.test(task) && !/no (?:tools|files)/i.test(task);
+  // Continuation runs inherit edits from earlier runs — the no-edits guard
+  // only applies when nothing has been written for this task yet.
+  let needsEdit = (opts.continuation ?? 0) === 0 && role === "ptah" && (canRunTool(config, "write") || canRunTool(config, "edit")) && /\b(create|write|update|fix|implement|build|change)\b/i.test(task) && !/no (?:tools|files)/i.test(task);
   let completionRepairs = 0;
   const assignment = resolveRoleModel(role, config);
   const tier = classifyTier(task, role === "ptah" ? "code" : role === "thoth" ? "plan" : undefined);
@@ -645,6 +737,8 @@ async function executeTaskAgent(
     configured = budgetDownshift;
     emitGlobalHook("model.fallback", { from: meta.model ?? "tier", to: budgetDownshift, reason: "session budget breached" });
   }
+  // Context escalation (ra.78) pins the bigger-window model above all routing.
+  if (opts.modelOverride) configured = opts.modelOverride;
   if (currentScope()?.node) currentScope()!.node!.model = configured;
   emitGlobalHook("agent.turn.start", { role, task, model: configured });
   const { client, model } = await pickClientForModel(configured, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
@@ -665,6 +759,26 @@ async function executeTaskAgent(
   // The active client can change mid-loop: cross-provider failover (quota,
   // capability chain) re-picks per candidate. Used for the final host tag.
   let activeClient = client;
+  // Adaptive context ledger (ra.78): plan against the model's USABLE window
+  // (probed/tabled max clamped by the host's num_ctx cap), never the nominal
+  // one. Registry failure disables adaptation for this run, never breaks it.
+  const policy = contextPolicy(config);
+  const adaptive = policy.adaptive && process.env.RA_NO_ADAPTIVE !== "1";
+  let ledger: ContextLedger | null = null;
+  const refreshLedger = async (m: string) => {
+    try {
+      const max = await modelMaxContextLive(activeClient, m, config);
+      const usable: ContextInfo = usableContext(max, m, activeClient.kind, policy);
+      ledger = new ContextLedger(m, usable.windowTokens, policy);
+      if (opts.stats) {
+        opts.stats.windowTokens = usable.windowTokens;
+        opts.stats.source = usable.source;
+      }
+    } catch {
+      ledger = null;
+    }
+  };
+  if (adaptive) await refreshLedger(configured);
   const result = await runAgentLoop();
   if (currentScope()?.node) currentScope()!.node!.model = result.model;
   return { ...result, host: activeClient.kind === "cloud" ? "cloud" : activeClient.baseURL.includes("192.168.1.251") ? "251" : "local" };
@@ -677,7 +791,11 @@ async function executeTaskAgent(
   ];
 
   let last = "";
-  let compacted = false;
+  let compacted = false; // legacy single-shot compaction latch (non-adaptive)
+  let lastCompactStep = -10; // adaptive: minimum 3 steps between compactions
+  let lowWarned = false;
+  let spawnDisabled = false;
+  let effectiveSteps = steps;
   let usedModel = model;
   // Same-kind user chain first, then cross-kind escalation (balanced mode
   // local→cloud; budget breach cloud→local), then the Provider-Mosaic
@@ -693,16 +811,83 @@ async function executeTaskAgent(
   const withFallbacks = (r: TaskResult): TaskResult =>
     fallbackEvents.length > 0 ? { ...r, fallbacks: [...fallbackEvents] } : r;
   const spawn = async (subRole: string, subTask: string): Promise<string> => {
+    if (spawnDisabled) return "Subagent spawn skipped: context is low — finish the current sub-step yourself with direct tools.";
     const result = await runTaskAgent(subRole, subTask, config, ctx, env, 4);
     return result.output;
   };
-  for (let i = 0; i < steps; i++) {
+  // Checkpoint: end this run cleanly carrying a handoff packet (objective,
+  // progress, TODO state, next steps); the adaptive loop in runTaskAgent
+  // resumes a fresh, shorter run seeded with it.
+  const checkpoint = (reason: HandoffReason): TaskResult => {
+    const used = ledger?.usedTokens(messages) ?? 0;
+    const handoff = buildHandoff({
+      role,
+      objective: opts.objective ?? task,
+      reason,
+      continuation: opts.continuation ?? 0,
+      model: usedModel,
+      windowTokens: ledger?.windowTokens ?? 0,
+      usedTokens: used,
+      filesWritten: [...(ctx.filesWritten ?? [])],
+      todos: todoState(ctx.cwd),
+      lastAssistant: last,
+      recent: messages.map((m) => ({ role: m.role, content: m.content })),
+    });
+    const handoffPath = saveHandoff(ctx.cwd, role, opts.continuation ?? 0, handoff);
+    emitGlobalHook("agent.turn.end", { role, model: usedModel, checkpoint: reason });
+    return withFallbacks({
+      role,
+      model: usedModel,
+      output: last || `Run checkpointed (${reason}) — a continuation run resumes from the handoff packet.`,
+      status: "resumable",
+      handoff,
+      handoffPath,
+    });
+  };
+  for (let i = 0; i < effectiveSteps; i++) {
     // Stream only at the root turn — subagent/parallel outputs would interleave.
     checkRun();
     const renderer = scopedRenderer();
-    // Context compaction: once per run, fold the middle of the conversation
-    // into a summary so long tool loops stay inside the small-model window.
-    if (!compacted) {
+    // Context compaction: fold the middle of the conversation into a summary
+    // so long tool loops stay inside the small-model window. Adaptive runs
+    // re-fire on window pressure (min 3 steps apart) with a per-model
+    // threshold; legacy runs keep the single-shot fixed 60k-char behavior.
+    if (adaptive && ledger) {
+      const pressure = ledger.pressure(messages);
+      liveContextState = {
+        model: usedModel,
+        windowTokens: ledger.windowTokens,
+        budgetTokens: ledger.budgetTokens,
+        usedTokens: ledger.usedTokens(messages),
+        pressure,
+      };
+      const thresholdChars = Math.max(8_000, Math.floor(ledger.budgetTokens * policy.lowWatermark * 4));
+      const plan = planCompaction(messages, thresholdChars);
+      if (plan && i - lastCompactStep >= 3) {
+        lastCompactStep = i;
+        try {
+          const summary = await compactConversation(plan, config);
+          messages.splice(0, messages.length,
+            plan.keep[0],
+            { role: "user", content: `[Earlier conversation compacted by the compaction agent]\n${summary}` },
+            ...plan.keep.slice(1));
+          if (opts.stats) opts.stats.compactions++;
+          renderer?.(`\n\x1b[2m[RA compaction: ${plan.summarize.length} messages folded into a summary]\x1b[0m\n`);
+        } catch { /* compaction is best-effort */ }
+      }
+      const after = ledger.pressure(messages);
+      if (after === "critical") return checkpoint("low-context");
+      if (after === "low" && !lowWarned) {
+        // Shorter runs under pressure: wrap up within 2 steps, no subagents,
+        // and tell the model to restate the objective + TODO state.
+        lowWarned = true;
+        spawnDisabled = true;
+        effectiveSteps = Math.min(effectiveSteps, i + 2);
+        const remaining = ledger.remaining(messages);
+        messages.push({ role: "user", content: lowContextNotice(remaining) });
+        renderer?.(`\n\x1b[2m[RA context low: ~${remaining} tokens left — wrapping up for a continuation run]\x1b[0m\n`);
+      }
+    } else if (!compacted) {
       const plan = planCompaction(messages);
       if (plan) {
         compacted = true;
@@ -719,7 +904,15 @@ async function executeTaskAgent(
     const keepAlive = env.OLLAMA_KEEP_ALIVE ?? "30m";
     const chat = async () => {
       const signal = reserveCall();
-      const response = await activeClient.nativeChatStream(usedModel, messages, { temperature, keepAlive, signal, onToken: renderer });
+      const response = await activeClient.nativeChatStream(usedModel, messages, {
+        temperature,
+        keepAlive,
+        signal,
+        onToken: renderer,
+        // Reserve the window the registry promised (num_ctx) — without it
+        // native Ollama silently truncates to its small server default.
+        ...(adaptive && ledger ? { contextTokens: ledger.windowTokens } : {}),
+      });
       if (!response.content.trim()) throw new Error(`Empty response from ${usedModel}`);
       return response;
     };
@@ -730,6 +923,9 @@ async function executeTaskAgent(
       try {
         return await withRetry(chat);
       } catch (e) {
+        // Context overflow is not an outage and the fallback chain can't fix
+        // an unsendable prompt — checkpoint + resume instead (ra.78).
+        if (adaptive && isContextOverflowError(e)) throw e;
         const quotaHit = isQuotaError(e) && !isAuthError(e);
         if (quotaHit) markExhausted(usedModel, String(e instanceof Error ? e.message : e).slice(0, 120));
         const chain = fallbackModels;
@@ -758,12 +954,28 @@ async function executeTaskAgent(
         throw new Error(`Model ${primary} failed (${reason}); fallbacks [${chain.join(", ")}] did not recover. Last error: ${String(lastErr instanceof Error ? lastErr.message : lastErr).slice(0, 200)}`);
       }
     };
-    const res = await chatWithFallback();
+    let res;
+    try {
+      res = await chatWithFallback();
+    } catch (e) {
+      // The provider refused the prompt as too large: checkpoint and let the
+      // adaptive loop resume with a compact handoff instead of dying.
+      if (adaptive && isContextOverflowError(e)) return checkpoint("context-overflow");
+      throw e;
+    }
     checkRun();
     renderer?.("\n");
     usedModel = res.model;
     last = res.content;
     if (!last.trim()) throw new Error(`Model ${usedModel} returned an empty response`);
+    if (adaptive && ledger) {
+      // Re-resolve the window when the model changed mid-run (failover), then
+      // calibrate the ledger with real token counts (messages.length here is
+      // the prompt size the provider just reported on).
+      if (ledger.model !== usedModel) await refreshLedger(usedModel);
+      ledger.noteUsage(res.usage, messages.length);
+      if (opts.stats) opts.stats.usedTokens = ledger.usedTokens([...messages, { role: "assistant", content: last }]);
+    }
     const inChars = messages.reduce((n, m) => n + m.content.length, 0);
     recordChatUsage(res.model, activeClient.kind === "cloud", res.usage, { in: inChars, out: last.length }, ctx.cwd);
     messages.push({ role: "assistant", content: last });
@@ -781,7 +993,13 @@ async function executeTaskAgent(
     }
     if (tool.note) {
       messages.push({ role: "user", content: `Tool result:\n${tool.note}\nContinue your assigned role using only permitted tools. Return DONE with your summary when finished.` });
-      if (i === steps - 1) throw new Error(`Agent ${role} reached its ${steps}-step limit before finishing. Last tool result: ${tool.note.slice(0, 200)}`);
+      if (i === effectiveSteps - 1) {
+        // Adaptive runs under context pressure checkpoint instead of dying —
+        // a continuation run picks up from the handoff packet.
+        const pressured = lowWarned || (ledger?.pressure(messages) ?? "ok") !== "ok";
+        if (adaptive && pressured) return checkpoint("step-limit");
+        throw new Error(`Agent ${role} reached its ${effectiveSteps}-step limit before finishing. Last tool result: ${tool.note.slice(0, 200)}`);
+      }
       continue;
     }
     break;

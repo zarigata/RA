@@ -173,6 +173,11 @@ export function addUsage(
   return usage;
 }
 
+/** ~4 chars/token heuristic when a provider omits usage (shared with the context ledger). */
+export function estimateTokensFromChars(chars: number): number {
+  return Math.ceil(chars / 4);
+}
+
 export function recordChatUsage(
   model: string,
   cloud: boolean,
@@ -184,9 +189,8 @@ export function recordChatUsage(
   let inn = usage?.prompt_tokens ?? 0;
   let out = usage?.completion_tokens ?? 0;
   if (!inn && !out && approxChars) {
-    // ponytail: ~4 chars/token heuristic when provider omits usage
-    inn = Math.ceil(approxChars.in / 4);
-    out = Math.ceil(approxChars.out / 4);
+    inn = estimateTokensFromChars(approxChars.in);
+    out = estimateTokensFromChars(approxChars.out);
   }
   if (inn || out) addUsage(tagged, inn, out);
   if (session) recordSessionUsage(session, tagged, inn, out);

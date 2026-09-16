@@ -1,0 +1,16 @@
+{
+ "scenario": "claude-slugify-readme",
+ "tool": "claude",
+ "task": "slugify-readme",
+ "budget_s": 300,
+ "success": true,
+ "check_error": "",
+ "new_files": [
+  "bench_readme.mjs"
+ ],
+ "dirty_paths": 1,
+ "exit": 0,
+ "seconds": 94.82,
+ "output_tail": "Created `bench_readme.mjs` and ran it \u2014 all checks pass, exit code 0.\n\nThe script asserts all five examples from the README's Usage section (the task required at least four), using `node:assert/strict` so a mismatch would throw rather than print a false `PASS`:\n\n```\nPASS: I \u2665 Dogs -> i-love-dogs\nPASS:   D\u00e9j\u00e0 Vu!   -> deja-vu\nPASS: fooBar 123 $#% -> foo-bar-123\nPASS: Conway\u2019s Law -> conways-law\nPASS: \u044f \u043b\u044e\u0431\u043b\u044e \u0435\u0434\u0438\u043d\u043e\u0440\u043e\u0433\u043e\u0432 -> ya-lyublyu-edinorogov\nDONE\n```\n\nTwo details worth noting about the inputs: `Conway\u2019s Law` uses the curly right single quote (U+2019), not a straight apostrophe, and `'  D\u00e9j\u00e0 Vu!  '` includes the leading/trailing spaces \u2014 both exactly as documented in the README. `git status` confirms only `bench_readme.mjs` was added; no existing repository file was touched.\n\"glm-5.3-flash\" isn't described by this version's model catalog; update Claude Code, or map it with behavesAs on a modelPicker row (or modelOverrides, if it is a provider id of a model this version knows). Until then auto-compact keeps this session within 200k tokens (the context window it assumes); if the model accepts more, append [1m] to the model name for 1M, or set CLAUDE_CODE_MAX_CONTEXT_TOKENS to its real window; CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1 restores the previous wait-for-the-API behavior.\n[claude-code:unrecognized_model] {\"model\":\"glm-5.3-flash\",\"query_source\":\"sdk\"}\n",
+ "timeout": false
+}

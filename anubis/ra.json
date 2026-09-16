@@ -42,8 +42,8 @@
       "name": "Ollama .251 (small/local)",
       "options": { "baseURL": "http://192.168.1.251:11434/v1" },
       "models": {
-        "gpt-oss:20b": { "name": "GPT-OSS 20B (LAN small)" },
-        "gemma4:12b": { "name": "Gemma4 12B (LAN)" }
+        "gpt-oss:20b": { "name": "GPT-OSS 20B (LAN small)", "context": 131072 },
+        "gemma4:12b": { "name": "Gemma4 12B (LAN)", "context": 131072 }
       }
     },
     "ollama": {
@@ -105,5 +105,13 @@
     }
   },
   "routing": { "mode": "local-first" },
+  "context": {
+    "adaptive": true,
+    "resume_limit": 3,
+    "low_watermark": 0.7,
+    "critical_watermark": 0.9,
+    "min_context_tokens": 8192,
+    "server_cap": { "ollama-lan": 32768, "ollama": 32768, "lmstudio": 32768 }
+  },
   "pipeline": { "stages": ["thoth", "ptah", "maat", "sekhmet", "ptah", "seshat"] }
 }

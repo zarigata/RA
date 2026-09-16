@@ -85,7 +85,7 @@ Usage:
   ra diff <file> [--cwd DIR] Show checkpoint → current diff
   ra daemon [--port N]       Start the background session daemon
   ra ide                     Serve the IDE JSON-RPC bridge over stdio
-  ra eval                    Run the eval harness across configured models
+  ra eval [--model id]        Run the eval harness (all configured models, or one)
   ra catalog [--json]        Fetch models.dev provider catalog
   ra result                  One-line RA RESULT (bash greppable)
   ra lane                    One-line RA lane (thoth@251 → ptah@cloud)
@@ -369,7 +369,8 @@ if (args[0] === "catalog") {
 
 if (args[0] === "eval") {
   const { runEvalCli } = await import("./eval.ts");
-  console.log(await runEvalCli());
+  const mIdx = args.indexOf("--model");
+  console.log(await runEvalCli(mIdx >= 0 ? args[mIdx + 1] : undefined));
   process.exit(0);
 }
 

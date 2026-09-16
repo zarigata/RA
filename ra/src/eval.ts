@@ -5,7 +5,7 @@
 import { existsSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { runTaskAgent } from "./agent.ts";
+import { runTaskAgent, type TaskResult } from "./agent.ts";
 import { loadEnv } from "../../anubis/src/env.ts";
 import { loadUsage, estimateCost } from "../../anubis/src/cost.ts";
 import { ANUBIS_HOME } from "./paths.ts";
@@ -25,6 +25,14 @@ export interface EvalResult {
   passed: boolean;
   latencyMs: number;
   cost: number;
+  /** Usable context window (tokens) the adaptive runtime planned against. */
+  contextWindow?: number;
+  /** Automatic continuations used (adaptive low-context runs). */
+  resumes?: number;
+  /** Mid-run compactions performed. */
+  compactions?: number;
+  /** Context-pressure escalations to a bigger-window model. */
+  escalations?: number;
 }
 
 /** A comprehensive set of real coding tasks covering multiple languages and patterns. */
@@ -246,10 +254,21 @@ export async function runEvalTask(
   const before = loadUsage();
   const t0 = Date.now();
   let passed = false;
+  let context: TaskResult["context"];
   try {
-    // Force the model by overriding the ptah role assignment.
-    const cfg: RaConfig = { ...config, agent: { ...config.agent, ptah: { model } } };
-    await runTaskAgent("ptah", task.prompt, cfg, ctx, env, 6);
+    // Force the model by overriding the ptah role assignment, the tier table,
+    // and the capability router — any of the three would otherwise silently
+    // replace the model under test and misattribute the results.
+    const cfg: RaConfig = {
+      ...config,
+      agent: { ...config.agent, ptah: { model } },
+      capability_router: { ...config.capability_router, enabled: false },
+    } as RaConfig;
+    (cfg as RaConfig & { tier_models?: Record<string, string> }).tier_models = {
+      meta: model, light: model, heavy: model, code: model,
+    };
+    const result = await runTaskAgent("ptah", task.prompt, cfg, ctx, env, 6);
+    context = result.context;
     passed = task.verify(cwd);
   } catch {
     passed = false;
@@ -265,16 +284,27 @@ export async function runEvalTask(
     if (inDelta > 0 || outDelta > 0) cost += estimateCost(m, inDelta, outDelta);
   }
   rmSync(cwd, { recursive: true, force: true });
-  return { task: task.name, model, passed, latencyMs, cost };
+  return {
+    task: task.name, model, passed, latencyMs, cost,
+    contextWindow: context?.windowTokens,
+    resumes: context?.resumes,
+    compactions: context?.compactions,
+    escalations: context?.escalations,
+  };
 }
 
-/** Run all tasks against all configured models. */
+/** Run all tasks against all configured models (or a `--model` subset). */
 export async function runEval(
   config: RaConfig,
   env: Record<string, string>,
   tasks: EvalTask[] = EVAL_TASKS,
+  modelFilter?: string,
 ): Promise<EvalResult[]> {
-  const models = configuredModels(config);
+  let models = configuredModels(config);
+  if (modelFilter) {
+    models = models.filter((m) => m === modelFilter || m.endsWith(`/${modelFilter}`) || m.includes(modelFilter));
+    if (!models.length) models = [modelFilter]; // allow sweeping an unconfigured id
+  }
   const results: EvalResult[] = [];
   for (const model of models) {
     for (const task of tasks) {
@@ -284,12 +314,14 @@ export async function runEval(
   return results;
 }
 
-/** Format eval results as a table. */
+/** Format eval results as a table (ctx = window·continuations·compactions·escalations). */
 export function formatEvalResults(results: EvalResult[]): string {
   if (!results.length) return "No eval results.";
-  const lines = ["RA eval", "model | task | pass | latency | cost"];
+  const lines = ["RA eval", "model | task | pass | latency | cost | ctx"];
+  const fmtK = (n?: number) => (n == null ? "-" : n >= 1024 ? `${Math.round(n / 1024)}K` : String(n));
   for (const r of results) {
-    lines.push(`${r.model} | ${r.task} | ${r.passed ? "✓" : "✗"} | ${r.latencyMs}ms | $${r.cost.toFixed(6)}`);
+    const ctx = `${fmtK(r.contextWindow)}·${r.resumes ?? 0}r·${r.compactions ?? 0}c·${r.escalations ?? 0}e`;
+    lines.push(`${r.model} | ${r.task} | ${r.passed ? "✓" : "✗"} | ${r.latencyMs}ms | $${r.cost.toFixed(6)} | ${ctx}`);
   }
   const byModel = new Map<string, EvalResult[]>();
   for (const r of results) {
@@ -300,16 +332,18 @@ export function formatEvalResults(results: EvalResult[]): string {
   lines.push("pass rate by model:");
   for (const [model, rs] of byModel) {
     const pass = rs.filter((r) => r.passed).length;
-    lines.push(`  ${model}: ${pass}/${rs.length} (${((pass / rs.length) * 100).toFixed(0)}%)`);
+    const resumes = rs.reduce((s, r) => s + (r.resumes ?? 0), 0);
+    const esc = rs.reduce((s, r) => s + (r.escalations ?? 0), 0);
+    lines.push(`  ${model}: ${pass}/${rs.length} (${((pass / rs.length) * 100).toFixed(0)}%) · continuations ${resumes} · escalations ${esc}`);
   }
   return lines.join("\n");
 }
 
-/** Convenience: load config + env and run the eval. */
-export async function runEvalCli(): Promise<string> {
+/** Convenience: load config + env and run the eval (optionally one model). */
+export async function runEvalCli(modelFilter?: string): Promise<string> {
   const { loadRaConfig } = await import("../../anubis/src/config.ts");
   const config = loadRaConfig(ANUBIS_HOME);
   const env = loadEnv(ANUBIS_HOME);
-  const results = await runEval(config, env);
+  const results = await runEval(config, env, EVAL_TASKS, modelFilter);
   return formatEvalResults(results);
 }

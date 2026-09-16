@@ -1,6 +1,26 @@
-# RA .72 competitive evidence — fixed-budget real-repo tasks — 2026-08-30/31
+# RA competitive evidence — fixed-budget real-repo tasks
 
 Measured comparison against all three named competitor CLIs, installed and used as a user in the terminal. Identical task prompts, identical 300-second headless budget, fresh `git clone` of a real repository per run, and independent checkers that recompute or re-execute the expected result without trusting agent output. Driver: [`competitive_acceptance.py`](competitive_acceptance.py). This is one small fixed-budget matrix — a measured baseline, not a universal superiority claim; extending it (more repositories, harder tasks, repeated runs for variance) continues under NEXT.md priority 8.
+
+## Matrix 3 — 2026-09-16 (RA 1.0.0-ra.78 "Low-Context Runtime")
+
+Re-run on the ra.78 working tree (sandbox `ra` wrapper → `bun ra/src/cli.ts`), same tasks, same 300s budget, same independent checkers. RA ran with the new adaptive context runtime ON (cloud lane: DeepSeek-V4-Pro implementation + GLM planning on Ollama Cloud, `context.adaptive` in the sandbox config). Evidence: [`evidence/competitive-78/`](evidence/competitive-78/).
+
+| Task | RA 1.0.0-ra.78 | codex 0.151.0 | claude 2.x (Z.AI GLM) | opencode |
+|---|---|---|---|---|
+| micrograd-gradient | **PASS 29.0 s** | PASS 34.2 s | PASS 117.8 s | FAIL 39.3 s — no artifact |
+| micrograd-neuron | PASS 32.8 s | **PASS 26.4 s** | PASS 133.5 s | FAIL 42.3 s — no artifact |
+| slugify-readme | **PASS 18.5 s** | PASS 26.0 s | PASS 94.8 s | FAIL 25.6 s — no artifact |
+| **Total** | **3/3, 80.3 s summed** | 3/3, 86.6 s | 3/3, 346.0 s | 0/3 (0/9 across three runs) |
+
+- **RA 3/3 and fastest summed** with the adaptive runtime active; no continuations were needed on these small tasks (cloud lane, 128k windows) — the win is still pipeline efficiency, now on the ra.78 loop.
+- **codex closed most of the gap** vs the .72 matrix (86.6 s vs 128.4 s summed) and beat RA on one task; the two tools are now within ~8% on this matrix.
+- **claude-on-GLM slower this run** (346 s vs 225 s in .72); same harness, same credential, one run per cell — variance expected.
+- **opencode 0/9 across three independent runs** (same model, same budget): still explores instead of working in its cwd and writes no `bench_*` artifact; the slugify failure this time was a node module-resolution crash in its own generated script.
+
+Same-session local evidence (ra.78 before/after on the 8k-usable `gemma:latest`, 4-task eval subset): adaptive OFF 0/4 (every task dead at the 180s run deadline) vs adaptive ON 1/4 with the solvable task passing 28% faster — the low-context runtime changes outcomes, not just telemetry.
+
+## Matrix 2 — 2026-08-30/31 (RA 1.0.0-ra.72)
 
 ## Setup
 

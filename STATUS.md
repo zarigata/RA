@@ -5,6 +5,30 @@
 
 ## Current Cycle
 
+**2026-09-16 — Low-Context Runtime (RA 1.0.0-ra.78).**
+The emergency local-first ask, built: RA assumes every model is
+context-starved until proven otherwise. A context registry resolves each
+model's USABLE window (config override > live probe > static table >
+conservative default) clamped by the host's `num_ctx` ceiling
+(`context.server_cap` — qwen3.8's nominal 262k on a 32k-capped LAN box is
+32k, full stop), and native Ollama chats now SEND `options.num_ctx` so the
+server actually reserves that window (before ra.78 it silently used the
+small server default and truncated). A per-run token ledger watches prompt
+pressure; at 70% the model wraps up (objective + TODO restated, no
+subagents, ≤2 steps left); at 90% or on a context-overflow error the run
+checkpoints a handoff packet (`~/.ra/handoffs/`) and a fresh, SHORTER run
+resumes with the original objective verbatim — up to 3 continuations, then
+one recorded escalation to a bigger-window model or an honest partial.
+Routing skips models below the job's context floor. New surfaces: `/context`,
+`ra doctor` registry section, `/providers` ctx column, `ra eval --model`
+with context telemetry, benchmark JSON reports. Also fixed: `ra eval` was
+misattributing results (tier table + mosaic silently replaced the model
+under test — a "4/4 gemma" sweep was cloud glm-5.2); the honest gemma:latest
+(8k usable) baseline on this Mac is 1/4 on the smoke subset. Suites: 232
+anubis (20 new, 2 live skips — .251 down) + 272 ra (9 new, full fake-Ollama
+loop tests), 0 fail. Competitive matrix vs codex/claude/opencode re-run on
+the working tree — see `ra tests/COMPETITIVE_RESULTS.md`.
+
 **2026-09-06 — Provider Mosaic (RA 1.0.0-ra.77).**
 The multi-provider intelligence layer: benchmark-driven capability profiles
 for every routable model (SWE-bench / Aider / HLE receipts in

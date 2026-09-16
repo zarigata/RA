@@ -4,6 +4,7 @@ import { readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { RouterConfig } from "./router.ts";
+import type { ContextPolicyConfig } from "./context-limits.ts";
 
 export const RA_HOME = process.env.RA_HOME ?? process.env.ANUBIS_HOME ?? process.cwd();
 export const RA_GLOBAL = join(homedir(), ".ra");
@@ -63,6 +64,11 @@ export interface RaConfig extends RouterConfig {
   theme?: string;
   /** Keybind overrides: maps key combo (e.g. "ctrl+p") to a command or action. */
   keybinds?: Record<string, string>;
+  /**
+   * Adaptive context policy (ra.78): RA assumes local models are
+   * context-starved — shorter runs, checkpoint handoffs, auto-resume.
+   */
+  context?: ContextPolicyConfig;
 }
 
 export function ensureRaDirs(): void {

@@ -7,6 +7,7 @@
 import type { RaConfig } from "./config.ts";
 import { rankForJob, type Job, type RankedModel } from "./profiles.ts";
 import { isExhausted, exhaustedUntil } from "./quota.ts";
+import { contextPolicy, formatContext, minContextForJob, modelMaxContext, usableContext } from "./context-limits.ts";
 
 export interface CapabilityRouterConfig {
   enabled?: boolean;
@@ -91,12 +92,19 @@ export function pickForJob(
   const skipped: Skipped[] = [];
   const eligible: Array<{ model: string; local: boolean }> = [];
   const byModel = new Map<string, Candidate>();
+  // Context floor (ra.78): a model whose USABLE window (nominal max clamped
+  // by the host's num_ctx cap) can't hold the job's prompts is not a
+  // candidate — a "262k" id on a 32k-capped box is a 32k model.
+  const policy = contextPolicy(config);
+  const floor = minContextForJob(job, policy);
   for (const c of candidateModels(config, env)) {
     byModel.set(c.model, c);
     if (!inPool(c.model)) continue;
     if (c.kind === "cloud" && !c.hasKey) { skipped.push({ model: c.model, reason: "no api key" }); continue; }
     const until = exhaustedUntil(c.provider, now);
     if (until !== null) { skipped.push({ model: c.model, reason: `quota — ${Math.ceil((until - now) / 60_000)}m left` }); continue; }
+    const usable = usableContext(modelMaxContext(c.model, config), c.model, c.kind, policy);
+    if (usable.windowTokens < floor) { skipped.push({ model: c.model, reason: `context ${usable.windowTokens} < ${floor} (${job})` }); continue; }
     eligible.push({ model: c.model, local: c.kind === "local" });
   }
   if (!eligible.length) return null;
@@ -158,13 +166,15 @@ export function formatProviders(config: RaConfig, env: Record<string, string | u
     `RA providers — capability router ${on ? `on (local_bonus ${router?.local_bonus ?? 2})` : "off"}`,
   ];
   const candidates = candidateModels(config, env);
+  const policy = contextPolicy(config);
   if (!candidates.length) {
     lines.push("  (no models configured — set model/small_model or provider blocks in ra.json)");
   }
   for (const c of candidates) {
     const skipped = c.kind === "cloud" && !c.hasKey ? " · no api key (skipped)" : "";
     const quota = quotaHealth().find((h) => h.provider === c.provider);
-    lines.push(`  ${c.model} [${c.kind}${c.provider ? ` · ${c.provider}` : ""}]${quota ? ` · QUOTA ${quota.minutesLeft}m left` : ""}${skipped}`);
+    const ctx = formatContext(usableContext(modelMaxContext(c.model, config), c.model, c.kind, policy));
+    lines.push(`  ${c.model} [${c.kind}${c.provider ? ` · ${c.provider}` : ""}] · ${ctx}${quota ? ` · QUOTA ${quota.minutesLeft}m left` : ""}${skipped}`);
     lines.push(`      ${formatProfile(c.model)}`);
   }
   const health = quotaHealth();

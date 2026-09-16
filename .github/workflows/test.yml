@@ -18,6 +18,23 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Prepare Linux sandbox backend
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+
+          # Ubuntu/GitHub runners can ship bwrap while still blocking the user
+          # namespaces it needs. RA correctly treats that as "unavailable".
+          # Functional CLI/MCP/swarm tests may run without the OS boundary only
+          # after this explicit CI-only consent. Production remains fail-closed.
+          if bwrap --dev /dev --ro-bind / / -- /bin/true >/dev/null 2>&1; then
+            echo "Bubblewrap probe: usable"
+          else
+            echo "Bubblewrap probe: blocked by hosted-runner policy; enabling explicit CI test fallback"
+            echo "RA_ALLOW_UNSANDBOXED=1" >> "$GITHUB_ENV"
+          fi
+
       - name: Test, compile, smoke-check, and verify repository hygiene
         run: bash scripts/verify-release.sh
 

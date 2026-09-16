@@ -1,12 +1,46 @@
 # RA — Relic Agent
+
+# Secrets / local environment
 .env
 .env.*
 !.env.example
+
+# RA local state
 .ra/
+.zcode/
+
+# Dependencies
 **/node_modules/
-.DS_Store
+
+# Build / test output
+/dist/
+/build/
+/coverage/
+**/coverage/
+*.tsbuildinfo
 *.log
 /tmp/
+
+# Python caches
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Tool / editor caches
+.cache/
+**/.cache/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Embedded dependency caches
 anubis/.anubis/node_modules/
 .opencode/node_modules/
-.zcode/

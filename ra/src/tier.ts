@@ -18,7 +18,7 @@ export function classifyTier(text: string, slashCmd?: string): TaskTier {
   return "light";
 }
 
-export function tierModel(tier: TaskTier, tierModels?: Record<string, string>, fallback = "ollama-lan/qwen3.8:latest"): string {
+export function tierModel(tier: TaskTier, tierModels?: Record<string, string>, fallback = "ollama-lan/gpt-oss:20b"): string {
   return tierModels?.[tier] ?? fallback;
 }
 

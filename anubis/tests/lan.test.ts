@@ -38,7 +38,7 @@ describe("lan config builder", () => {
   test("buildLanConfig maps hosts to providers", () => {
     const found: DiscoveredHost[] = [
       { host: "192.168.1.50", port: 11434, provider: "ollama-lan", name: "Ollama", models: ["gemma"] },
-      { host: "192.168.1.60", port: 1234, provider: "lmstudio-lan", name: "LM Studio", models: ["qwen"] },
+      { host: "192.168.1.60", port: 1234, provider: "lmstudio-lan", name: "LM Studio", models: ["gpt-oss"] },
     ];
     const cfg = buildLanConfig(found);
     expect(cfg.providers["ollama-lan"].baseURL).toBe("http://192.168.1.50:11434/v1");

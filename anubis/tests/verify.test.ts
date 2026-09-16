@@ -12,7 +12,7 @@ describe("verifyLastRun", () => {
     const r = await verifyLastRun({
       task: "t",
       stages: ["thoth", "ptah"],
-      models: ["qwen3.8:latest"],
+      models: ["gpt-oss:20b"],
       filesWritten: ["/tmp/ra-does-not-exist-xyz.py"],
       cwd: "/tmp",
       at: 1,
@@ -32,12 +32,12 @@ describe("verifyLastRun", () => {
       const r = await verifyLastRun({
         task: "page",
         stages: ["thoth", "ptah"],
-        models: ["qwen3.8:latest"],
+        models: ["gpt-oss:20b"],
         filesWritten: [path],
         cwd,
         ms: 1200,
         intent: "code",
-        timings: [{ stage: "thoth", model: "qwen3.8:latest", host: "251", ms: 1000 }],
+        timings: [{ stage: "thoth", model: "gpt-oss:20b", host: "251", ms: 1000 }],
         at: 1,
       });
       expect(r.ok).toBe(false);
@@ -60,12 +60,12 @@ describe("verifyLastRun", () => {
       const r = await verifyLastRun({
         task: "page",
         stages: ["thoth", "ptah"],
-        models: ["qwen3.8:latest"],
+        models: ["gpt-oss:20b"],
         filesWritten: [path],
         cwd,
         ms: 900,
         intent: "code",
-        timings: [{ stage: "thoth", model: "qwen3.8:latest", host: "251", ms: 800 }],
+        timings: [{ stage: "thoth", model: "gpt-oss:20b", host: "251", ms: 800 }],
         at: 1,
       });
       expect(r.ok).toBe(true);

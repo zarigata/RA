@@ -45,7 +45,8 @@ export function renderMarkdown(md: string, st: MdStyle = defaultMdStyle, width =
     code = [];
     codeLang = "";
   };
-  for (const raw of src) {
+  for (let idx = 0; idx < src.length; idx++) {
+    const raw = src[idx];
     if (/^```/.test(raw.trim())) {
       if (inCode) { inCode = false; flushCode(); }
       else { inCode = true; codeLang = raw.trim().slice(3).trim(); }
@@ -53,6 +54,18 @@ export function renderMarkdown(md: string, st: MdStyle = defaultMdStyle, width =
     }
     if (inCode) { code.push(raw); continue; }
     const line = raw.trimEnd();
+    // GFM table: a | row whose next line is a |---|---| separator.
+    if (line.includes("|") && idx + 1 < src.length && /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(src[idx + 1]) && src[idx + 1].includes("-") && src[idx + 1].includes("|")) {
+      const rows: string[] = [];
+      let j = idx;
+      while (j < src.length && src[j].includes("|") && src[j].trim()) { rows.push(src[j]); j++; }
+      const table = renderTable(rows, st, width);
+      if (table) {
+        lines.push(...table);
+        idx = j - 1;
+        continue;
+      }
+    }
     const h = /^(#{1,4})\s+(.*)$/.exec(line);
     if (h) {
       const level = h[1].length;
@@ -71,6 +84,41 @@ export function renderMarkdown(md: string, st: MdStyle = defaultMdStyle, width =
   }
   if (inCode) flushCode();
   return lines;
+}
+
+/**
+ * Render a markdown table row block: header, separator, and data rows with
+ * aligned columns and a dim border (pure). Returns null when the lines are
+ * not a GFM table.
+ */
+export function renderTable(rows: string[], st: MdStyle = defaultMdStyle, width: number): string[] | null {
+  if (rows.length < 2) return null;
+  const cells = rows.map((r) => r.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => c.trim()));
+  if (!cells.every((c) => c.length === cells[0].length && c.length > 0)) return null;
+  if (!cells[1].every((c) => /^:?-{2,}:?$/.test(c))) return null;
+  const body = [cells[0], ...cells.slice(2)];
+  const cols = cells[0].length;
+  const sizes = Array.from({ length: cols }, (_, i) => Math.min(28, Math.max(...body.map((r) => visibleWidth(r[i])))));
+  const total = sizes.reduce((a, b) => a + b, 0) + (cols + 1) * 3 - 2;
+  const scale = total > width ? width / total : 1;
+  const w = sizes.map((s) => Math.max(3, Math.floor(s * scale)));
+  const fmt = (r: string[], cell: (s: string) => string) => {
+    const pad = (s: string, size: number) => {
+      const v = visibleWidth(s);
+      return v >= size ? truncateVisible(s, size) : s + " ".repeat(size - v);
+    };
+    return `│ ${r.map((c, i) => pad(cell(c), w[i])).join(" │ ")} │`;
+  };
+  const top = `┌${w.map((size) => "─".repeat(size + 2)).join("┬")}┐`;
+  const mid = `├${w.map((size) => "─".repeat(size + 2)).join("┼")}┤`;
+  const bot = `└${w.map((size) => "─".repeat(size + 2)).join("┴")}┘`;
+  return [
+    top,
+    fmt(body[0], (s) => st.strong(s)),
+    mid,
+    ...body.slice(1).map((r) => fmt(r, (s) => s)),
+    bot,
+  ];
 }
 
 /** Word wrap aware of existing ANSI sequences (never splits inside one). */

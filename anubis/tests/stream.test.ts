@@ -11,10 +11,10 @@ describe("ollama stream parsers", () => {
   });
 
   test("final chunk carries usage", () => {
-    const p = parseOllamaStreamLine('{"done":true,"model":"qwen3.8:latest","eval_count":12,"prompt_eval_count":40}');
+    const p = parseOllamaStreamLine('{"done":true,"model":"gpt-oss:20b","eval_count":12,"prompt_eval_count":40}');
     expect(p!.done).toBe(true);
     expect(p!.usage).toEqual({ prompt_tokens: 40, completion_tokens: 12, total_tokens: 52 });
-    expect(p!.model).toBe("qwen3.8:latest");
+    expect(p!.model).toBe("gpt-oss:20b");
   });
 
   test("blank and malformed lines are ignored", () => {

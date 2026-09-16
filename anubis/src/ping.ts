@@ -6,7 +6,7 @@ export interface PingResult {
   ok: boolean;
   ms: number;
   models?: number;
-  /** notable small models seen (qwen/gemma) for bash greps */
+  /** notable small models seen (gpt-oss/gemma) for bash greps */
   notable?: string[];
   error?: string;
 }
@@ -25,7 +25,7 @@ export async function pingUrl(name: string, url: string, timeoutMs = 3000): Prom
     const names = (data.models ?? [])
       .map((m) => m.name ?? m.model ?? "")
       .filter(Boolean);
-    const notable = names.filter((n) => /qwen3\.?8|gemma/i.test(n)).slice(0, 4);
+    const notable = names.filter((n) => /gpt-oss|gemma/i.test(n)).slice(0, 4);
     return { name, url: base, ok: true, ms, models: names.length, notable };
   } catch (e) {
     return { name, url: base, ok: false, ms: Date.now() - t0, error: String(e) };
@@ -80,9 +80,9 @@ export function formatPings(pings: PingResult[]): string {
   const lan = pings.find((p) => p.name === "251");
   const local = pings.find((p) => p.name === "local");
   const cloud = pings.find((p) => p.name === "cloud");
-  const hasQwen = !!lan?.notable?.some((n) => /qwen3\.?8/i.test(n));
+  const hasSmall = !!lan?.notable?.some((n) => /gpt-oss|gemma/i.test(n));
   const small =
-    lan?.ok && (hasQwen || !local?.ok) ? "small@251" : local?.ok ? "small@local" : lan?.ok ? "small@251" : "small@down";
+    lan?.ok && (hasSmall || !local?.ok) ? "small@251" : local?.ok ? "small@local" : lan?.ok ? "small@251" : "small@down";
   const big = cloud?.ok ? "big@cloud" : "big@down";
   lines.push(`RA prefer ${small} → ${big}`);
   return lines.join("\n");

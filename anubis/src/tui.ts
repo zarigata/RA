@@ -37,7 +37,7 @@ export function renderStageProgress(
   const lane =
     /glm-|cloud/i.test(model) || model.startsWith("ollama-cloud/")
       ? "BIG/cloud"
-      : /qwen|gemma/i.test(model)
+      : /gpt-oss|gemma/i.test(model)
         ? "small/LAN"
         : "ollama";
   const host = opts?.host ? ` @${opts.host}` : "";

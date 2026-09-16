@@ -1,4 +1,5 @@
 import { collectToolCalls, collectedToolText, type StreamToolCall } from "./tool-call.ts";
+import { recordLatency } from "./latency.ts";
 // src/ollama.ts — Ollama client (cloud OpenAI-compat + LAN/local native)
 
 export interface OllamaConfig {
@@ -436,7 +437,7 @@ export class OllamaClient {
   }
 }
 
-const MODEL_FALLBACKS = ["qwen3.8:latest", "qwen3:8b", "qwen3.8", "gemma4:12b", "gemma:latest", "gemma2:2b"];
+const MODEL_FALLBACKS = ["gpt-oss:20b", "gemma4:12b", "gemma:latest", "gemma2:2b"];
 const CLOUD_FALLBACKS = ["gpt-oss:120b", "glm-5.2", "deepseek-v4-flash:0731"];
 
 function bareModel(configured: string): string {
@@ -551,11 +552,11 @@ export async function pickClientForModel(
     return { client: OllamaClient.fromEnv(env), model: bare };
   }
 
-  // Small / "local" = .251 qwen, then localhost gemma if needed
+  // Small / "local" = .251 gpt-oss:20b, then localhost gemma if needed
   for (const url of smallOllamaUrls(env)) {
     const client = OllamaClient.fromLocal(url);
     if (!(await client.probe(2000))) continue;
-    // Prefer qwen3.8 on .251; gemma:* only if configured or qwen missing
+    // Prefer gpt-oss:20b on .251; gemma:* only if configured or gpt-oss missing
     if (/gemma/i.test(bare) && !client.availableModels.some((m) => /gemma/i.test(m))) {
       continue; // configured gemma but this host has none — keep probing
     }
@@ -599,7 +600,7 @@ export function fallbackChain(configured: string): string[] {
   if (isCloudModel(configured)) {
     chain.push(...CLOUD_FALLBACKS.map((m) => `ollama-cloud/${m}`));
   } else {
-    chain.push("ollama-lan/qwen3.8:latest", "ollama/gemma:latest");
+    chain.push("ollama-lan/gpt-oss:20b", "ollama/gemma:latest");
   }
   return [...new Set(chain)];
 }
@@ -624,7 +625,7 @@ export function resolveModelFallbacks(configured: string, fallbacks?: ModelFallb
     fallbacks?.models?.[configured] ??
     fallbacks?.models?.[primary] ??
     fallbacks?.default ??
-    (cloud ? CLOUD_FALLBACKS.map((m) => `ollama-cloud/${m}`) : ["ollama-lan/qwen3.8:latest", "ollama/gemma:latest"]);
+    (cloud ? CLOUD_FALLBACKS.map((m) => `ollama-cloud/${m}`) : ["ollama-lan/gpt-oss:20b", "ollama/gemma:latest"]);
   const out: string[] = [];
   for (const entry of explicit) {
     const bare = bareModel(entry);
@@ -681,6 +682,7 @@ export async function runWithFallback(
         ms: Date.now() - t0,
         ok: true,
       });
+      recordLatency(attempts[attempts.length - 1].host, attempts[attempts.length - 1].ms, true);
       return { result, attempts };
     } catch (e) {
       lastErr = e instanceof Error ? e : new Error(String(e));
@@ -706,7 +708,7 @@ function hostTag(baseURL: string, kind: "cloud" | "local"): string {
 
 /**
  * Warm up a small model on the LAN box so the first real turn doesn't pay the
- * cold-load cost (~55s for qwen3.8). An empty-prompt generate loads the model
+ * cold-load cost (~55s for a 20B model). An empty-prompt generate loads the model
  * and keeps it resident per keepAlive ("30m" default).
  */
 export async function warmOllama(
@@ -715,7 +717,7 @@ export async function warmOllama(
   keepAlive = "30m",
 ): Promise<{ model: string; ms: number; loaded: boolean }> {
   const client = await pickOllamaEndpoint(env);
-  const model = pickModel(preferredModel ?? "ollama-lan/qwen3.8:latest", client.availableModels);
+  const model = pickModel(preferredModel ?? "ollama-lan/gpt-oss:20b", client.availableModels);
   const base = client.baseURL.replace(/\/v1$/, "");
   const ka = keepAliveMs(keepAlive);
   const t0 = Date.now();

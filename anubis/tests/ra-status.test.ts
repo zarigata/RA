@@ -7,15 +7,15 @@ describe("formatRaStatus", () => {
       cwd: "/tmp/w",
       profile: "mac-weak",
       model: "ollama-cloud/glm-5.2",
-      small: "ollama-lan/qwen3.8:latest",
+      small: "ollama-lan/gpt-oss:20b",
       last: {
         task: "hello",
         stages: ["thoth", "ptah"],
-        models: ["qwen3.8:latest", "glm-5.2"],
+        models: ["gpt-oss:20b", "glm-5.2"],
         filesWritten: ["/tmp/hello.py"],
         hosts: ["251", "cloud"],
         timings: [
-          { stage: "thoth", model: "qwen3.8:latest", host: "251", ms: 1000 },
+          { stage: "thoth", model: "gpt-oss:20b", host: "251", ms: 1000 },
           { stage: "ptah", model: "glm-5.2", host: "cloud", ms: 500 },
         ],
         at: 1,
@@ -23,7 +23,7 @@ describe("formatRaStatus", () => {
       usage: "No usage recorded.",
     });
     expect(s.startsWith("RA status")).toBe(true);
-    expect(s).toContain("qwen3.8");
+    expect(s).toContain("gpt-oss:20b");
     expect(s).toContain("glm-5.2");
     expect(s).toContain("cwd: /tmp/w");
     expect(s).toContain("RA lane thoth@251 → ptah@cloud");

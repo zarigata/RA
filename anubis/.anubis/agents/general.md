@@ -1,5 +1,6 @@
 ---
 description: General-purpose subagent. Full tool access for delegated tasks.
+category: implement
 mode: subagent
 temperature: 0.2
 steps: 8

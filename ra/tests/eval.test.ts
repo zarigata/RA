@@ -4,9 +4,9 @@ import type { RaConfig } from "../../anubis/src/config.ts";
 
 const config: RaConfig = {
   model: "ollama-cloud/glm-5.2",
-  small_model: "ollama-lan/qwen3.8:latest",
+  small_model: "ollama-lan/gpt-oss:20b",
   agent: {
-    thoth: { model: "ollama-lan/qwen3.8:latest" },
+    thoth: { model: "ollama-lan/gpt-oss:20b" },
     ptah: { model: "ollama-cloud/glm-5.2" },
     maat: { model: "ollama/gemma:latest" },
   },
@@ -16,7 +16,7 @@ describe("eval harness", () => {
   test("configuredModels dedupes unique models", () => {
     const models = configuredModels(config);
     expect(models).toContain("ollama-cloud/glm-5.2");
-    expect(models).toContain("ollama-lan/qwen3.8:latest");
+    expect(models).toContain("ollama-lan/gpt-oss:20b");
     expect(models).toContain("ollama/gemma:latest");
     expect(new Set(models).size).toBe(models.length);
   });
@@ -42,8 +42,8 @@ describe("eval harness", () => {
 
   test("formatEvalResults renders a table and pass rate", () => {
     const results = [
-      { task: "hello-function", model: "ollama-lan/qwen3.8:latest", passed: true, latencyMs: 100, cost: 0 },
-      { task: "sum-function", model: "ollama-lan/qwen3.8:latest", passed: false, latencyMs: 200, cost: 0 },
+      { task: "hello-function", model: "ollama-lan/gpt-oss:20b", passed: true, latencyMs: 100, cost: 0 },
+      { task: "sum-function", model: "ollama-lan/gpt-oss:20b", passed: false, latencyMs: 200, cost: 0 },
     ];
     const text = formatEvalResults(results);
     expect(text).toContain("RA eval");

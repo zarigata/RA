@@ -41,8 +41,8 @@ What "as good as Claude Code / OpenCode" concretely means, and where RA stands
 | Interrupt turn (Esc) + queueing | ✔ | ✔ | ✔ | ✖ (Ctrl+C killed app; fixed survival, no abort) | Phase 1 |
 | Plan mode + permission cycling | ✔ shift+tab | ✔ Tab build/plan | ✖ | ✖ | Phase 1 |
 | Memory hierarchy (RA.md/CLAUDE.md) | ✔ deep + auto-memory | ✔ AGENTS.md | ◐ | ◐ (flat AGENTS.md only) | Phase 1 |
-| Subagents (custom + parallel + UI) | ✔ rich | ✔ | ✖ (#431!) | ◐ (TASK verb + tree, no files/config) | Phase 1 |
-| Skills runtime (SKILL.md) | ✔ spec owner | ✔ | ✔ agentskills.io | ✖ (22 skills on disk, unread!) | Phase 1 |
+| Subagents (custom + parallel + UI) | ✔ rich | ✔ | ✖ (#431!) | ✔ (76-agent library, scoped .md files, TASK routing, catalog in hint — ra.76) | Phase 1 |
+| Skills runtime (SKILL.md) | ✔ spec owner | ✔ | ✔ agentskills.io | ✔ (SKILL tool, ancestors + ~/.ra/skills — ra.76) | Phase 1 |
 | Git discipline (auto-commit/undo) | ◐ | ✔ /undo+/redo | ◐ | ◐ (checkpoints, single-level) | Phase 1 |
 | $EDITOR compose / transcript | ✔ | ✔ /editor | n/d | ✖ | Phase 1 |
 | Fuzzy palette | ✔ | ✔ ctrl+p | ✔ ctrl+p | ◐ (number-key only) | Phase 2 |

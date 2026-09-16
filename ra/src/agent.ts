@@ -15,6 +15,13 @@ import { canRunTool, resolveCapabilities, assertTool, assertBash } from "./permi
 import { isAirgapped, localizeModel } from "./airgap.ts";
 import { loadMcpTools, McpClient, McpHttpClient, isHttpConfig } from "./mcp.ts";
 import type { McpServerEntry, McpTool } from "./mcp.ts";
+import { resolveAgentFile, taskCatalogHint } from "./agents/catalog.ts";
+import { toolSkill } from "./skills.ts";
+import { toolRepoMap } from "./repomap.ts";
+import { applyRoutingMode, downshiftForBudget, escalationChain } from "../../anubis/src/routing.ts";
+import { jobForRole } from "../../anubis/src/profiles.ts";
+import { pickForJobLive } from "../../anubis/src/capability.ts";
+import { isQuotaError, markExhausted } from "../../anubis/src/quota.ts";
 
 /** Global hook registry — allows agent code to emit events without a PluginHost reference. */
 type GlobalHookFn = (input: Record<string, unknown>) => void;
@@ -94,8 +101,13 @@ new text 2
   if (want("GREP")) sections.push("Or: GREP pattern [optional/glob]");
   if (want("BASH")) sections.push("Or: BASH command here");
   if (want("WEBFETCH")) sections.push("Or: WEBFETCH https://example.com");
+  if (want("WEBSEARCH")) sections.push("Or: WEBSEARCH <query>   (web search; needs BRAVE_SEARCH_API_KEY or TAVILY_API_KEY)");
+  if (want("SKILL")) sections.push("Or: SKILL name|list   (load a skill's instructions)");
+  if (want("REPOMAP")) sections.push("Or: REPOMAP   (ranked repo overview: files + symbols)");
+  if (want("TEST")) sections.push("Or: TEST [target]   (run the project test suite in the sandbox)");
   if (want("TODO")) sections.push("Or: TODO add <text> / TODO done <id> / TODO list");
-  if (want("TASK")) sections.push("Or: TASK <role> <task>   (spawn a subagent: general|explore|scout)");
+  if (want("TASK")) sections.push(`Or: TASK <role> <task>   (spawn a subagent)
+Agents: ${taskCatalogHint()}`);
   if (mcpTools && mcpTools.length) {
     const lines = mcpTools
       .slice(0, 20)
@@ -119,8 +131,8 @@ ${footer}
 /** Default hint with every built-in tool (no MCP, no restrictions). */
 export const TOOL_HINT = buildToolHint();
 
-function loadAgentPrompt(role: string): string {
-  const p = join(AGENTS_DIR, `${role}.md`);
+function loadAgentPrompt(role: string, cwd = process.cwd()): string {
+  const p = resolveAgentFile(role, cwd) ?? join(AGENTS_DIR, `${role}.md`);
   if (!existsSync(p)) return `You are ${role}.`;
   const raw = readFileSync(p, "utf-8");
   const body = raw.split("---").slice(2).join("---").trim();
@@ -145,11 +157,11 @@ export function loadAgentPermissions(role: string): Record<string, "allow" | "as
 }
 
 /** Full permission detail including per-command bash pattern rules. */
-export function loadAgentPermissionDetail(role: string): {
+export function loadAgentPermissionDetail(role: string, cwd = process.cwd()): {
   tools: Record<string, "allow" | "ask" | "deny">;
   bashPatterns: BashPatternRule[];
 } | null {
-  const p = join(AGENTS_DIR, `${role}.md`);
+  const p = resolveAgentFile(role, cwd) ?? join(AGENTS_DIR, `${role}.md`);
   if (!existsSync(p)) return null;
   const raw = readFileSync(p, "utf-8");
   const fm = raw.match(/^---\n([\s\S]*?)\n---/);
@@ -229,14 +241,16 @@ export interface AgentMeta {
   model?: string;
   /** Restrict available tools (comma-separated list in frontmatter). */
   tools?: string[];
+  /** Library category from frontmatter (research/review/ops/…). */
+  category?: string;
 }
 
 /**
  * Parse an agent's frontmatter `steps` and `temperature` (used to bound the
  * tool loop and set sampling). Returns empty object if absent.
  */
-export function loadAgentMeta(role: string): AgentMeta {
-  const p = join(AGENTS_DIR, `${role}.md`);
+export function loadAgentMeta(role: string, cwd = process.cwd()): AgentMeta {
+  const p = resolveAgentFile(role, cwd) ?? join(AGENTS_DIR, `${role}.md`);
   if (!existsSync(p)) return {};
   const raw = readFileSync(p, "utf-8");
   const fm = raw.match(/^---\n([\s\S]*?)\n---/);
@@ -250,6 +264,8 @@ export function loadAgentMeta(role: string): AgentMeta {
   if (model) out.model = model[1].trim();
   const tools = fm[1].match(/^tools:[ \t]*([^\r\n]*)$/m);
   if (tools) out.tools = tools[1].split(",").map((t) => t.trim()).filter(Boolean);
+  const category = fm[1].match(/^category:[ \t]*(\S+)[ \t]*$/m);
+  if (category) out.category = category[1];
   return out;
 }
 
@@ -281,7 +297,7 @@ export async function execToolBlock(
   checkRun();
   content = normalizeToolText(content);
   if (/^UNSUPPORTED_TOOL|<tool_calls>/i.test(content.trim())) return { done: false, note: "Error: unsupported tool call. Use the exact tool grammar from the system prompt." };
-  const requestedVerb = content.trim().match(/^(WRITE|EDIT|MULTIEDIT|READ|OUTLINE|DIAGNOSE|GLOB|GREP|BASH|WEBFETCH|TODO|TASK|MCP)\b/i)?.[1]?.toLowerCase();
+  const requestedVerb = content.trim().match(/^(WRITE|EDIT|MULTIEDIT|READ|OUTLINE|DIAGNOSE|GLOB|GREP|BASH|WEBFETCH|WEBSEARCH|TODO|TASK|MCP|SKILL|REPOMAP|TEST)\b/i)?.[1]?.toLowerCase();
   if (requestedVerb) {
     try { assertTool(ctx.capabilities, requestedVerb); }
     catch (error) { console.error(`RA permission denied: ${String(error)}`); return { done: false, note: `Error: ${String(error)}` }; }
@@ -393,6 +409,33 @@ export async function execToolBlock(
     if (d) return { done: false, note: d };
     const airgap = config ? isAirgapped(config) : false;
     return { done: false, note: await tools.toolWebFetch(webfetch[1].trim(), 15000, airgap, ctx.signal) };
+  }
+  const websearch = content.match(/^WEBSEARCH\s+([\s\S]+)/im);
+  if (websearch) {
+    const d = denied("websearch");
+    if (d) return { done: false, note: d };
+    const airgap = config ? isAirgapped(config) : false;
+    return { done: false, note: await tools.toolWebSearch(websearch[1].trim(), process.env, airgap) };
+  }
+  const skill = content.match(/^SKILL\s+(.+)/im);
+  if (skill) {
+    const d = denied("skill");
+    if (d) return { done: false, note: d };
+    return { done: false, note: toolSkill(ctx, skill[1].trim(), config) };
+  }
+  const repomap = /^REPOMAP\s*$/im.test(content.trim());
+  if (repomap) {
+    const d = denied("read", "repomap");
+    if (d) return { done: false, note: d };
+    return { done: false, note: toolRepoMap(ctx) };
+  }
+  const testRun = content.match(/^TEST\s*(.*)/im);
+  if (testRun) {
+    const d = denied("bash", "test");
+    if (d) return { done: false, note: d };
+    try { assertTool(ctx.capabilities, "test"); }
+    catch (e) { return { done: false, note: `Error: ${String(e)}` }; }
+    return { done: false, note: await tools.toolTest(ctx, testRun[1].trim() || undefined) };
   }
   const todo = content.match(/^TODO\s+(.+)/im);
   if (todo) {
@@ -514,6 +557,47 @@ export function getActiveSubagentTracker(): SubagentTree | null {
   return activeTracker;
 }
 
+// ---- Context compaction (hidden `compaction` system agent) ----
+
+/** Prompt-size ceiling before the middle of the conversation gets compacted. */
+export const COMPACTION_THRESHOLD_CHARS = 60_000;
+
+export interface CompactionPlan {
+  keep: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+  summarize: Array<{ role: "user" | "assistant"; content: string }>;
+}
+
+/**
+ * Pure: pick which middle messages to compact once the prompt is too large.
+ * Always keeps the system message, the original task exchange area start, and
+ * the last exchange (tool result + reply). Returns null when under threshold.
+ */
+export function planCompaction(
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+  thresholdChars = COMPACTION_THRESHOLD_CHARS,
+): CompactionPlan | null {
+  const total = messages.reduce((n, m) => n + m.content.length, 0);
+  if (total <= thresholdChars || messages.length < 5) return null;
+  const keep = [messages[0], messages[messages.length - 2], messages[messages.length - 1]].filter(Boolean);
+  const keepSet = new Set(keep);
+  const summarize = messages.slice(1, -2).filter((m) => !keepSet.has(m));
+  if (!summarize.length) return null;
+  return { keep, summarize };
+}
+
+/** Best-effort: run the hidden compaction agent on the small lane. */
+async function compactConversation(plan: CompactionPlan, config: RaConfig): Promise<string> {
+  const env = loadEnv(ANUBIS_HOME);
+  const { client, model } = await pickClientForModel(config.small_model ?? config.model, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
+  const transcript = plan.summarize.map((m) => `${m.role}: ${m.content}`).join("\n\n").slice(0, 40_000);
+  const res = await withRetry(() => client.nativeChatStream(model, [
+    { role: "system", content: loadAgentPrompt("compaction") },
+    { role: "user", content: `Summarize this agent conversation so work can continue with full fidelity:\n\n${transcript}` },
+  ], { signal: reserveCall() }));
+  recordChatUsage(res.model, client.kind === "cloud", res.usage, { in: transcript.length, out: res.content.length });
+  return res.content;
+}
+
 export async function runTaskAgent(
   role: string, task: string, config: RaConfig, ctx: ToolContext,
   env: Record<string, string>, maxSteps = 16,
@@ -534,17 +618,37 @@ async function executeTaskAgent(
   const assignment = resolveRoleModel(role, config);
   const tier = classifyTier(task, role === "ptah" ? "code" : role === "thoth" ? "plan" : undefined);
   const tierModels = (config as RaConfig & { tier_models?: Record<string, string> }).tier_models;
-  let configured = (tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model;
+  // Hybrid routing (ra.76): the mode adjusts the tier decision before
+  // airgap/frontmatter overrides — an agent that pins its model always wins.
+  let configured = applyRoutingMode((tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model, tier, config);
   const airgap = isAirgapped(config, env);
-  if (airgap) configured = localizeModel(configured, config.small_model ?? "ollama-lan/qwen3.8:latest");
-  const meta = loadAgentMeta(role);
+  if (airgap) configured = localizeModel(configured, config.small_model ?? "ollama-lan/gpt-oss:20b");
+  const meta = loadAgentMeta(role, ctx.cwd);
   // Frontmatter model override takes precedence over config/tier assignment —
   // must be applied BEFORE the client is picked, or it never takes effect.
   if (meta.model) configured = meta.model;
+  // Provider Mosaic (ra.77): benchmark-driven capability routing. Picks the
+  // best-profiled model for this agent's job across every configured
+  // provider (local-biased), and returns a failover chain. Frontmatter pins
+  // win; the budget guard keeps the last word on cost.
+  let capabilityChain: string[] = [];
+  if (!meta.model && config.capability_router?.enabled !== false && !airgap) {
+    const routing = await pickForJobLive(jobForRole(role, tier), config, env);
+    if (routing) {
+      configured = routing.primary.model;
+      capabilityChain = routing.chain;
+    }
+  }
+  // Budget guard: past budget.session_usd, cloud work downshifts to the local lane.
+  const budgetDownshift = downshiftForBudget(configured, config);
+  if (budgetDownshift) {
+    configured = budgetDownshift;
+    emitGlobalHook("model.fallback", { from: meta.model ?? "tier", to: budgetDownshift, reason: "session budget breached" });
+  }
   if (currentScope()?.node) currentScope()!.node!.model = configured;
   emitGlobalHook("agent.turn.start", { role, task, model: configured });
   const { client, model } = await pickClientForModel(configured, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
-  const permDetail = loadAgentPermissionDetail(role);
+  const permDetail = loadAgentPermissionDetail(role, ctx.cwd);
   const agentPerms = permDetail?.tools ?? null;
   const bashPatterns = permDetail?.bashPatterns ?? [];
   const steps = Math.min(meta.steps ?? maxSteps, maxSteps);
@@ -555,12 +659,15 @@ async function executeTaskAgent(
   const allowed = [...ctx.capabilities!.tools];
   const hint = buildToolHint(allowed, mcpRt.tools);
   const accessMode = ctx.capabilities!.readOnly ? "\nThis operation is read-only, including all delegated agents. Inspect and propose; do not modify files." : "";
-  const system = `${loadAgentPrompt(role)}${accessMode}${loadProjectMemory(ctx.cwd)}\nProject files (top level):\n${tools.listDir(ctx, ".").slice(0, 4000)}\n${hint}`;
+  const system = `${loadAgentPrompt(role, ctx.cwd)}${accessMode}${loadProjectMemory(ctx.cwd)}\nProject files (top level):\n${tools.listDir(ctx, ".").slice(0, 4000)}\n${hint}`;
 
   let rootOutput = "";
+  // The active client can change mid-loop: cross-provider failover (quota,
+  // capability chain) re-picks per candidate. Used for the final host tag.
+  let activeClient = client;
   const result = await runAgentLoop();
   if (currentScope()?.node) currentScope()!.node!.model = result.model;
-  return { ...result, host: client.kind === "cloud" ? "cloud" : client.baseURL.includes("192.168.1.251") ? "251" : "local" };
+  return { ...result, host: activeClient.kind === "cloud" ? "cloud" : activeClient.baseURL.includes("192.168.1.251") ? "251" : "local" };
 
   async function runAgentLoop(): Promise<TaskResult> {
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
@@ -569,10 +676,19 @@ async function executeTaskAgent(
     { role: "user", content: `Task: ${task}\nProject cwd: ${ctx.cwd}` },
   ];
 
-  const cloud = client.kind === "cloud";
   let last = "";
+  let compacted = false;
   let usedModel = model;
-  const fallbackModels = resolveModelFallbacks(configured, config.fallbacks);
+  // Same-kind user chain first, then cross-kind escalation (balanced mode
+  // local→cloud; budget breach cloud→local), then the Provider-Mosaic
+  // capability chain (next-best models for this job, any provider).
+  // fallbackChain itself stays same-kind by contract — escalation and
+  // capability candidates are appended here, at the agent layer.
+  const fallbackModels = [...new Set([
+    ...resolveModelFallbacks(configured, config.fallbacks),
+    ...escalationChain(configured, config),
+    ...capabilityChain,
+  ])];
   const fallbackEvents: FallbackEvent[] = [];
   const withFallbacks = (r: TaskResult): TaskResult =>
     fallbackEvents.length > 0 ? { ...r, fallbacks: [...fallbackEvents] } : r;
@@ -584,29 +700,51 @@ async function executeTaskAgent(
     // Stream only at the root turn — subagent/parallel outputs would interleave.
     checkRun();
     const renderer = scopedRenderer();
+    // Context compaction: once per run, fold the middle of the conversation
+    // into a summary so long tool loops stay inside the small-model window.
+    if (!compacted) {
+      const plan = planCompaction(messages);
+      if (plan) {
+        compacted = true;
+        try {
+          const summary = await compactConversation(plan, config);
+          messages.splice(0, messages.length,
+            plan.keep[0],
+            { role: "user", content: `[Earlier conversation compacted by the compaction agent]\n${summary}` },
+            ...plan.keep.slice(1));
+          renderer?.(`\n\x1b[2m[RA compaction: ${plan.summarize.length} messages folded into a summary]\x1b[0m\n`);
+        } catch { /* compaction is best-effort */ }
+      }
+    }
     const keepAlive = env.OLLAMA_KEEP_ALIVE ?? "30m";
     const chat = async () => {
       const signal = reserveCall();
-      const response = await client.nativeChatStream(usedModel, messages, { temperature, keepAlive, signal, onToken: renderer });
+      const response = await activeClient.nativeChatStream(usedModel, messages, { temperature, keepAlive, signal, onToken: renderer });
       if (!response.content.trim()) throw new Error(`Empty response from ${usedModel}`);
       return response;
     };
-    // Explicit model fallback: provider errors try the user's same-kind chain.
-    // Auth failures and user cancellations never fall back.
+    // Explicit model fallback: provider errors try the chains. Auth failures
+    // and user cancellations never fall back; quota errors mark the provider
+    // exhausted (cooldown) and keep failing over — never silently abort work.
     const chatWithFallback = async () => {
       try {
         return await withRetry(chat);
       } catch (e) {
+        const quotaHit = isQuotaError(e) && !isAuthError(e);
+        if (quotaHit) markExhausted(usedModel, String(e instanceof Error ? e.message : e).slice(0, 120));
         const chain = fallbackModels;
         if (chain.length === 0 || isAuthError(e) || isUserCancel(e)) throw e;
         const primary = usedModel;
-        const reason = String(e instanceof Error ? e.message : e).slice(0, 160);
+        const reason = (quotaHit ? "quota exhausted — " : "") + String(e instanceof Error ? e.message : e).slice(0, 160);
         let lastErr: unknown = e;
         for (const candidate of chain) {
           if (candidate === usedModel) continue;
           const t0 = Date.now();
-          usedModel = candidate;
           try {
+            // Cross-provider candidates need their own client (own host/key).
+            const picked = await pickClientForModel(candidate, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
+            usedModel = picked.model;
+            activeClient = picked.client;
             const r = await withRetry(chat);
             fallbackEvents.push({ from: primary, to: candidate, reason, ms: Date.now() - t0 });
             renderer?.(`\n\x1b[2m[RA fallback: ${primary} unavailable (${reason}) — using ${candidate}]\x1b[0m\n`);
@@ -614,6 +752,7 @@ async function executeTaskAgent(
           } catch (candErr) {
             lastErr = candErr;
             if (isAuthError(candErr) || isUserCancel(candErr)) break;
+            if (isQuotaError(candErr)) markExhausted(candidate, String(candErr instanceof Error ? candErr.message : candErr).slice(0, 120));
           }
         }
         throw new Error(`Model ${primary} failed (${reason}); fallbacks [${chain.join(", ")}] did not recover. Last error: ${String(lastErr instanceof Error ? lastErr.message : lastErr).slice(0, 200)}`);
@@ -626,7 +765,7 @@ async function executeTaskAgent(
     last = res.content;
     if (!last.trim()) throw new Error(`Model ${usedModel} returned an empty response`);
     const inChars = messages.reduce((n, m) => n + m.content.length, 0);
-    recordChatUsage(res.model, cloud, res.usage, { in: inChars, out: last.length }, ctx.cwd);
+    recordChatUsage(res.model, activeClient.kind === "cloud", res.usage, { in: inChars, out: last.length }, ctx.cwd);
     messages.push({ role: "assistant", content: last });
 
     const tool = await execToolBlock(ctx, last, config, agentPerms, spawn, bashPatterns, mcpRt.call);

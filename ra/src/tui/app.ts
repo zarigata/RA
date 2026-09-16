@@ -22,6 +22,7 @@ import { SubagentTree } from "./tree.ts";
 import { PluginHost } from "../plugins/host.ts";
 import { dispatchCommand, PALETTE_COMMANDS, loadCustomCommands, customCommandDirs } from "../commands/index.ts";
 import { runOrchestratorTurn, runTaskAgent, onGlobalHook, setActiveSubagentTracker, getActiveSubagentTracker, setActiveStreamRenderer, abortActiveTurn } from "../agent.ts";
+import { activeRunCount } from "../execution.ts";
 import { expandMentions } from "../tools/index.ts";
 import { loadUsage, buildReport, formatCost } from "../../../anubis/src/cost.ts";
 import { startLegacyTui, type TuiOptions } from "./legacy.ts";
@@ -32,10 +33,11 @@ import { decodeKeys, type Key } from "./keys.ts";
 import { MOUSE_ENTER, MOUSE_EXIT, ALT_ENTER, ALT_EXIT, PASTE_ENTER, PASTE_EXIT, SYNC_BEGIN, SYNC_END, CURSOR_HIDE, CURSOR_SHOW, fg as hexFg, bg as hexBg } from "./mouse.ts";
 import { renderSplashFrame, parseOscColorReply, luminance, OSC_TITLE, OSC_QUERY_BG } from "./splash.ts";
 import { renderMenuOverlay, renderShortcutsOverlay, renderOnboardingOverlay, type MenuEntry } from "./overlays.ts";
+import { visibleCatalog } from "../agents/catalog.ts";
 
 export type { TuiOptions };
 
-interface Prefs { theme?: string; mouse?: boolean; scrollSpeed?: number; onboarded?: boolean }
+interface Prefs { theme?: string; mouse?: boolean; scrollSpeed?: number; onboarded?: boolean; notify?: boolean }
 const TUI_PREFS = join(homedir(), ".ra", "tui.json");
 function loadPrefs(): Prefs {
   try { return JSON.parse(readFileSync(TUI_PREFS, "utf-8")) as Prefs; } catch { return {}; }
@@ -67,6 +69,9 @@ export async function startTui(opts: TuiOptions): Promise<void> {
 
 async function startFullscreen(opts: TuiOptions): Promise<void> {
   try { writeFileSync("/tmp/ra-key-trace.log", `START pid=${process.pid} build=${RA_VERSION}\n`, { flag: "a" }); } catch {}
+  /** Debug key/abort tracing: RA_KEY_TRACE=1 appends every decoded key event. */
+  const keyTrace = process.env.RA_KEY_TRACE === "1";
+  const keyLog = (m: string) => { try { writeFileSync("/tmp/ra-key-trace.log", `${Date.now()} ${m}\n`, { flag: "a" }); } catch {} };
   const config = applyEnvOverrides(applyProjectOverride(loadRaConfig(ANUBIS_HOME), opts.cwd));
   const remote = opts.remoteUrl ? new RemoteClient({ url: opts.remoteUrl }) : null;
   const remoteOk = remote ? await remote.health() : false;
@@ -128,6 +133,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   let scrollOffset = 0;
   let busy = false;
   let statusText = "";
+  let pendingMixture: string | null = null;
   let spinnerFrame = 0;
   let streaming: Segment | null = null;
   let streamedThisTurn = "";
@@ -154,6 +160,24 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
 
   // ---------- output ----------
   const push = (kind: Segment["kind"], text: string) => { segments.push({ kind, text }); scrollOffset = 0; };
+  // Turn telemetry (ra.76): time-to-first-token and throughput per streamed turn.
+  let turnStartTs = 0;
+  let firstTokenTs = 0;
+  let lastTokenTs = 0;
+  let turnStreamChars = 0;
+  const beginTurnTelemetry = () => { turnStartTs = Date.now(); firstTokenTs = 0; lastTokenTs = 0; turnStreamChars = 0; };
+  /** OSC 9 + BEL desktop notification (iTerm2/WezTerm/kitty), pref-gated. */
+  const notify = (title: string) => {
+    if (prefs.notify === false || process.env.RA_NO_NOTIFY) return;
+    try { stdout.write(`\x1b]9;${title}\x07`); } catch { /* non-tty */ }
+  };
+  const turnTelemetryLine = (): string | null => {
+    if (!firstTokenTs || !lastTokenTs || lastTokenTs === firstTokenTs) return null;
+    const ttft = ((firstTokenTs - turnStartTs) / 1000).toFixed(1);
+    const span = (lastTokenTs - firstTokenTs) / 1000;
+    const tps = Math.round((turnStreamChars / 4) / span);
+    return `⚡ ttft ${ttft}s · ~${tps} tok/s`;
+  };
   const tip = () => {
     if (!onboarded || session.simpleMode) push("info", `TIP: ${TIPS[tipIndex++ % TIPS.length]}`);
   };
@@ -174,11 +198,16 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       const total = report.reduce((s, r) => s + r.cost, 0);
       const tokens = report.reduce((s, r) => s + r.inputTokens + r.outputTokens, 0);
       const top = report.slice(0, 3).map((r) => `  ${r.model}: ${r.inputTokens + r.outputTokens} tok · ${formatCost(r.model, r.cost)}`).join("\n");
-      push("info", `context ──\n${top}\n  TOTAL: ${tokens} tok · $${total.toFixed(4)}`);
+      const tele = turnTelemetryLine();
+      push("info", `context ──${tele ? ` ${tele} ·` : ""}\n${top}\n  TOTAL: ${tokens} tok · $${total.toFixed(4)}`);
+    } else {
+      const tele = turnTelemetryLine();
+      if (tele) push("info", tele);
     }
     if (subagentTree.hasTree) push("info", subagentTree.render());
     tip();
     statusText = "";
+    notify("RA: task done");
     scheduleRender();
   };
 
@@ -201,11 +230,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     } catch { /* no custom dirs */ }
     return [...builtIn, ...custom];
   };
-  const agentEntries = (): PaletteEntry[] => Object.entries(config.agent ?? {}).map(([name, a]) => ({
-    label: `agent:${name}`,
+  const agentEntries = (): PaletteEntry[] => visibleCatalog(opts.cwd).map((e) => ({
+    label: `agent:${e.role}`,
     category: "agent" as const,
-    detail: `delegate directly to ${name}${(a as { model?: string }).model ? ` · ${(a as { model?: string }).model}` : ""}`,
-    action: { type: "insert" as const, text: `agent:${name} ` },
+    detail: `${e.category} · ${e.description || "delegate a task"}`,
+    action: { type: "insert" as const, text: `agent:${e.role} ` },
   }));
   const themeEntries = (): PaletteEntry[] => listPalettes().map((p) => ({
     label: `theme:${p.name.toLowerCase()}`,
@@ -505,6 +534,20 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     }
     modal = null;
     const run = e.run ?? {};
+    if (run.type === "moa-run") {
+      const task = pendingMixture;
+      pendingMixture = null;
+      if (task) void submit(`/moa ${task.replace(/\n+/g, " ")}`);
+      scheduleRender();
+      return;
+    }
+    if (run.type === "moa-skip") {
+      const task = pendingMixture;
+      pendingMixture = null;
+      if (task) void runOrchestratedTurn(task);
+      scheduleRender();
+      return;
+    }
     if (run.type === "palette") { openPalette(""); return; }
     if (run.type === "shortcuts") { modal = { kind: "shortcuts" }; scheduleRender(); return; }
     if (run.type === "clearscreen") { segments.length = 0; scheduleRender(); return; }
@@ -526,6 +569,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (remoteOk) void remote!.appendMessage(session, "user", input);
     else appendMessage(session, "user", input);
     busy = true;
+    beginTurnTelemetry();
     try {
       const agentM = /^agent:([a-z0-9_-]+)\s*([\s\S]*)$/i.exec(input);
       if (agentM) {
@@ -540,14 +584,56 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (handled) saveSession(session);
         else push("activity", `unknown command ${input} — press / to search`);
       } else {
-        const enhanced = await plugins.appendPrompt(input);
-        const withFiles = expandMentions(enhanced, opts.cwd);
-        statusText = "orchestrating…";
-        scheduleRender();
-        const out = await runOrchestratorTurn(withFiles, config, ctx);
-        streamedThisTurn = "";
-        reply(out);
+        // Mixture auto-suggest (ra.76): architect-class prompts offer a
+        // cross-model fan-out before running the single-lane orchestrator.
+        // Deliberately tests the RAW input — plugin boilerplate (horus appends
+        // "security" to every coding prompt) must not pop this menu.
+        if (!session.simpleMode) {
+          const { shouldSuggestMoa } = await import("../moa/layers.ts");
+          const sug = shouldSuggestMoa(input, config);
+          if (sug) {
+            pendingMixture = input;
+            modal = {
+              kind: "menu", x: 4, y: 6, title: "Run as mixture?",
+              entries: [
+                { label: `Fan out across ${sug.plan.models.length} models`, detail: `${sug.plan.models.join(" · ")} — critics ${sug.plan.critics.join(", ")} · est ${sug.estCostUsd > 0 ? `$${sug.estCostUsd.toFixed(4)}` : "subscription/free"}`, run: { type: "moa-run" } },
+                { label: "Just answer normally", detail: "single-lane orchestrator", run: { type: "moa-skip" } },
+              ],
+              selected: 0,
+            };
+            scheduleRender();
+            return;
+          }
+        }
+        await runOrchestratedTurn(input);
       }
+    } catch (e) {
+      streamedThisTurn = "";
+      streaming = null;
+      reply(`Error: ${String(e)}`);
+    } finally {
+      busy = false;
+      statusText = "";
+      tip();
+      scheduleRender();
+      saveSession(session);
+    }
+  };
+
+  /** Run the single-lane orchestrator for a user prompt (also the "skip"
+   *  path of the mixture suggestion). Plugin enhancement + @mentions happen
+   *  here so every entry point gets the same treatment. */
+  const runOrchestratedTurn = async (rawInput: string): Promise<void> => {
+    busy = true;
+    statusText = "orchestrating…";
+    beginTurnTelemetry();
+    scheduleRender();
+    try {
+      const enhanced = await plugins.appendPrompt(rawInput);
+      const withFiles = expandMentions(enhanced, opts.cwd);
+      const out = await runOrchestratorTurn(withFiles, config, ctx);
+      streamedThisTurn = "";
+      reply(out);
     } catch (e) {
       streamedThisTurn = "";
       streaming = null;
@@ -565,6 +651,10 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   let streamTimer: ReturnType<typeof setTimeout> | null = null;
   setActiveStreamRenderer((tok) => {
     streamedThisTurn += tok;
+    const now = Date.now();
+    if (!firstTokenTs) firstTokenTs = now;
+    lastTokenTs = now;
+    turnStreamChars += tok.length;
     if (!streaming) streaming = { kind: "assistant", text: tok };
     else streaming.text += tok;
     if (!statusText) statusText = "responding…";
@@ -656,8 +746,18 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       case "ctrl":
         if (k.name === "d") { quit(); return; }
         if (k.name === "c") {
-          if (modal) { modal = null; scheduleRender(); return; }
-          if (busy) { if (abortActiveTurn()) statusText = "cancelling…"; }
+          if (modal) {
+            if (pendingMixture && modal.kind === "menu") {
+              pendingMixture = null;
+              push("info", "cancelled — prompt discarded");
+            }
+            modal = null; scheduleRender(); return;
+          }
+          if (busy) {
+            const aborted = abortActiveTurn();
+            if (keyTrace) keyLog(`ctrl+c abort -> ${aborted} (activeRuns=${activeRunCount()})`);
+            statusText = aborted ? "cancelling…" : "finishing…";
+          }
           else { editor.text = ""; editor.cursor = 0; }
           scheduleRender();
           return;
@@ -671,9 +771,28 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (k.name === "u") { editor.text = ""; editor.cursor = 0; scheduleRender(); return; }
         return;
       case "escape":
-        if (modal) { if (modal.kind === "onboard") finishOnboarding(); else modal = null; scheduleRender(); return; }
+        if (keyTrace) keyLog(`escape key: modal=${modal?.kind ?? "-"} mixture=${pendingMixture !== null} palette=${paletteOpen} busy=${busy}`);
+        if (modal) {
+          // ESC on the mixture suggestion = keep the prompt, answer normally.
+          if (pendingMixture && modal.kind === "menu") {
+            const task = pendingMixture;
+            pendingMixture = null;
+            modal = null;
+            push("info", "mixture skipped — answering normally");
+            void runOrchestratedTurn(task);
+            scheduleRender();
+            return;
+          }
+          if (modal.kind === "onboard") finishOnboarding(); else modal = null;
+          scheduleRender(); return;
+        }
         if (paletteOpen) { closePalette(); return; }
-        if (busy) { if (abortActiveTurn()) statusText = "cancelling…"; scheduleRender(); return; }
+        if (busy) {
+          const aborted = abortActiveTurn();
+          if (keyTrace) keyLog(`escape abort -> ${aborted} (activeRuns=${activeRunCount()})`);
+          statusText = aborted ? "cancelling…" : "finishing…";
+          scheduleRender(); return;
+        }
         editor.text = ""; editor.cursor = 0; scheduleRender();
         return;
       case "f":
@@ -880,9 +999,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   function wireKeys(): void {
     let pending = "";
     let escTimer: ReturnType<typeof setTimeout> | null = null;
+    if (keyTrace) keyLog(`wireKeys pid=${process.pid}`);
     stdin.on("data", (chunk: string) => {
       const { keys, pending: rest } = decodeKeys(chunk.toString("utf-8"), pending);
       pending = rest;
+      if (keyTrace) keyLog(`chunk=${JSON.stringify(chunk.toString("utf-8")).slice(0, 80)} -> keys=${JSON.stringify(keys.map(k => k.type === "text" ? `text:${(k as { text: string }).text.slice(0, 20)}` : k.type === "ctrl" ? `ctrl:${(k as { name: string }).name}` : k.type)).slice(0, 140)} pending=${JSON.stringify(pending)} busy=${busy}`);
       // A lone ESC is ambiguous: it either starts a sequence or is the Escape
       // key. If no continuation arrives quickly, deliver it as Escape.
       if (pending === "\x1b") {
@@ -891,6 +1012,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
             escTimer = null;
             if (pending === "\x1b") {
               pending = "";
+              if (keyTrace) keyLog("lone-ESC timer fired -> escape key");
               handleKey({ type: "escape" });
             }
           }, 50);

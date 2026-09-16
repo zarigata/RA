@@ -14,7 +14,34 @@ export interface RaConfig extends RouterConfig {
   small_model?: string;
   provider?: Record<string, unknown>;
   plugin?: string[];
-  moa?: { roles: string[]; parallel: boolean; concurrency?: number };
+  moa?: { roles: string[]; parallel: boolean; concurrency?: number; layers?: number; models?: string[]; budget_usd?: number };
+  /** Named mixture-of-agents presets (`/team <name>`, `ra moa --team <name>`). */
+  teams?: Record<string, {
+    description?: string;
+    /** Layer-1 proposer fan-out models; defaults to small+BIG lanes. */
+    models?: string[];
+    /** Layer-1 proposer agent role per fan-out (default: general). */
+    role?: string;
+    /** Layer-2 critic roles that see every layer-1 output. */
+    critics?: string[];
+    /** Layer count: 1 = proposals only, 2 = proposals + critics (default). */
+    layers?: number;
+    budget_usd?: number;
+  }>;
+  /** Hybrid routing between local and cloud lanes (ra.76): local-first default. */
+  routing?: { mode?: "local-first" | "quality-first" | "balanced" | "economy"; escalate_threshold?: number };
+  /** Provider Mosaic (ra.77): benchmark-driven capability routing across every configured provider. */
+  capability_router?: {
+    enabled?: boolean;
+    /** Score bonus for local models — the "local assistant, cloud specialist" dial (default 2). */
+    local_bonus?: number;
+    /** Failover chain length after the primary (default 3). */
+    max_candidates?: number;
+    /** Routing-pool allowlist. Missing or ["*"] → every configured model (full auto); explicit ids/prefixes constrain. Lanes are always in. */
+    models?: string[];
+  };
+  /** Session cost ceiling in USD; on breach RA downshifts cloud work to the local lane. */
+  budget?: { session_usd?: number };
   agent_limits?: { max_calls?: number; max_agents?: number; max_depth?: number; timeout_ms?: number };
   sandbox?: { mode?: "workspace-write" | "read-only" | "off"; network?: "deny" | "allow"; allow_unsandboxed?: boolean };
   pipeline?: { stages: string[] };

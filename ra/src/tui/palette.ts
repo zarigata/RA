@@ -52,7 +52,7 @@ export function paletteItems(sources: {
     items.push({ label: `session:${s.id}`, category: "session", detail: s.detail ?? "switch session", action: { type: "session", id: s.id } });
   }
   for (const m of sources.models) {
-    const slot = /glm|gpt-oss|flash|5\.2|kimi|qwen|deepseek|gemma|minimax|nemotron/i.test(m) && /small/i.test(m) ? "small" : undefined;
+    const slot = /glm|gpt-oss|flash|5\.2|kimi|gpt-oss|deepseek|gemma|minimax|nemotron/i.test(m) && /small/i.test(m) ? "small" : undefined;
     items.push({ label: `model:${m}`, category: "model", detail: "use as implementation model (big)", action: { type: "model", slot: (slot as "big" | "small" | undefined) ?? "big", model: m } });
     items.push({ label: `model-small:${m}`, category: "model", detail: "use as planning model (small)", action: { type: "model", slot: "small", model: m } });
   }

@@ -82,8 +82,8 @@ const HELP_SIMPLE = `RA Simple Mode — commands:
 
 const HELP_PRO = `RA — commands:
   Build        /plan /code /quick /pipeline /again
-  Review       /review /critique /docs /moa /tree
-  Teams        /agents /swarm help /swarm list
+  Review       /review /critique /docs /moa /tree /diff
+  Teams        /agents /team /board /swarm help /swarm list
   Safety       /sandbox status /sandbox help
   Project      /ls /files /show /todos /verify
   Session      /status /history /sessions /replay /clear
@@ -266,8 +266,41 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
     }
     case "lane": {
       const { loadLastRun, formatLaneLine } = await import("../../../anubis/src/last-run.ts");
+      const { resolveRoutingMode } = await import("../../../anubis/src/routing.ts");
+      const { formatLatency } = await import("../../../anubis/src/latency.ts");
       const run = loadLastRun();
-      c.reply(run ? formatLaneLine(run) : "No previous RA full-dev run.");
+      c.reply([run ? formatLaneLine(run) : "No previous RA full-dev run.", `routing: ${resolveRoutingMode(c.config)} (RA_ROUTING or routing.mode: local-first | quality-first | balanced | economy)`, formatLatency()].join("\n"));
+      return true;
+    }
+    case "diff": {
+      const { listCheckpoints, checkpointContent } = await import("../server/checkpoint.ts");
+      const { diffLines, renderDiffStyled, diffStats } = await import("../diff.ts");
+      const { readFileSync, existsSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      const st = {
+        add: (s: string) => `\x1b[32m${s}\x1b[0m`,
+        remove: (s: string) => `\x1b[31m${s}\x1b[0m`,
+        context: (s: string) => `\x1b[2m${s}\x1b[0m`,
+        hunk: (s: string) => `\x1b[36m${s}\x1b[0m`,
+      };
+      if (!arg) {
+        const files = [...new Set(listCheckpoints(c.ctx.cwd).flatMap((cp) => cp.files))];
+        c.reply(files.length
+          ? ["RA diff — checkpointed files", ...files.map((f) => `  ${f}  (/diff ${f})`)].join("\n")
+          : "No checkpoints yet. Agent edits snapshot automatically; /diff <file> shows checkpoint → current.");
+        return true;
+      }
+      const rel = arg.trim().replace(/^\.?\//, "");
+      const snap = checkpointContent(c.ctx.cwd, rel);
+      if (snap === null) { c.reply(`RA diff: no checkpoint for ${rel}`); return true; }
+      const cur = existsSync(join(c.ctx.cwd, rel)) ? readFileSync(join(c.ctx.cwd, rel), "utf-8") : "";
+      const lines = diffLines(snap, cur);
+      const stats = diffStats(lines);
+      if (!stats.added && !stats.removed) { c.reply(`${rel}: unchanged since checkpoint`); return true; }
+      c.reply([
+        `diff ${rel} — +${stats.added} -${stats.removed} (checkpoint → current · /undo to revert)`,
+        ...renderDiffStyled(lines, st),
+      ].join("\n"));
       return true;
     }
     case "intent": {
@@ -422,8 +455,8 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       return true;
     }
     case "agents": {
-      const { agentCatalog } = await import("./teams.ts");
-      c.reply(agentCatalog(c.config).map(a => `${a.role}: ${a.model} · max ${a.maxSteps} steps`).join("\n"));
+      const { formatCatalog } = await import("../agents/catalog.ts");
+      c.reply(formatCatalog(c.ctx.cwd));
       return true;
     }
     case "swarm": {
@@ -434,6 +467,17 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
     }
     case "moa":
       return runMoa(arg, c);
+    case "team":
+      return runTeam(arg, c);
+    case "board":
+      return runBoard(arg, c);
+    case "providers": {
+      const { formatProviders } = await import("../../../anubis/src/capability.ts");
+      const { loadEnv } = await import("../../../anubis/src/env.ts");
+      const { ANUBIS_HOME } = await import("../paths.ts");
+      c.reply(formatProviders(c.config, loadEnv(ANUBIS_HOME)));
+      return true;
+    }
     case "pipeline":
       return runFullDev(arg, c.config.pipeline?.stages ?? DEFAULT_PIPELINE_STAGES, c);
     default: {
@@ -492,9 +536,74 @@ async function runFullDev(task: string, stages: string[], c: CommandContext): Pr
 }
 
 async function runMoa(task: string, c: CommandContext): Promise<boolean> {
-  if (!task) { c.reply("Usage: /moa <task>"); return true; }
-  const { runMoaTeam, formatTeam } = await import("../team.ts");
-  c.reply(formatTeam(await runMoaTeam(task, c.config, c.ctx, { onProgress: c.reply })));
+  if (!task) {
+    c.reply("Usage: /moa <task> [--layers N] [--models a,b] [--budget USD] [--team NAME] [--roles A,B]\n  default: layered mixture across the small+BIG lanes (2 layers)\n  --roles: classic role fan-out (thoth, ptah, …)\n  --team: named preset from ra.json (research-pack, security-sweep, refactor-squad, ship-it)");
+    return true;
+  }
+  const flags: Record<string, string | undefined> = {};
+  const words: string[] = [];
+  const parts = task.split(/\s+/).filter(Boolean);
+  for (let i = 0; i < parts.length; i++) {
+    const m = parts[i].match(/^--(layers|models|budget|team|roles|concurrency)$/);
+    if (m) { flags[m[1]] = parts[++i]; continue; }
+    words.push(parts[i]);
+  }
+  const prompt = words.join(" ");
+  if (!prompt) { c.reply("Usage: /moa <task>"); return true; }
+  if (flags.roles) {
+    const { runMoaTeam, formatTeam } = await import("../team.ts");
+    c.reply(formatTeam(await runMoaTeam(prompt, c.config, c.ctx, {
+      roles: flags.roles.split(","),
+      concurrency: flags.concurrency ? Number(flags.concurrency) : undefined,
+      onProgress: c.reply,
+    })));
+    return true;
+  }
+  const { runLayeredMoa, formatLayered } = await import("../moa/layers.ts");
+  const boardName = flags.team ?? (prompt.slice(0, 24).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "moa");
+  c.reply(formatLayered(await runLayeredMoa(prompt, c.config, c.ctx, {
+    layers: flags.layers ? Number(flags.layers) : undefined,
+    models: flags.models?.split(",").map((s) => s.trim()).filter(Boolean),
+    budgetUsd: flags.budget ? Number(flags.budget) : undefined,
+    team: flags.team,
+    boardName,
+    onProgress: c.reply,
+  })));
+  return true;
+}
+
+async function runTeam(arg: string, c: CommandContext): Promise<boolean> {
+  const { resolveLayerPlan } = await import("../moa/layers.ts");
+  if (!arg || arg === "list") {
+    const presets = Object.entries(c.config.teams ?? {});
+    c.reply(presets.length
+      ? ["RA team presets", ...presets.map(([name, p]) => `  ${name} — ${p.description ?? "custom mixture"}`)].join("\n")
+      : "No team presets configured (add teams: to ra.json).");
+    return true;
+  }
+  const [name, ...rest] = arg.split(/\s+/);
+  const prompt = rest.join(" ");
+  if (!prompt) {
+    const plan = resolveLayerPlan(c.config, { team: name });
+    c.reply(`team ${name}: ${plan.models.length} models × ${plan.layers} layers · critics ${plan.critics.join(", ")}\nusage: /team ${name} <task>`);
+    return true;
+  }
+  const { runLayeredMoa, formatLayered } = await import("../moa/layers.ts");
+  c.reply(formatLayered(await runLayeredMoa(prompt, c.config, c.ctx, { team: name, boardName: name, onProgress: c.reply })));
+  return true;
+}
+
+async function runBoard(arg: string, c: CommandContext): Promise<boolean> {
+  const { TeamBoard, listTeamBoards, formatBoard } = await import("../teams/board.ts");
+  if (!arg || arg === "list") {
+    const boards = listTeamBoards();
+    c.reply(boards.length
+      ? ["RA team boards (~/.ra/teams)", ...boards.map((b) => `  ${b.name} · ${b.status} · ${b.cards} cards · ${b.updatedAt}`)].join("\n")
+      : "No team boards yet. /team <preset> <task> or /moa --team <name> creates one.");
+    return true;
+  }
+  const board = new TeamBoard(arg.split(/\s+/)[0]);
+  c.reply(formatBoard(board.board, board.readMail().length));
   return true;
 }
 
@@ -503,4 +612,5 @@ export const PALETTE_COMMANDS = [
   "/roles", "/models", "/cost", "/status", "/files", "/show", "/result", "/lane", "/intent", "/prefer", "/summary", "/timings", "/verify", "/history", "/ls", "/doctor", "/selfcheck", "/lanes", "/home", "/which", "/clear", "/lan-scan", "/todos",
   "/simple on", "/simple off", "/palette",
   "/replay list", "/connect", "/tree", "/agents", "/swarm help", "/swarm list", "/sandbox status",
+  "/team list", "/board list", "/board", "/diff", "/providers",
 ];

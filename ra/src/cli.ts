@@ -69,8 +69,10 @@ Usage:
   ra palette                 List TUI slash commands
   ra --task "..." [--quick] [--verify] [--json]  Full pipeline with RA TUI (--quick = 2 stages)
   ra run "..." [--quick] [--verify] [--json] [--cwd DIR]  Headless full-dev (no TUI, for CI/scripting)
-  ra agents [--json]         List built-in/configured agents
-  ra moa "task" [--roles A,B] [--concurrency N] [--json]  Read-only team proposals
+  ra agents [--json]         List the agent library (76 visible, grouped by category)
+  ra agents new <name> [--user]  Scaffold a custom agent (.ra/agents or ~/.ra/agents)
+  ra moa "task" [--roles A,B] [--concurrency N] [--layers N] [--models a,b] [--budget USD] [--team NAME] [--json]  Layered mixture: cross-model proposals + critics + synthesis
+  ra team list|status NAME|mail NAME  Persistent team boards (~/.ra/teams)
   ra swarm help              Isolated worktree teams; explicit apply
   ra roles                   Show role assignments
   ra status                  Snapshot: profile, last run, usage
@@ -99,7 +101,8 @@ Usage:
   ra ping                    Latency check .251 / localhost / cloud
   ra which                   Which small host is active (@251 or @local)
   ra lanes                   Small@251 vs BIG@cloud routing map
-  ra models                  Probe qwen/gemma on .251 + cloud BIG
+  ra providers               Capability router: profiles + quota health (ra.77)
+  ra models                  Probe gpt-oss/gemma on .251 + cloud BIG
   ra cost [--session]        Usage / cost report (per-session with --session)
   ra init                    Mark cwd as RA project
   ra demo                    One-shot RA TUI full-dev (hello.py) + verify
@@ -109,7 +112,7 @@ Usage:
   ra benchmark init|smoke|run <name|all>
   ra --remote <URL>          Connect TUI to a running daemon (or set RA_REMOTE env)
 
-Small models: 192.168.1.251 qwen3.8 (fallback: localhost gemma)
+Small models: 192.168.1.251 gpt-oss:20b (fallback: localhost gemma)
 BIG models: Ollama Cloud glm-5.2
 
 In TUI:
@@ -125,7 +128,7 @@ In TUI:
 ensureRaDirs();
 loadEnv(ANUBIS_HOME);
 
-if (["agents", "moa", "swarm", "sandbox"].includes(args[0])) {
+if (["agents", "moa", "team", "swarm", "sandbox"].includes(args[0])) {
   const ownArgs = args[0] === "sandbox" && args.includes("--") ? args.slice(0, args.indexOf("--")) : args;
   const asJson = ownArgs.includes("--json");
   const cwdFlag = ownArgs.indexOf("--cwd");
@@ -150,8 +153,28 @@ if (["agents", "moa", "swarm", "sandbox"].includes(args[0])) {
     }
 
     if (args[0] === "agents") {
-      const agents = agentCatalog(config);
-      console.log(asJson ? JSON.stringify(agents, null, 2) : agents.map(a => `${a.role}: ${a.model} · max ${a.maxSteps} steps`).join("\n"));
+      const { agentCatalog } = await import("./commands/teams.ts");
+      const { scaffoldAgent, formatCatalog } = await import("./agents/catalog.ts");
+      const rest: string[] = [];
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === "--cwd") { i++; continue; }
+        if (args[i] === "--json") continue;
+        rest.push(args[i]);
+      }
+      if (rest[0] === "new") {
+        const name = rest[1];
+        if (!name || name.startsWith("--")) throw new Error("Usage: ra agents new <name> [--user]");
+        const user = args.includes("--user");
+        const { path } = scaffoldAgent(name, { cwd, user });
+        console.log(user ? `Created user agent: ${path}` : `Created project agent: ${path}`);
+        process.exit(0);
+      }
+      if (rest.length) throw new Error(`Unexpected agents argument: ${rest[0]} (try: ra agents new <name>)`);
+      if (asJson) {
+        console.log(JSON.stringify(agentCatalog(config, cwd), null, 2));
+      } else {
+        console.log(formatCatalog(cwd));
+      }
       process.exit(0);
     }
     if (args[0] === "swarm") {
@@ -159,20 +182,60 @@ if (["agents", "moa", "swarm", "sandbox"].includes(args[0])) {
       console.log(asJson ? JSON.stringify(result.data, null, 2) : result.text);
       process.exit(result.code);
     }
-    const { runMoaTeam, formatTeam } = await import("./team.ts");
-    if (!args[1] || args[1].startsWith("--")) throw new Error('Usage: ra moa "task" [--roles A,B] [--concurrency N] [--json]');
-    for (let i = 2; i < args.length; i++) {
-      if (args[i] === "--json") continue;
-      if (!["--cwd", "--roles", "--concurrency"].includes(args[i])) throw new Error(`Unexpected moa argument: ${args[i]}`);
-      if (!args[++i] || args[i].startsWith("--")) throw new Error(`${args[i - 1]} needs a value`);
+    if (args[0] === "team") {
+      const { TeamBoard, listTeamBoards, formatBoard } = await import("./teams/board.ts");
+      const rest = args.slice(1).filter((a) => a !== "--json");
+      const [action, name] = rest;
+      if (!action || action === "list") {
+        const boards = listTeamBoards();
+        console.log(asJson ? JSON.stringify(boards, null, 2) : boards.length
+          ? ["RA team boards (~/.ra/teams)", ...boards.map((b) => `${b.name} · ${b.status} · ${b.cards} cards · ${b.updatedAt}`)].join("\n")
+          : "No team boards yet.");
+        process.exit(0);
+      }
+      if (action === "status" && name) {
+        const board = new TeamBoard(name);
+        const data = { ...board.board, mail: board.readMail() };
+        console.log(asJson ? JSON.stringify(data, null, 2) : formatBoard(board.board, board.readMail().length));
+        process.exit(0);
+      }
+      if (action === "mail" && name) {
+        const mail = new TeamBoard(name).readMail();
+        console.log(asJson ? JSON.stringify(mail, null, 2) : (mail.length ? mail.map((m) => `${m.ts} ${m.from}→${m.to}: ${m.text.slice(0, 120)}`).join("\n") : "mailbox empty"));
+        process.exit(0);
+      }
+      throw new Error("Usage: ra team list | ra team status NAME | ra team mail NAME");
     }
-    const result = await runMoaTeam(args[1], config, { cwd }, {
-      roles: arg("--roles")?.split(","),
-      concurrency: arg("--concurrency") === undefined ? undefined : Number(arg("--concurrency")),
-      onProgress: message => console.error(message),
-    });
-    console.log(asJson ? JSON.stringify(result, null, 2) : formatTeam(result));
-    process.exit(result.status === "completed" ? 0 : result.status === "cancelled" ? 130 : result.status === "partial" ? 2 : 1);
+    const { runMoaTeam, formatTeam } = await import("./team.ts");
+    const { runLayeredMoa, formatLayered } = await import("./moa/layers.ts");
+    if (!args[1] || args[1].startsWith("--")) throw new Error('Usage: ra moa "task" [--roles A,B] [--concurrency N] [--layers N] [--models a,b] [--budget USD] [--team NAME] [--json]');
+    const moaFlags: Record<string, string | undefined> = {};
+    for (let i = 2; i < args.length; i++) {
+      const m = args[i].match(/^--(roles|concurrency|layers|models|budget|team)$/);
+      if (m) { moaFlags[m[1]] = args[++i]; continue; }
+      if (args[i] !== "--cwd" && args[i] !== "--json") throw new Error(`Unexpected moa argument: ${args[i]}`);
+      if (args[i] === "--cwd") i++;
+    }
+    for (const [flag, value] of Object.entries(moaFlags)) {
+      if (!value || value.startsWith("--")) throw new Error(`--${flag} needs a value`);
+    }
+    const result = moaFlags.roles
+      ? await runMoaTeam(args[1], config, { cwd }, {
+        roles: moaFlags.roles.split(","),
+        concurrency: moaFlags.concurrency ? Number(moaFlags.concurrency) : undefined,
+        onProgress: message => console.error(message),
+      })
+      : await runLayeredMoa(args[1], config, { cwd }, {
+        layers: moaFlags.layers ? Number(moaFlags.layers) : undefined,
+        models: moaFlags.models?.split(",").map((s) => s.trim()).filter(Boolean),
+        budgetUsd: moaFlags.budget ? Number(moaFlags.budget) : undefined,
+        team: moaFlags.team,
+        boardName: moaFlags.team ?? "moa",
+        onProgress: message => console.error(message),
+      });
+    const status = result.status;
+    console.log(asJson ? JSON.stringify(result, null, 2) : "models" in result && "layers" in result ? formatLayered(result) : formatTeam(result));
+    process.exit(status === "completed" ? 0 : status === "cancelled" ? 130 : status === "partial" ? 2 : 1);
   } catch (error) {
     if (asJson) console.log(JSON.stringify({ status: interrupted ? "cancelled" : "failed", error: String(error) }));
     else console.error(String(error));
@@ -527,6 +590,14 @@ if (args[0] === "lanes") {
   process.exit(0);
 }
 
+if (args[0] === "providers") {
+  const { formatProviders } = await import("../../anubis/src/capability.ts");
+  loadEnv(ANUBIS_HOME);
+  const cfg = loadRaConfig(ANUBIS_HOME);
+  console.log(formatProviders(cfg, process.env as Record<string, string | undefined>));
+  process.exit(0);
+}
+
 if (args[0] === "models") {
   const { formatRaModels } = await import("../../anubis/src/models-list.ts");
   loadEnv(ANUBIS_HOME);
@@ -563,7 +634,7 @@ if (args[0] === "init") {
       JSON.stringify(
         {
           name: "RA project",
-          small: "ollama-lan/qwen3.8:latest",
+          small: "ollama-lan/gpt-oss:20b",
           big: "ollama-cloud/glm-5.2",
           note: "Small models on 192.168.1.251; gemma on localhost as fallback",
         },

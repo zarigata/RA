@@ -5,6 +5,29 @@
 
 ## Current Cycle
 
+**2026-09-06 — Provider Mosaic (RA 1.0.0-ra.77).**
+The multi-provider intelligence layer: benchmark-driven capability profiles
+for every routable model (SWE-bench / Aider / HLE receipts in
+docs/PROVIDERS.md), a capability router that assigns each agent's job to the
+best available provider (local-biased, LM Studio discovered live), and quota
+failover — 429/quota errors mark a provider exhausted for 15 minutes and RA
+reroutes mid-task to the next-best model with attribution. `/providers`
+surfaces the live mosaic. Suites: 212 anubis (21 new mosaic cases) + 263 ra
+green; shipped lane pool pinned via capability_router.models.
+
+**2026-09-06 — Agent Legion (RA 1.0.0-ra.76).**
+The competitive-research release: 76 visible agents (+3 hidden system agents)
+across 8 categories with a scoped registry; layered cross-model
+Mixture-of-Agents (proposers on small-LAN + BIG-cloud, critics, synthesis,
+agreement matrix, pre-flight budget guard); persistent team boards with a
+mailbox and mission log; hybrid routing modes (local-first / quality-first /
+balanced / economy) with a latency cache and session budget downshift; TUI
+diff viewer, markdown tables, turn telemetry, OSC notifications, and a
+mixture auto-suggest menu; four new tools — SKILL (the 22 vendored skills
+are finally readable; PLAN Phase 1 closed), REPOMAP, TEST, WEBSEARCH.
+Suites: 247 ra + 191 anubis unit tests green; catalog integrity pinned at
+≥70 visible agents and a ≤1200-token TASK hint.
+
 **2026-08-31 — Linux execution + CI acceptance (RA 1.0.0-ra.75).**
 RA now runs beyond macOS: bubblewrap command isolation on Linux with an
 end-to-end capability probe, honest degradation (filesystem-only or

@@ -80,7 +80,7 @@ export async function runScenario(scenarioPath: string): Promise<boolean> {
 
   loadRaConfig(ANUBIS_HOME);
   const ctx = { cwd };
-  // Full-dev path = RA TUI boxes + .251 qwen plan + cloud/code model
+  // Full-dev path = RA TUI boxes + .251 gpt-oss plan + cloud/code model
   await runFullDevTask(scenario.prompt, {
     root: ANUBIS_HOME,
     stages: ["thoth", "ptah"],

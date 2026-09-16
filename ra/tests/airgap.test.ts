@@ -17,9 +17,9 @@ describe("air-gapped mode", () => {
   });
 
   test("localizeModel replaces cloud models with small", () => {
-    expect(localizeModel("ollama-cloud/glm-5.2", "ollama-lan/qwen3.8:latest")).toBe("ollama-lan/qwen3.8:latest");
-    expect(localizeModel("zai/glm-5.2", "ollama-lan/qwen3.8:latest")).toBe("ollama-lan/qwen3.8:latest");
-    expect(localizeModel("ollama-lan/qwen3.8:latest", "ollama-lan/qwen3.8:latest")).toBe("ollama-lan/qwen3.8:latest");
+    expect(localizeModel("ollama-cloud/glm-5.2", "ollama-lan/gpt-oss:20b")).toBe("ollama-lan/gpt-oss:20b");
+    expect(localizeModel("zai/glm-5.2", "ollama-lan/gpt-oss:20b")).toBe("ollama-lan/gpt-oss:20b");
+    expect(localizeModel("ollama-lan/gpt-oss:20b", "ollama-lan/gpt-oss:20b")).toBe("ollama-lan/gpt-oss:20b");
   });
 
   test("isLocalUrl detects local/LAN addresses", () => {

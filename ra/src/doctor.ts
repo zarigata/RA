@@ -37,11 +37,11 @@ export async function runDoctor(): Promise<number> {
     const small = await pickOllamaEndpoint(process.env as Record<string, string>);
     const { hostTag } = await import("../../anubis/src/tui.ts");
     const host = hostTag(small.baseURL, small.kind);
-    const hasQwen = small.availableModels.some((m) => /qwen3\.?8/i.test(m));
+    const hasSmall = small.availableModels.some((m) => /gpt-oss|gemma/i.test(m));
     check(
-      `Small Ollama (@${host}, ${small.availableModels.length} models${hasQwen ? ", qwen3.8" : ""})`,
+      `Small Ollama (@${host}, ${small.availableModels.length} models${hasSmall ? ", gpt-oss" : ""})`,
       small.availableModels.length > 0,
-      "start ollama on 192.168.1.251 (qwen3.8) or localhost gemma",
+      "start ollama on 192.168.1.251 (gpt-oss:20b) or localhost gemma",
     );
   } catch {
     check("Small Ollama .251 / localhost", false, "OLLAMA_LAN_URL=http://192.168.1.251:11434");

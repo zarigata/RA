@@ -49,18 +49,18 @@ describe("RA TUI branding", () => {
   });
 
   test("stage progress tags small/LAN vs BIG/cloud", () => {
-    expect(renderStageProgress("thoth", "qwen3.8:latest", "plan")).toContain("small/LAN");
+    expect(renderStageProgress("thoth", "gpt-oss:20b", "plan")).toContain("small/LAN");
     expect(renderStageProgress("ptah", "glm-5.2", "code")).toContain("BIG/cloud");
     expect(renderStageProgress("maat", "gemma:latest", "ok")).toContain("small/LAN");
   });
 
   test("stage progress includes host @251 / @cloud", () => {
-    expect(renderStageProgress("thoth", "qwen3.8:latest", "plan", { host: "251" })).toContain("@251");
+    expect(renderStageProgress("thoth", "gpt-oss:20b", "plan", { host: "251" })).toContain("@251");
     expect(renderStageProgress("ptah", "glm-5.2", "code", { host: "cloud" })).toContain("@cloud");
   });
 
   test("stage progress includes took ms", () => {
-    expect(renderStageProgress("thoth", "qwen3.8:latest", "plan", { host: "251", ms: 42 })).toContain("took 42ms");
+    expect(renderStageProgress("thoth", "gpt-oss:20b", "plan", { host: "251", ms: 42 })).toContain("took 42ms");
   });
 
   test("hostTag maps URLs", async () => {

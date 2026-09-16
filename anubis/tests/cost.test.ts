@@ -12,12 +12,12 @@ import {
 describe("cost estimation", () => {
   test("local ollama is free", () => {
     expect(isFree("ollama/gemma:latest")).toBe(true);
-    expect(isFree("ollama-lan/qwen3-ptah")).toBe(true);
+    expect(isFree("ollama-lan/gpt-oss-ptah")).toBe(true);
     expect(estimateCost("ollama/gemma:latest", 1_000_000, 1_000_000)).toBe(0);
   });
   test("lmstudio/llamacpp free", () => {
     expect(isFree("lmstudio/gemma")).toBe(true);
-    expect(isFree("llamacpp-lan/qwen")).toBe(true);
+    expect(isFree("llamacpp-lan/gpt-oss")).toBe(true);
   });
   test("cloud models cost money", () => {
     expect(estimateCost("anthropic/claude-sonnet-4-5", 1_000_000, 0)).toBe(3);
@@ -99,9 +99,9 @@ describe("session usage", () => {
 describe("usage tagging", () => {
   test("tagModel prefixes bare ids", async () => {
     const { tagModel, isFree } = await import("../src/cost.ts");
-    expect(tagModel("qwen3.8:latest", false)).toBe("ollama-lan/qwen3.8:latest");
+    expect(tagModel("gpt-oss:20b", false)).toBe("ollama-lan/gpt-oss:20b");
     expect(tagModel("glm-5.2", true)).toBe("ollama-cloud/glm-5.2");
-    expect(isFree(tagModel("qwen3.8:latest", false))).toBe(true);
+    expect(isFree(tagModel("gpt-oss:20b", false))).toBe(true);
     expect(isFree(tagModel("glm-5.2", true))).toBe(false);
   });
 });

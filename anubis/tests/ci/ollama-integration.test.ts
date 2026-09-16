@@ -13,7 +13,7 @@ try {
 }
 
 function smallModel(): string {
-  return pickModel("qwen3.8:latest", client.availableModels);
+  return pickModel("gpt-oss:20b", client.availableModels);
 }
 
 /** .251 can hitch under load — one retry, generous timeout */
@@ -35,9 +35,9 @@ async function chatOnce(
 describe.skipIf(!hasOllama)("Ollama local/LAN integration", () => {
   test("lists available models via native API", async () => {
     expect(client.availableModels.length).toBeGreaterThan(0);
-    // Prefer qwen on .251 when present
+    // Prefer gpt-oss on .251 when present
     const names = client.availableModels.join(" ");
-    expect(/qwen|gemma/i.test(names)).toBe(true);
+    expect(/gpt-oss|gemma/i.test(names)).toBe(true);
   });
 
   test("chat completion returns content", async () => {

@@ -4,7 +4,7 @@ import { formatSelfcheck } from "../src/selfcheck.ts";
 describe("formatSelfcheck", () => {
   test("returns RA branding even when endpoints are down", async () => {
     const { ok, text } = await formatSelfcheck(
-      { model: "ollama-cloud/glm-5.2", small_model: "ollama-lan/qwen3.8:latest" },
+      { model: "ollama-cloud/glm-5.2", small_model: "ollama-lan/gpt-oss:20b" },
       {
         OLLAMA_LAN_URL: "http://127.0.0.1:1",
         OLLAMA_LOCAL_URL: "http://127.0.0.1:1",

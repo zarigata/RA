@@ -6,11 +6,11 @@ describe("resolveModelFallbacks", () => {
   test("cloud primary with no config uses built-in cloud chain (never local)", () => {
     const chain = resolveModelFallbacks("ollama-cloud/deepseek-v4-pro:0813");
     expect(chain.length).toBeGreaterThan(0);
-    for (const m of chain) expect(m).not.toMatch(/qwen|gemma/);
+    for (const m of chain) expect(m).not.toMatch(/gemma|gpt-oss:20b/);
   });
 
   test("local primary never receives cloud candidates", () => {
-    const chain = resolveModelFallbacks("ollama-lan/qwen3.8:latest", { default: ["ollama-cloud/gpt-oss:120b", "ollama/gemma:latest"] });
+    const chain = resolveModelFallbacks("ollama-lan/gpt-oss:20b", { default: ["ollama-cloud/gpt-oss:120b", "ollama/gemma:latest"] });
     expect(chain).toEqual(["gemma:latest"]);
   });
 

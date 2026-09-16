@@ -21,15 +21,15 @@ describe("small Ollama routing", () => {
     ]);
   });
 
-  test("pickModel prefers qwen3.8 over gemma when both present", () => {
-    const available = ["gemma:latest", "qwen3.8:latest", "gemma2:2b"];
-    expect(pickModel("ollama-lan/qwen3.8:latest", available)).toBe("qwen3.8:latest");
-    expect(pickModel("missing", available)).toBe("qwen3.8:latest");
+  test("pickModel prefers gpt-oss:20b over gemma when both present", () => {
+    const available = ["gemma:latest", "gpt-oss:20b", "gemma2:2b"];
+    expect(pickModel("ollama-lan/gpt-oss:20b", available)).toBe("gpt-oss:20b");
+    expect(pickModel("missing", available)).toBe("gpt-oss:20b");
   });
 
-  test("pickModel falls back to gemma when qwen absent", () => {
+  test("pickModel falls back to gemma when gpt-oss absent", () => {
     const available = ["gemma:latest", "gemma2:2b"];
-    expect(pickModel("ollama-lan/qwen3.8:latest", available)).toBe("gemma:latest");
+    expect(pickModel("ollama-lan/gpt-oss:20b", available)).toBe("gemma:latest");
   });
 });
 
@@ -40,30 +40,30 @@ describe("fallback chain", () => {
     for (const m of chain.slice(1)) {
       expect(m.startsWith("ollama-cloud/")).toBe(true);
     }
-    expect(chain).not.toContain("ollama-lan/qwen3.8:latest");
+    expect(chain).not.toContain("ollama-lan/gpt-oss:20b");
     expect(chain).not.toContain("ollama/gemma:latest");
   });
 
   test("small model falls back only to other local models", () => {
-    const chain = fallbackChain("ollama-lan/qwen3.8:latest");
-    expect(chain[0]).toBe("ollama-lan/qwen3.8:latest");
+    const chain = fallbackChain("ollama-lan/gpt-oss:20b");
+    expect(chain[0]).toBe("ollama-lan/gpt-oss:20b");
     expect(chain).toContain("ollama/gemma:latest");
     expect(chain.every((m) => !m.startsWith("ollama-cloud/"))).toBe(true);
   });
 
   test("dedupes repeated candidates", () => {
-    const chain = fallbackChain("ollama-lan/qwen3.8:latest");
+    const chain = fallbackChain("ollama-lan/gpt-oss:20b");
     expect(new Set(chain).size).toBe(chain.length);
   });
 
   test("runWithFallback returns first success and records attempts", async () => {
     const calls: string[] = [];
     const { result, attempts } = await runWithFallback(
-      "ollama-lan/qwen3.8:latest",
+      "ollama-lan/gpt-oss:20b",
       {},
       async (_client, model) => {
         calls.push(model);
-        if (model === "qwen3.8:latest") {
+        if (model === "gpt-oss:20b") {
           return { content: "ok", model, usage: null };
         }
         throw new Error("down");
@@ -86,7 +86,7 @@ describe("fallback chain", () => {
   test("runWithFallback throws when all candidates fail", async () => {
     await expect(
       runWithFallback(
-        "ollama-lan/qwen3.8:latest",
+        "ollama-lan/gpt-oss:20b",
         {},
         async () => {
           throw new Error("down");
@@ -120,7 +120,7 @@ describe("provider abstraction", () => {
   });
 
   test("resolveProviderClient returns null for bare model (no slash)", () => {
-    expect(resolveProviderClient("qwen3.8:latest", {}, {})).toBeNull();
+    expect(resolveProviderClient("gpt-oss:20b", {}, {})).toBeNull();
   });
 
   test("resolveProviderClient skips built-in ollama providers", () => {
@@ -129,7 +129,7 @@ describe("provider abstraction", () => {
       "ollama-lan": { options: { baseURL: "http://192.168.1.251:11434/v1" } },
     };
     expect(resolveProviderClient("ollama/gemma:latest", providers, {})).toBeNull();
-    expect(resolveProviderClient("ollama-lan/qwen3.8:latest", providers, {})).toBeNull();
+    expect(resolveProviderClient("ollama-lan/gpt-oss:20b", providers, {})).toBeNull();
   });
 
   test("resolveProviderClient infers local kind from localhost baseURL", () => {

@@ -4,14 +4,14 @@ import type { RaConfig } from "../../anubis/src/config.ts";
 
 export type Permission = "allow" | "ask" | "deny";
 
-export const TOOL_VERBS = ["write", "edit", "multiedit", "read", "outline", "diagnose", "glob", "grep", "bash", "webfetch", "todo", "task", "mcp", "done"] as const;
+export const TOOL_VERBS = ["write", "edit", "multiedit", "read", "outline", "diagnose", "glob", "grep", "bash", "test", "webfetch", "websearch", "skill", "repomap", "todo", "task", "mcp", "done"] as const;
 export interface BashRule { pattern: string; level: Permission }
 export interface AgentCapabilities {
   readonly tools: ReadonlySet<string>;
   readonly readOnly: boolean;
   readonly bashLayers: ReadonlyArray<{ rules: ReadonlyArray<BashRule>; fallback: Permission }>;
 }
-const permissionVerb = (verb: string) => verb === "multiedit" ? "edit" : verb === "outline" ? "read" : verb === "diagnose" ? "bash" : verb;
+const permissionVerb = (verb: string) => verb === "multiedit" ? "edit" : verb === "outline" ? "read" : verb === "diagnose" || verb === "test" ? "bash" : verb === "repomap" ? "read" : verb;
 
 /** A child can narrow its inherited capabilities, never expand them. */
 export function resolveCapabilities(config: RaConfig, role: Record<string, Permission> = {}, whitelist?: string[], bashRules: BashRule[] = [], parent?: AgentCapabilities): AgentCapabilities {

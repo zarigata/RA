@@ -1,5 +1,6 @@
 ---
 description: Fast codebase search. Read-only. Locates files, symbols, and references.
+category: research
 mode: subagent
 temperature: 0.1
 steps: 6

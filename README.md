@@ -1,6 +1,6 @@
 # RA — Relic Agent
 
-An MIT-licensed terminal coding agent with a CLI, interactive TUI, role agents, and configurable Ollama Cloud or local models. RA can inspect projects, write and edit files, run commands, review changes, and preserve session history.
+An MIT-licensed terminal coding agent with a CLI, interactive TUI, a 76-agent library with layered mixture-of-agents, and configurable Ollama Cloud or local models with hybrid speed/quality routing. RA can inspect projects, write and edit files, run commands and tests, review changes, load skills, and preserve session history.
 
 ## Install
 
@@ -122,9 +122,19 @@ Unsupported platforms and nested sandboxes fail closed. `--mode off` explicitly 
 
 This is a command boundary, **not a VM or a hostile-repository security certification**. Provider requests, explicitly configured HTTP MCP tools, plugins, and RA's own controller run outside this subprocess network policy. File tools use canonical-path checks in that controller. Credential filename checks do not detect all secrets in arbitrary project files. System/runtime directories remain readable. See [the safety report](ra%20tests/SAFETY_RESULTS.md) for measured checks and limitations.
 
+## Agent library (ra.76)
+
+RA ships **76 visible agents + 3 hidden system agents**. The eight Egyptian core roles (thoth plans, ptah implements, maat diagnoses, sekhmet attacks, isis researches, seshat documents, horus quick-jobs, anubis orchestrates) drive the pipeline; 65 pragmatic specialists cover research, implementation, review, ops, planning, domains, docs, and data — `security-reviewer`, `ci-fixer`, `database-eng`, `test-writer`, `release-manager`, and so on. Every agent is a Markdown file with frontmatter permissions; browse them with `ra agents` or `/agents`, delegate with `agent:<name>` in the palette, or let the TASK tool route to them automatically (the catalog is embedded in the tool hint under a token budget). Add your own: `ra agents new my-agent` writes `.ra/agents/my-agent.md` (project) or `--user` for `~/.ra/agents/`. Full catalog: [docs/AGENTS-CATALOG.md](docs/AGENTS-CATALOG.md).
+
 ## Agent teams
 
 `ra moa` runs independent, read-only proposals and synthesizes successful results. Failed participants remain visible; one failure does not discard the others. Use `--json` for complete results and shared call counts. MoA cannot implement changes. Use `/code`, `ra run`, or a swarm for that.
+
+**Layered mixtures (ra.76):** `ra moa "task"` now defaults to a two-layer mixture — layer 1 proposes on *multiple models at once* (small-LAN + BIG-cloud), layer 2 critics review every proposal, then one synthesis. Per-file agreement and per-agent cost cards are reported, and a pre-flight estimate aborts above `--budget USD` before any tokens burn. Named presets (`/team security-sweep <task>`, `research-pack`, `refactor-squad`, `ship-it`) configure roles and critics in `ra.json`. Architect-class prompts get a "Run as mixture?" prompt in the TUI — never silent spend. Every mixture persists a team board (`~/.ra/teams/<name>/`: task cards, mailbox, mission log) you can inspect with `/board` or `ra team status NAME`. Classic role fan-out remains available: `--roles thoth,maat`.
+
+**Hybrid routing (ra.76):** `routing.mode` (or `RA_ROUTING`) selects `local-first` (default), `quality-first`, `economy` (local-only), or `balanced` — tier decisions plus cross-kind escalation when a local model fails, and cloud work downshifts to the local lane once the session crosses `budget.session_usd`. `/lane` shows the active mode and rolling per-host latency.
+
+**Provider Mosaic (ra.77):** log many AI endpoints — Ollama LAN/local/cloud, LM Studio (discovered live), Z.ai, Claude, ChatGPT, Gemini, any OpenAI-compatible server — and RA routes each job to what each is best at, using benchmark-driven capability profiles (Gemini researches, Claude reviews, DeepSeek/GLM code, gpt-oss works locally). Local models get a score bonus so cheap reasoning and testing stay on your hardware and cloud tokens are spent only on their specialty. When a provider's quota runs out (429/rate limit), RA marks it exhausted for 15 minutes and reroutes to the next-best model mid-task — no lost turns, no silent overspend. Inspect the live pool with `ra providers` or `/providers`; constrain it with `capability_router.models` in ra.json (missing = every logged provider). Receipts and per-model scores: [docs/PROVIDERS.md](anubis/docs/PROVIDERS.md).
 
 `ra swarm` gives each coding task a separate branch and worktree from the same clean Git commit. Put the task file outside the checkout, or commit it first:
 

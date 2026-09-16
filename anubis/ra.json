@@ -1,25 +1,25 @@
 {
   "$schema": "https://ra.dev/config.json",
   "model": "ollama-cloud/glm-5.2",
-  "small_model": "ollama-lan/qwen3.8:latest",
+  "small_model": "ollama-lan/gpt-oss:20b",
   "profile": "mac-weak",
   "profiles": {
     "mac-weak": {
-      "description": "Small on .251 (qwen3.8); BIG on Ollama Cloud (glm-5.2)",
+      "description": "Small on .251 (gpt-oss:20b); BIG on Ollama Cloud (glm-5.2)",
       "tier_models": {
-        "meta": "ollama-lan/qwen3.8:latest",
-        "light": "ollama-lan/qwen3.8:latest",
+        "meta": "ollama-lan/gpt-oss:20b",
+        "light": "ollama-lan/gpt-oss:20b",
         "heavy": "ollama-cloud/glm-5.2",
         "code": "ollama-cloud/glm-5.2"
       },
       "agent": {
-        "thoth": { "model": "ollama-lan/qwen3.8:latest" },
+        "thoth": { "model": "ollama-lan/gpt-oss:20b" },
         "ptah": { "model": "ollama-cloud/glm-5.2" },
-        "maat": { "model": "ollama-lan/qwen3.8:latest" },
-        "sekhmet": { "model": "ollama-lan/qwen3.8:latest" },
-        "isis": { "model": "ollama-lan/qwen3.8:latest" },
-        "seshat": { "model": "ollama-lan/qwen3.8:latest" },
-        "horus": { "model": "ollama-lan/qwen3.8:latest" }
+        "maat": { "model": "ollama-lan/gpt-oss:20b" },
+        "sekhmet": { "model": "ollama-lan/gpt-oss:20b" },
+        "isis": { "model": "ollama-lan/gpt-oss:20b" },
+        "seshat": { "model": "ollama-lan/gpt-oss:20b" },
+        "horus": { "model": "ollama-lan/gpt-oss:20b" }
       }
     }
   },
@@ -42,8 +42,7 @@
       "name": "Ollama .251 (small/local)",
       "options": { "baseURL": "http://192.168.1.251:11434/v1" },
       "models": {
-        "qwen3.8:latest": { "name": "Qwen3.8 (LAN small)" },
-        "qwen3:8b": { "name": "Qwen3 8B (LAN)" },
+        "gpt-oss:20b": { "name": "GPT-OSS 20B (LAN small)" },
         "gemma4:12b": { "name": "Gemma4 12B (LAN)" }
       }
     },
@@ -54,19 +53,57 @@
       "models": {
         "gemma:latest": { "name": "Gemma (localhost)" }
       }
+    },
+    "lmstudio": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LM Studio (local :1234)",
+      "options": { "baseURL": "http://localhost:1234/v1" },
+      "models": {}
     }
+  },
+  "capability_router": {
+    "enabled": true,
+    "local_bonus": 2,
+    "max_candidates": 3,
+    "models": ["ollama-lan/gpt-oss:20b", "ollama-cloud/glm-5.2", "lmstudio/*"]
   },
   "permission": { "skill": { "*": "allow" } },
   "plugin": ["horus", "vibeguard", "dcp", "cost-tracker", "notify", "moa", "router", "lan", "papyrus"],
   "agent": {
-    "thoth": { "model": "ollama-lan/qwen3.8:latest" },
+    "thoth": { "model": "ollama-lan/gpt-oss:20b" },
     "ptah": { "model": "ollama-cloud/glm-5.2" },
-    "maat": { "model": "ollama-lan/qwen3.8:latest" },
-    "sekhmet": { "model": "ollama-lan/qwen3.8:latest" },
-    "isis": { "model": "ollama-lan/qwen3.8:latest" },
-    "seshat": { "model": "ollama-lan/qwen3.8:latest" },
-    "horus": { "model": "ollama-lan/qwen3.8:latest" }
+    "maat": { "model": "ollama-lan/gpt-oss:20b" },
+    "sekhmet": { "model": "ollama-lan/gpt-oss:20b" },
+    "isis": { "model": "ollama-lan/gpt-oss:20b" },
+    "seshat": { "model": "ollama-lan/gpt-oss:20b" },
+    "horus": { "model": "ollama-lan/gpt-oss:20b" }
   },
-  "moa": { "roles": ["thoth", "ptah", "maat", "sekhmet"], "parallel": true },
+  "moa": { "roles": ["thoth", "ptah", "maat", "sekhmet"], "parallel": true, "layers": 2 },
+  "teams": {
+    "research-pack": {
+      "description": "Broad read-only research: three models propose, maat+sekhmet critique",
+      "role": "general",
+      "layers": 2
+    },
+    "security-sweep": {
+      "description": "Security-focused mixture: two models propose, security-reviewer + maat critique",
+      "role": "general",
+      "critics": ["security-reviewer", "maat"],
+      "layers": 2
+    },
+    "refactor-squad": {
+      "description": "Refactor proposals with adversarial review: two models propose, sekhmet + code-reviewer critique",
+      "role": "refactorer",
+      "critics": ["sekhmet", "code-reviewer"],
+      "layers": 2
+    },
+    "ship-it": {
+      "description": "High-stakes implementation review: two models propose, maat + sekhmet + code-reviewer critique",
+      "role": "general",
+      "critics": ["maat", "sekhmet", "code-reviewer"],
+      "layers": 2
+    }
+  },
+  "routing": { "mode": "local-first" },
   "pipeline": { "stages": ["thoth", "ptah", "maat", "sekhmet", "ptah", "seshat"] }
 }

@@ -14,13 +14,13 @@ describe("task tier classifier", () => {
     expect(classifyTier("implement fibonacci function")).toBe("code");
   });
   test("mac-weak tier models", () => {
-    const models = { meta: "ollama/gemma:latest", code: "ollama-lan/qwen3.8:latest" };
+    const models = { meta: "ollama/gemma:latest", code: "ollama-lan/gpt-oss:20b" };
     expect(tierModel("meta", models)).toBe("ollama/gemma:latest");
-    expect(tierModel("code", models)).toBe("ollama-lan/qwen3.8:latest");
+    expect(tierModel("code", models)).toBe("ollama-lan/gpt-oss:20b");
   });
 
-  test("default tier fallback is qwen3.8 on LAN", () => {
-    expect(tierModel("meta")).toBe("ollama-lan/qwen3.8:latest");
+  test("default tier fallback is gpt-oss:20b on LAN", () => {
+    expect(tierModel("meta")).toBe("ollama-lan/gpt-oss:20b");
   });
 });
 

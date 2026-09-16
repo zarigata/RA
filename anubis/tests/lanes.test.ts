@@ -4,14 +4,14 @@ import { formatLanes } from "../src/lanes.ts";
 describe("RA lanes", () => {
   test("shows RA branding and .251 / cloud / gemma fallback", () => {
     const s = formatLanes(
-      { model: "ollama-cloud/glm-5.2", small_model: "ollama-lan/qwen3.8:latest" },
+      { model: "ollama-cloud/glm-5.2", small_model: "ollama-lan/gpt-oss:20b" },
       {
         OLLAMA_LAN_URL: "http://192.168.1.251:11434",
         OLLAMA_LOCAL_URL: "http://localhost:11434",
       },
     );
     expect(s.startsWith("RA lanes")).toBe(true);
-    expect(s).toContain("qwen3.8");
+    expect(s).toContain("gpt-oss:20b");
     expect(s).toContain("192.168.1.251");
     expect(s).toContain("@251");
     expect(s).toContain("gemma");

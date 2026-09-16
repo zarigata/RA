@@ -96,7 +96,7 @@ Download from https://ollama.ai
 ollama pull gemma:latest          # 5B params, very fast
 ollama pull neural-chat           # 7B, good quality
 ollama pull mistral               # 7B, coding-focused
-ollama pull qwen3-coder:30b       # 30B, best code quality
+ollama pull gpt-oss:20b       # 30B, best code quality
 ```
 
 ### Add to anubis.json
@@ -113,7 +113,7 @@ ollama pull qwen3-coder:30b       # 30B, best code quality
         "gemma:latest": { "name": "Gemma (local, 5B)" },
         "neural-chat": { "name": "Neural Chat (local, 7B)" },
         "mistral": { "name": "Mistral (local, 7B)" },
-        "qwen3-coder:30b": { "name": "Qwen3 Coder (local, 30B)" }
+        "gpt-oss:20b": { "name": "GPT-OSS 20B (local)" }
       }
     }
   },
@@ -338,7 +338,7 @@ Download from https://lmstudio.ai
 2. Search for and download:
    - `neural-chat` (7B, fast)
    - `mistral` (7B, coding-focused)
-   - `qwen3-coder:30b` (30B, best code)
+   - `gpt-oss:20b` (30B, best code)
 
 ### Start Server
 
@@ -553,3 +553,54 @@ If it works, add to `anubis.json` permanently.
 ---
 
 Done! Pick your providers, paste configs, and scale your AI team.
+
+---
+
+## Capability profiles — the Provider Mosaic (ra.77)
+
+`capability_router` in ra.json routes each agent job to the best-profiled
+model in your pool, local-biased, and fails over automatically when a
+provider's quota runs dry. Scores are 0–10, curated 2026-09 from public
+benchmarks (receipts below). View live state with `ra providers` or `/providers`.
+
+| Model family | code | research | reasoning | Why it's in the pool |
+|---|---|---|---|---|
+| gpt-5.6 / gpt-5 / o3 | 10 | 8.5 | 9.5 | GPT-5.6 Sol 96.2% SWE-bench Verified; GPT-5 88% Aider polyglot |
+| claude (fable/opus/sonnet) | 9.5 | 8.5 | 9 | Claude Fable 5 95% Verified; top-4 official leaderboard; the reviewer |
+| gemini-3 / 2.5-pro | 8.5 | **10** | 9 | Gemini 3 Pro top-4 SWE-bench; the long-context researcher |
+| deepseek-v4 | 9 | 8.5 | 9 | 80.6% Verified = top open-weight; ~48% HLE = top open researcher |
+| glm-5 / glm-4.6 | 8.5 | 7.5 | 8 | GLM-5.2 62.1% SWE-bench Pro = best open on Pro; cheap |
+| kimi-k2 / k3 | 8.5 | 8 | 8 | K2.6 58.6% SWE-Pro; K2 Thinking ~45% HLE; K3 arena #1 |
+| gpt-oss:120b (local) | 7 | 6.5 | 7 | ~62% Verified scaffolded — the local workhorse on your own hardware |
+| qwen3 | 7 | 7 | 7 | Qwen3-235B 59.6% Aider; solid open generalist |
+| grok-4 | 8 | 7.5 | 8 | 79.6% Aider polyglot |
+| gemma / llama (local) | 5 | 5 | 5.5 | light local fallbacks — chat first |
+
+### How routing decides
+
+- **Job per agent**: ptah/implementers → `code`, isis → `research`, maat/sekhmet/reviewers → `review`, thoth/heavy → `reasoning`, seshat → `docs`, else `chat`.
+- **Local bonus** (`local_bonus`, default 2): local models score +2, so cheap work stays on your hardware — the "local assistant, cloud specialist" contract. A specialist only wins when clearly better (Gemini research 10 vs local ~7.5+2).
+- **Quota failover**: a 429/quota error marks the provider exhausted for 15 minutes (`~/.ra/quota.json`) and RA reroutes to the next-best model for the job — mid-task, with attribution. Auth errors (401/403) never fail over.
+- **Pool allowlist** (`capability_router.models`): missing/`["*"]` = every configured provider (log them and RA chooses); explicit ids or `provider/*` prefixes constrain; lanes always included. The shipped config pins `[lan gpt-oss, cloud glm-5.2, lmstudio/*]` for stable lane branding.
+
+### Benchmark receipts (2026-09)
+
+- SWE-bench Verified: GPT-5.6 Sol 96.2%, Claude Fable 5 95.0%, DeepSeek V4 Pro 80.6% (top open-weight), gpt-oss-120b ~62% (scaffold-dependent).
+- SWE-bench Pro (multi-file): Claude Fable 5.1 81.2%, GLM-5.2 62.1% (best open), Kimi K2.6 58.6%.
+- Aider polyglot (2025 snapshot): GPT-5 88%, o3-pro 84.9%, Gemini 2.5 Pro 83.1%, Grok-4 79.6%, DeepSeek V3.2 74.2%, Qwen3-235B 59.6%.
+- Humanity's Last Exam (research reasoning): DeepSeek V4 Pro ~48%, GPT-5.6 Sol ~47%, Gemini 3 Pro ~46%, Kimi K2 Thinking ~45%, GLM-5.3 42.3. GPQA Diamond is saturated (>95% frontier) and no longer differentiates.
+- Sources: swebench.com official leaderboards, llm-stats.com, artificialanalysis.ai, openrouter.ai/benchmarks, aider.chat/docs/leaderboards, vals.ai — scores vary by scaffold and grader; treat as direction, not gospel.
+
+### Enabling more specialists
+
+Add the provider block + key (see sections above), then either leave
+`models` unset (full auto) or add ids to `capability_router.models`:
+
+```json
+"capability_router": { "enabled": true, "models": ["*"] }
+```
+
+Example: with `GOOGLE_API_KEY` set and a google provider block, isis
+(research) routes to `google/gemini-3-pro` automatically; when its quota
+exhausts mid-task, RA marks it and reroutes research to the next-best
+(deepseek or the local lane) without losing the turn.

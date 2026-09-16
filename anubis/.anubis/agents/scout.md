@@ -1,5 +1,6 @@
 ---
 description: Parallel reconnaissance. Read-only. Gathers context across many files at once.
+category: research
 mode: subagent
 temperature: 0.2
 steps: 8

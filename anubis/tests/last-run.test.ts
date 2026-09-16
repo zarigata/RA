@@ -6,7 +6,7 @@ describe("last-run formatting", () => {
     const run: LastRun = {
       task: "hello",
       stages: ["thoth", "ptah"],
-      models: ["qwen3.8:latest", "glm-5.2"],
+      models: ["gpt-oss:20b", "glm-5.2"],
       filesWritten: ["/tmp/hello.py"],
       ms: 12345,
       hosts: ["251", "cloud"],
@@ -16,7 +16,7 @@ describe("last-run formatting", () => {
     const line = formatResultLine(run);
     expect(line.startsWith("RA RESULT")).toBe(true);
     expect(line).toContain("thoth→ptah");
-    expect(line).toContain("qwen3.8:latest");
+    expect(line).toContain("gpt-oss:20b");
     expect(line).toContain("glm-5.2");
     expect(line).toContain("hello.py");
     expect(line).toContain("ms=12345");
@@ -28,7 +28,7 @@ describe("last-run formatting", () => {
     const run: LastRun = {
       task: "hello",
       stages: ["thoth", "ptah"],
-      models: ["qwen3.8:latest"],
+      models: ["gpt-oss:20b"],
       filesWritten: ["/tmp/w/hello.py"],
       cwd: "/tmp/w",
       at: 1,
@@ -52,12 +52,12 @@ describe("last-run formatting", () => {
     const s = formatRaFiles({
       task: "hello",
       stages: ["thoth", "ptah"],
-      models: ["qwen3.8:latest", "glm-5.2"],
+      models: ["gpt-oss:20b", "glm-5.2"],
       filesWritten: ["/tmp/hello.py"],
       hosts: ["251", "cloud"],
       intent: "code",
       timings: [
-        { stage: "thoth", model: "qwen3.8:latest", host: "251", ms: 1 },
+        { stage: "thoth", model: "gpt-oss:20b", host: "251", ms: 1 },
         { stage: "ptah", model: "glm-5.2", host: "cloud", ms: 1 },
       ],
       at: 1,
@@ -71,7 +71,7 @@ describe("last-run formatting", () => {
   test("formatTimings is greppable", async () => {
     const { formatTimings } = await import("../src/last-run.ts");
     const s = formatTimings([
-      { stage: "thoth", model: "qwen3.8:latest", host: "251", ms: 5200 },
+      { stage: "thoth", model: "gpt-oss:20b", host: "251", ms: 5200 },
       { stage: "ptah", model: "glm-5.2", host: "cloud", ms: 1300 },
     ]);
     expect(s).toContain("thoth@251=5.2s");
@@ -84,11 +84,11 @@ describe("last-run formatting", () => {
     const s = formatRaSummary({
       task: "hello",
       stages: ["thoth", "ptah"],
-      models: ["qwen3.8:latest", "glm-5.2"],
+      models: ["gpt-oss:20b", "glm-5.2"],
       filesWritten: ["/tmp/hello.py"],
       hosts: ["251", "cloud"],
       timings: [
-        { stage: "thoth", model: "qwen3.8:latest", host: "251", ms: 5000 },
+        { stage: "thoth", model: "gpt-oss:20b", host: "251", ms: 5000 },
         { stage: "ptah", model: "glm-5.2", host: "cloud", ms: 1000 },
       ],
       at: 1,
@@ -109,7 +109,7 @@ describe("last-run formatting", () => {
       formatIntentLine({
         task: "fix buggy hello",
         stages: ["thoth", "ptah"],
-        models: ["qwen3.8:latest"],
+        models: ["gpt-oss:20b"],
         filesWritten: ["/tmp/hello.py"],
         intent: "debug",
         at: 1,
@@ -124,11 +124,11 @@ describe("last-run formatting", () => {
       formatPreferLine({
         task: "hello",
         stages: ["thoth", "ptah"],
-        models: ["qwen3.8:latest", "glm-5.2"],
+        models: ["gpt-oss:20b", "glm-5.2"],
         filesWritten: ["/tmp/hello.py"],
         hosts: ["251", "cloud"],
         timings: [
-          { stage: "thoth", model: "qwen3.8:latest", host: "251", ms: 1 },
+          { stage: "thoth", model: "gpt-oss:20b", host: "251", ms: 1 },
           { stage: "ptah", model: "glm-5.2", host: "cloud", ms: 1 },
         ],
         at: 1,

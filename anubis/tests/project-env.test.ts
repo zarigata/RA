@@ -12,10 +12,10 @@ describe("project override", () => {
       mkdirSync(join(cwd, ".ra"));
       writeFileSync(
         join(cwd, ".ra", "project.json"),
-        JSON.stringify({ small: "ollama-lan/qwen3.8:latest", big: "ollama-cloud/glm-5.2" }),
+        JSON.stringify({ small: "ollama-lan/gpt-oss:20b", big: "ollama-cloud/glm-5.2" }),
       );
       const o = loadProjectOverride(cwd);
-      expect(o?.small_model).toBe("ollama-lan/qwen3.8:latest");
+      expect(o?.small_model).toBe("ollama-lan/gpt-oss:20b");
       expect(o?.model).toBe("ollama-cloud/glm-5.2");
     } finally {
       rmSync(cwd, { recursive: true });

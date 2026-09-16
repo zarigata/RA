@@ -16,7 +16,7 @@ export async function formatRaModels(
     const small = await pickOllamaEndpoint(env);
     const host = hostTag(small.baseURL, small.kind);
     smallHost = host;
-    const notables = small.availableModels.filter((m) => /qwen3\.?8|gemma/i.test(m));
+    const notables = small.availableModels.filter((m) => /gpt-oss|gemma/i.test(m));
     lines.push(
       `small @${host} (${small.availableModels.length}): ${small.availableModels.slice(0, 10).join(", ")}`,
     );

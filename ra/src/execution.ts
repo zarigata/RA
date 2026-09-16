@@ -55,6 +55,8 @@ export function cancelRuns(): boolean {
   for (const run of activeRuns) run.controller.abort("Turn cancelled by user");
   return activeRuns.size > 0;
 }
+/** Count of registered runs (debug/tracing: is there anything to cancel?). */
+export function activeRunCount(): number { return activeRuns.size; }
 export function reserveCall(): AbortSignal {
   const run = scopes.getStore()?.run;
   if (!run) throw new Error("Model call has no execution scope");

@@ -168,6 +168,87 @@ export async function toolBash(ctx: ToolContext, command: string, timeoutMs = 60
   return redact(`$ ${safe}\n[${result.sandbox}]\nexit ${result.code ?? "signal"}${result.timedOut ? " (timeout)" : ""}\n${result.stdout}${result.stderr ? `\nstderr:\n${result.stderr}` : ""}`.trim()).text;
 }
 
+/**
+ * TEST tool (ra.76) — run the project's test suite inside the sandbox.
+ * Detects the runner from package.json scripts / repo shape. `target`
+ * optionally narrows the run (a file or filter the runner understands).
+ */
+export async function toolTest(ctx: ToolContext, target?: string, timeoutMs = 180000): Promise<string> {
+  let cmd = "";
+  const pkgPath = safePathOrNull(ctx.cwd, "package.json");
+  if (pkgPath) {
+    let testScript = "";
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { scripts?: Record<string, string> };
+      const t = pkg.scripts?.test;
+      if (t && t !== "echo \"Error: no test specified\" && exit 1") testScript = t;
+    } catch { /* fall through */ }
+    // Directly invocable runners (bun/pytest/vitest/jest) skip `npm test` —
+    // the sandbox often blocks node's npm bootstrap outside the workspace.
+    if (/^(bun|pytest|vitest|jest|tsx|deno)(\s|$)/.test(testScript)) {
+      cmd = [testScript, target].filter(Boolean).join(" ");
+    } else if (testScript) {
+      cmd = ["npm", "test", "--", target].filter(Boolean).join(" ");
+    } else {
+      cmd = ["bun", "test", target].filter(Boolean).join(" ");
+    }
+  } else if (existsSync(join(ctx.cwd, "pytest.ini")) || existsSync(join(ctx.cwd, "tests"))) {
+    cmd = ["pytest", target].filter(Boolean).join(" ");
+  }
+  if (!cmd) return "Error: no test runner detected (package.json scripts.test or pytest). Run BASH directly with your command.";
+  const result = await runCommand(ctx, ["/bin/bash", "-c", cmd], { timeoutMs });
+  const tail = (result.stdout + (result.stderr ? `\n${result.stderr}` : "")).trim().split("\n").slice(-15).join("\n");
+  const summary = tail.match(/(\d+\s+(?:pass|passed|passing)|\d+\s+(?:fail|failed|failing)|(\d+)\s+skipped|exit\s+\d+|\d+\/\d+)/gi)?.slice(0, 6).join(" · ") ?? "";
+  return `TEST ${cmd}\n[${result.sandbox}] exit ${result.code ?? "signal"}${result.timedOut ? " (timeout)" : ""}${summary ? ` · ${summary}` : ""}\n${tail.slice(-2000)}`;
+}
+
+function safePathOrNull(cwd: string, p: string): string | null {
+  try { return safePath(cwd, p); } catch { return null; }
+}
+
+/**
+ * WEBSEARCH tool (ra.76) — optional key-based web search (Brave or Tavily),
+ * airgap-aware, zero hard dependencies. Returns top results with snippets.
+ */
+export async function toolWebSearch(query: string, env: Record<string, string | undefined> = process.env, airgap = false, timeoutMs = 15000): Promise<string> {
+  const q = query.trim();
+  if (!q) return "Error: WEBSEARCH needs a query";
+  if (airgap) return "Error: websearch blocked in air-gapped mode";
+  const brave = env.BRAVE_SEARCH_API_KEY;
+  const tavily = env.TAVILY_API_KEY;
+  if (!brave && !tavily) {
+    return "Error: WEBSEARCH needs BRAVE_SEARCH_API_KEY or TAVILY_API_KEY in the environment (export it in anubis/.env). WEBFETCH works without a key.";
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    if (brave) {
+      const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=5`;
+      const res = await fetch(url, { headers: { Accept: "application/json", "X-Subscription-Token": brave }, signal: ctrl.signal });
+      if (!res.ok) return `Error: Brave search HTTP ${res.status}`;
+      const j = await res.json() as { web?: Array<{ title?: string; url?: string; description?: string }> };
+      const hits = j.web ?? [];
+      if (!hits.length) return `(no results for: ${q})`;
+      return [`websearch (brave): ${q}`, ...hits.map((h, i) => `${i + 1}. ${h.title ?? h.url}\n   ${h.url ?? ""}\n   ${(h.description ?? "").replace(/<[^>]+>/g, "").slice(0, 200)}`)].join("\n");
+    }
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: tavily, query: q, max_results: 5 }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return `Error: Tavily search HTTP ${res.status}`;
+    const j = await res.json() as { results?: Array<{ title?: string; url?: string; content?: string }> };
+    const hits = j.results ?? [];
+    if (!hits.length) return `(no results for: ${q})`;
+    return [`websearch (tavily): ${q}`, ...hits.map((h, i) => `${i + 1}. ${h.title ?? h.url}\n   ${h.url ?? ""}\n   ${(h.content ?? "").slice(0, 200)}`)].join("\n");
+  } catch (e) {
+    return `Error: websearch failed: ${String(e)}`;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function toolWebFetch(url: string, timeoutMs = 15000, airgap = false, signal?: AbortSignal): Promise<string> {
   let u: URL;
   try {

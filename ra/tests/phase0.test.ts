@@ -62,7 +62,7 @@ describe("isTransientError", () => {
 describe("surfaceDisagreements", () => {
   test("flags files only some roles considered", () => {
     const notes = surfaceDisagreements([
-      { role: "thoth", model: "qwen", output: "Edit src/a.ts and src/b.ts" },
+      { role: "thoth", model: "gpt-oss", output: "Edit src/a.ts and src/b.ts" },
       { role: "ptah", model: "glm", output: "Rewrite src/a.ts only" },
     ]);
     expect(notes.some((n) => n.includes("src/b.ts"))).toBe(true);
@@ -70,15 +70,15 @@ describe("surfaceDisagreements", () => {
 
   test("flags mixed success/failure", () => {
     const notes = surfaceDisagreements([
-      { role: "maat", model: "qwen", output: "Error: cannot read file" },
-      { role: "sekhmet", model: "qwen", output: "Looks fine, ship it" },
+      { role: "maat", model: "gpt-oss", output: "Error: cannot read file" },
+      { role: "sekhmet", model: "gpt-oss", output: "Looks fine, ship it" },
     ]);
     expect(notes.some((n) => n.includes("maat"))).toBe(true);
   });
 
   test("no disagreements when outputs agree", () => {
     const notes = surfaceDisagreements([
-      { role: "thoth", model: "qwen", output: "Plan: touch src/a.ts" },
+      { role: "thoth", model: "gpt-oss", output: "Plan: touch src/a.ts" },
       { role: "ptah", model: "glm", output: "Wrote src/a.ts per plan" },
     ]);
     expect(notes).toEqual([]);

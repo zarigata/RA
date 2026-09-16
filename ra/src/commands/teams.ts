@@ -1,18 +1,25 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { RaConfig } from "../../../anubis/src/config.ts";
 import { loadEnv } from "../../../anubis/src/env.ts";
 import { resolveRoleModel } from "../../../anubis/src/router.ts";
-import { AGENTS_DIR, ANUBIS_HOME } from "../paths.ts";
+import { ANUBIS_HOME } from "../paths.ts";
 import { runTaskAgent, loadAgentMeta, getActiveSubagentTracker } from "../agent.ts";
+import { visibleCatalog } from "../agents/catalog.ts";
 import { startSwarm, applySwarm, loadSwarm, listSwarms, formatSwarm } from "../swarm.ts";
 import { withAgentRun, currentScope } from "../execution.ts";
 
-export function agentCatalog(config: RaConfig) {
-  const names = [...new Set([...readdirSync(AGENTS_DIR).filter(f => f.endsWith(".md")).map(f => f.slice(0, -3)), ...Object.keys(config.agent ?? {})])].sort();
-  return names.filter(role => /^[a-z][a-z0-9_-]{0,63}$/i.test(role)).map(role => {
-    const meta = loadAgentMeta(role);
-    return { role, model: meta.model ?? resolveRoleModel(role, config).model, maxSteps: meta.steps ?? 16 };
+export function agentCatalog(config: RaConfig, cwd = process.cwd()) {
+  return visibleCatalog(cwd).map((entry) => {
+    const meta = loadAgentMeta(entry.role, cwd);
+    return {
+      role: entry.role,
+      model: meta.model ?? resolveRoleModel(entry.role, config).model,
+      maxSteps: meta.steps ?? 16,
+      category: entry.category,
+      description: entry.description,
+      scope: entry.scope,
+    };
   });
 }
 export const SWARM_HELP = `RA swarm — isolated coding teams

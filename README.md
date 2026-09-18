@@ -1,59 +1,305 @@
-# 𓂀 RA — Relic Agent
-
 <div align="center">
 
-```text
-                         ☀
-                    .-"""""-.
-                 .-'    RA     '-.
-               .'   𓂀 RELIC AGENT '.
-              /_____________________\
-                   /\         /\
-                  /  \_______/  \
-                 /_______________\
+<img src="docs/assets/ra-hero.svg" alt="RA — Relic Agent" width="100%">
 
-       LOCAL MODELS  ·  CLOUD SPECIALISTS  ·  MANY AGENTS
-```
+<br>
 
-**An Egyptian-themed, local-first coding-agent runtime for orchestrating many models without burning premium tokens on every step.**
+[![License: MIT](https://img.shields.io/badge/license-MIT-c89b4b?style=for-the-badge)](LICENSE)
+[![Bun](https://img.shields.io/badge/runtime-Bun-141414?style=for-the-badge&logo=bun&logoColor=white)](https://bun.sh/)
+[![TypeScript](https://img.shields.io/badge/core-TypeScript-1f6feb?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+![Local First](https://img.shields.io/badge/AI-local--first-3f7f68?style=for-the-badge)
+![Agents](https://img.shields.io/badge/agents-76%2B-b7791f?style=for-the-badge)
+![MoA](https://img.shields.io/badge/orchestration-Mixture%20of%20Agents-734b9e?style=for-the-badge)
 
-`Bun` · `TypeScript` · `Ollama` · `OpenAI-compatible APIs` · `Mixture of Agents` · `TUI`
+### Describe the program. Let RA assemble the minds, tools, context, and verification needed to build it.
+
+**RA is a local-first, provider-agnostic AI coding runtime built for serious vibe coding.**  
+It can use small local models for high-volume work, larger cloud models for hard problems, specialist agents for different engineering roles, and checkpoints/tests to keep autonomous work recoverable.
+
+[Quick start](#quick-start) · [Why RA](#why-ra) · [Architecture](#how-ra-thinks) · [Agents](#the-egyptian-agent-legion) · [Models](#use-the-right-model-for-the-right-job) · [Roadmap](#where-ra-is-going)
 
 </div>
 
 ---
 
-RA is a terminal coding agent built around a simple idea: **use the cheapest capable intelligence for each job**. Local or LAN models can inspect code, search, summarize, test, critique, and handle routine work; larger cloud models can be reserved for the tasks where they add the most value.
+## Vibe coding should be more than one giant chat
 
-RA already includes an interactive TUI, a 76-agent library, layered Mixture-of-Agents (MoA), hybrid model routing, provider capability routing, sessions, checkpoints, worktree swarms, and command isolation. The roadmap pushes that foundation toward a stronger local AI mesh, semantic agent discovery, richer plugin integration, and a time-aware Egyptian terminal experience.
+Most AI coding workflows eventually hit the same walls:
 
-> RA is under active development. This README separates **shipped**, **partial**, and **planned** work instead of advertising roadmap ideas as finished features.
+- the expensive model gets used for everything, including boring work;
+- long sessions accumulate junk context until quality collapses;
+- one model plans, codes, reviews, and judges its own work;
+- provider limits or context overflow can kill a long run;
+- autonomous edits are difficult to inspect or recover;
+- local GPUs sit idle while cloud tokens get burned;
+- adding more agents often means adding more prompt bloat.
 
-## Status legend
+RA is being built around a different assumption:
 
-| Mark | Meaning |
+> **The best coding system is not necessarily the single best model. It is the system that can assemble the right context, route work to the right intelligence, verify the result, and recover when something fails.**
+
+That is the core of RA.
+
+## Why RA
+
+RA is not trying to be another thin wrapper around an LLM API. It is an orchestration layer for turning a human goal into verified work.
+
+| Problem | RA's approach |
 |---|---|
-| ✅ | Implemented in the repository |
-| ⚠️ | Implemented, but still has platform/provider/UX limitations |
-| 📋 | Planned; do not treat as shipped |
+| Premium tokens disappear fast | Local/LAN models handle routine work; premium models are escalation targets |
+| Small models choke on giant contexts | Adaptive context limits, pressure tracking, handoff packets, and fresh-run continuation |
+| One model can confidently miss things | Mixture-of-Agents, critics, specialist roles, and independent worktree teams |
+| Providers fail or rate-limit | Provider Mosaic, explicit fallback chains, health/capability-aware routing |
+| Autonomous changes feel risky | Checkpoints, undo, diffs, permissions, Git isolation, verification |
+| Huge agent catalogs bloat prompts | Scoped agents today; semantic capability discovery is the next step |
+| You own multiple GPUs/servers | RA is designed around local/LAN endpoints, with a multi-node AI mesh as the north star |
 
-## What is here today
+### The goal
 
-| Capability | Status | Notes |
-|---|---:|---|
-| Interactive RA TUI and headless CLI | ✅ | `ra`, `ra run`, palette, sessions, history, replay |
-| 76 visible agents + hidden system roles | ✅ | Egyptian core roles plus specialist agents |
-| Layered Mixture-of-Agents | ✅ | Cross-model proposals, critics, synthesis, budgets |
-| Hybrid local/cloud routing | ✅ | Local-first, quality-first, balanced, economy modes |
-| Provider Mosaic / capability routing | ✅ | Multiple Ollama/OpenAI-compatible/provider profiles |
-| Checkpoints and undo | ✅ | File-edit checkpoints and recovery commands |
-| Git worktree swarms | ✅ | Parallel isolated task branches with explicit apply |
-| Command sandboxing | ⚠️ | Strongest on macOS; not a VM/security certification |
-| Local/LAN model-first workflow | ✅ | Designed to spend cloud tokens selectively |
-| Semantic agent/plugin search | 📋 | Planned discovery layer over agents, skills, tools, plugins |
-| Caveman/Ponytail-style plugin hardening | 📋 | Research/integration target, not currently bundled |
-| Time-aware Egyptian animated TUI | 📋 | Dawn/day/sunset/night scenes and ASCII transitions |
-| Multi-node GPU scheduler | 📋 | Future local AI cluster orchestration |
+RA should let you say things like:
+
+~~~text
+Build a production-ready dashboard for this API.
+Use the existing design language.
+Do not break the current authentication flow.
+Run the tests, fix what fails, and explain the architecture when you finish.
+~~~
+
+…and let the runtime decide which agent should plan, which model should implement, which reviewer should attack the result, when to use your local GPU, and when a harder cloud model is actually worth the tokens.
+
+<img src="docs/assets/ra-vibecoding-flow.svg" alt="RA vibe coding flow" width="100%">
+
+## What already ships
+
+RA is under active development, but the core runtime is real. The current repository includes:
+
+| Capability | Status | What it means |
+|---|:---:|---|
+| Full-screen interactive TUI + headless CLI | ✅ | Work interactively with <code>ra</code> or automate with <code>ra run</code> |
+| 76 visible specialist agents | ✅ | Core Egyptian roles plus engineering specialists |
+| Layered Mixture-of-Agents | ✅ | Multiple proposals, critics, synthesis, agreement/disagreement |
+| Provider Mosaic | ✅ | Capability-aware routing across local, LAN, cloud, and compatible endpoints |
+| Hybrid routing modes | ✅ | <code>local-first</code>, <code>quality-first</code>, <code>balanced</code>, <code>economy</code> |
+| Low-context runtime | ✅ | Model context registry, pressure thresholds, handoffs, continuation, escalation |
+| Native Ollama context control | ✅ | Sends <code>num_ctx</code> instead of assuming the server reserved the requested window |
+| Sessions + replay | ✅ | Persistent work across terminal sessions |
+| Checkpoints + undo + diff | ✅ | Recover edits instead of treating every autonomous write as irreversible |
+| Git worktree swarms | ✅ | Parallel isolated implementation tasks before explicit integration |
+| MCP + skills + plugins | ✅ | Extensible tools and capability surfaces |
+| Local/LAN + OpenAI-compatible endpoints | ✅ | Ollama, LM Studio/llama.cpp-compatible servers, cloud providers |
+| Air-gapped mode | ✅ | Local-only operation path |
+| Command sandboxing | ⚠️ | Useful boundary with platform limitations; not a hostile-code VM |
+| Semantic capability search | 📋 | Planned: retrieve only the agents/tools/plugins needed for the task |
+| Multi-node GPU scheduler | 📋 | Planned: treat multiple AI servers as one local compute fabric |
+| Time-aware Egyptian ambient TUI | 📋 | Planned: dawn/day/sunset/night terminal scenes without blocking work |
+
+**Legend:** ✅ shipped · ⚠️ shipped with limitations · 📋 planned
+
+For the running engineering truth, see [STATUS.md](STATUS.md), [ROADMAP.md](ROADMAP.md), and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## The idea in one sentence
+
+### Use cheap intelligence for volume. Use expensive intelligence for leverage.
+
+A normal AI coding client tends to behave like this:
+
+~~~text
+every task ─────────────────────────────► biggest model
+                                           $$$$$$$$$
+~~~
+
+RA is designed to behave more like this:
+
+~~~text
+repo scan ───────► local model
+summaries ───────► local model
+tests ───────────► local model
+routine fixes ───► local / cheap model
+critics ─────────► local / mixed models
+
+hard architecture ─┐
+deep debugging ────┼────────► stronger model only when needed
+final synthesis ───┘
+~~~
+
+The point is not “local at all costs.” The point is **capability per token, per second, per task**.
+
+## How RA thinks
+
+RA splits a coding request into responsibilities instead of asking one model to do everything.
+
+~~~mermaid
+flowchart TB
+    U[Developer intent] --> A[Anubis orchestration]
+    A --> C[Context + project memory]
+    C --> R[Provider Mosaic / capability router]
+
+    R --> L[Local / LAN models]
+    R --> P[OpenAI-compatible endpoints]
+    R --> X[Cloud / premium models]
+
+    A --> G[Agent registry]
+    G --> T[Thoth · plan]
+    G --> B[Ptah · build]
+    G --> M[Ma'at · verify]
+    G --> S[Sekhmet · attack]
+    G --> I[Isis · research]
+    G --> D[Seshat · document]
+
+    T --> TOOL[Files · shell · search · MCP · skills · Git]
+    B --> TOOL
+    M --> TOOL
+    S --> TOOL
+
+    TOOL --> V[Tests / diagnostics / review]
+    V --> H[Checkpoint + handoff + session state]
+    H --> A
+~~~
+
+The orchestration is deliberately asymmetric. A 9B or 20B local model does not need to beat a frontier model at everything to be useful. It only needs to be good enough at the specific work RA gives it.
+
+## The low-context runtime
+
+Long autonomous coding sessions fail in an ugly way when the runtime pretends every model has unlimited usable context.
+
+RA now treats context as a constrained resource.
+
+The runtime can resolve a model's usable window from configuration, live information, static knowledge, and server caps. It also tracks prompt pressure during a run.
+
+~~~text
+0% ───────────────── 70% ───────────── 90% ───────────── 100%
+      normal work      wrap-up mode      checkpoint +        overflow
+                                        handoff/resume
+~~~
+
+At high pressure RA can:
+
+1. restate the original objective;
+2. stop spawning unnecessary subagents;
+3. finish only the most important remaining steps;
+4. checkpoint a compact handoff packet;
+5. resume in a fresh, shorter run;
+6. escalate to a larger-context model only when policy allows it.
+
+This is especially important for local models, where “advertised context” and “context your server actually allocated” are often two different numbers.
+
+Use:
+
+~~~bash
+ra doctor
+ra providers
+ra eval --model <model>
+~~~
+
+to inspect model and context behavior.
+
+## The Egyptian agent legion
+
+The mythology is visual identity; the roles are engineering boundaries.
+
+| Agent | Engineering role |
+|---|---|
+| **Anubis** | orchestration, routing, task decomposition |
+| **Thoth** | architecture, planning, reasoning |
+| **Ptah** | implementation and construction |
+| **Ma'at** | correctness, diagnostics, verification |
+| **Sekhmet** | adversarial review, security, break-it thinking |
+| **Isis** | research and evidence gathering |
+| **Seshat** | documentation and structured knowledge |
+| **Horus** | fast, cheap, lightweight tasks |
+
+RA also carries specialists for testing, databases, CI, security, refactoring, releases, documentation, and other engineering jobs.
+
+Useful commands:
+
+~~~bash
+ra agents
+ra agents new my-agent
+ra moa "Review this architecture and surface disagreements"
+ra moa "Design a safer migration" --roles thoth,maat,sekhmet --concurrency 3
+~~~
+
+See [docs/AGENTS-CATALOG.md](docs/AGENTS-CATALOG.md) for the catalog.
+
+## Mixture-of-Agents: don't let one model grade itself
+
+For difficult tasks, RA can ask several models or agents for independent proposals, then use critics and a synthesis stage.
+
+~~~text
+                    ┌─► proposal A ─┐
+task ─► orchestrate ┼─► proposal B ─┼─► critics ─► synthesis ─► action
+                    └─► proposal C ─┘
+~~~
+
+This matters because model diversity can expose disagreement that a single-agent loop would hide.
+
+Use MoA for architecture decisions, risky migrations, security reviews, difficult debugging, or anything where “first answer wins” is a bad policy.
+
+## Swarms: parallel coding without trampling the same tree
+
+RA can use Git worktrees to isolate parallel implementation attempts or task branches.
+
+A swarm can explore several solutions without letting every agent write into the same working directory. Integration stays explicit.
+
+That makes RA suitable for workflows like:
+
+~~~text
+Agent A ─► frontend implementation ─┐
+Agent B ─► API implementation ──────┼─► review/apply
+Agent C ─► tests + edge cases ──────┘
+~~~
+
+Git remains the recovery boundary. RA's sandbox and permissions are additional defenses, not replacements for source control.
+
+## Use the right model for the right job
+
+RA is provider-agnostic. The repository already has paths for:
+
+- local Ollama;
+- remote/LAN Ollama;
+- LM Studio and llama.cpp-compatible servers;
+- Ollama Cloud;
+- OpenAI-compatible endpoints;
+- provider configurations for commercial APIs.
+
+A practical RA deployment can look like this:
+
+~~~text
+                     ┌──────────────────────────────┐
+Mac / workstation ──►│ RA                           │
+                     │                              │
+                     │  fast/meta ─► local 9B/20B  │
+                     │  planning ───► LAN 20B/30B  │
+                     │  coding ─────► LAN or cloud │
+                     │  critic ─────► second model │
+                     └──────────────────────────────┘
+                               │
+                  ┌────────────┴────────────┐
+                  ▼                         ▼
+          GPU server / Ollama       premium/SOTA API
+~~~
+
+The built-in routing modes are:
+
+~~~bash
+RA_ROUTING=local-first
+RA_ROUTING=quality-first
+RA_ROUTING=balanced
+RA_ROUTING=economy
+~~~
+
+The current example environment supports endpoints such as:
+
+~~~bash
+OLLAMA_LAN_URL=http://192.168.1.251:11434
+OLLAMA_LOCAL_URL=http://localhost:11434
+LM_STUDIO_URL=http://localhost:1234
+LLAMACPP_URL=http://localhost:8080
+~~~
+
+Do not copy the repository's example LAN address blindly; point RA at your own host.
+
+See [anubis/docs/PROVIDERS.md](anubis/docs/PROVIDERS.md) for provider configuration.
 
 ## Quick start
 
@@ -61,241 +307,213 @@ RA already includes an interactive TUI, a 76-agent library, layered Mixture-of-A
 
 - Git
 - [Bun](https://bun.sh/)
-- At least one configured model endpoint if you want live AI calls
+- at least one model endpoint for live AI work
 
-```bash
+### Install
+
+~~~bash
 git clone https://github.com/zarigata/RA.git
 cd RA
+
 ./install
 export PATH="$HOME/.local/bin:$PATH"
+
 ra --version
-ra help
-```
+ra doctor
+~~~
 
-Start the interactive interface:
+Launch the interactive workspace:
 
-```bash
+~~~bash
 ra
-```
+~~~
 
 Or run a task headlessly:
 
-```bash
-ra run "Inspect this project, find the bug, fix it, and verify the result" --quick --verify
-```
+~~~bash
+ra run "Inspect this repository, find the bug, fix it, and verify the result" --quick --verify
+~~~
 
-For cloud models, keep credentials in your shell or an untracked environment file. Never commit provider keys.
+Run the release gate:
 
-## The idea: a local AI workshop, not one giant model
+~~~bash
+bash scripts/verify-release.sh
+~~~
 
-```mermaid
-flowchart LR
-    U[Developer] --> T[RA TUI / CLI]
-    T --> O[Anubis orchestration]
-    O --> R[Hybrid + capability router]
-    R --> A[Agent registry]
-    A --> M[MoA / teams / swarms]
+## A good first RA setup
 
-    R --> L[Local / LAN models]
-    R --> C[Cloud specialists]
-    R --> X[OpenAI-compatible servers]
+If you have one local GPU and access to a stronger cloud model, a sensible philosophy is:
 
-    M --> S[Sandboxed tools]
-    M --> G[Git / files / tests]
-    M --> K[Skills + MCP + plugins]
-
-    L --> O
-    C --> O
-    X --> O
-```
-
-The target architecture is deliberately asymmetric:
-
-- **Local models do the volume work** — repo reading, search, test analysis, summaries, routine coding, critics, context compression.
-- **Large/SOTA models do the leverage work** — difficult architecture, hard debugging, final synthesis, or specialized reasoning when routing says it is worth the cost.
-- **MoA adds diversity** — multiple agents/models can propose or critique instead of trusting a single response.
-- **RA owns context** — the long-term goal is to feed each model only the slice of repository/session state it actually needs.
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for component boundaries and [`PLAN.md`](PLAN.md) for the implementation roadmap.
-
-## Egyptian agent system
-
-The core roles are themed around Egyptian mythology but have concrete engineering responsibilities:
-
-| Role | Function |
+| Work type | Suggested lane |
 |---|---|
-| **Thoth** | planning, decomposition, reasoning |
-| **Ptah** | implementation and construction |
-| **Ma'at** | diagnosis, verification, correctness |
-| **Sekhmet** | adversarial review and attack testing |
-| **Isis** | research and information gathering |
-| **Seshat** | documentation and structured knowledge |
-| **Horus** | fast/small tasks |
-| **Anubis** | orchestration and routing |
+| Repo exploration | local |
+| Summaries / context compression | local |
+| Basic plans | local/LAN |
+| Tests and diagnostics | local/LAN |
+| Routine implementation | local/LAN |
+| Hard implementation | stronger LAN/cloud |
+| Adversarial review | different model from implementer |
+| Final synthesis | strongest model when justified |
 
-RA also ships dozens of practical specialists such as test writers, CI fixers, database engineers, security reviewers, release managers, and documentation agents.
-
-```bash
-ra agents
-ra agents new my-agent
-ra moa "Review this architecture and surface disagreements"
-ra moa "Design a safer migration" --roles thoth,maat,sekhmet --concurrency 3
-```
-
-Full catalog: [`docs/AGENTS-CATALOG.md`](docs/AGENTS-CATALOG.md).
-
-## Model and provider routing
-
-RA is not tied to one model vendor. The runtime supports local/LAN Ollama workflows and provider abstractions for cloud or OpenAI-compatible endpoints. The capability router can use model/provider profiles, health, latency, quota state, and routing mode to decide where work goes.
-
-Useful commands:
-
-```bash
-ra providers
-ra models
-ra lanes
-ra ping
-ra env
-ra doctor
-```
-
-Typical design intent:
-
-```text
-cheap/local reasoning ──► code search ──► tests ──► critique
-          │                                  │
-          └────── difficult/high-value ──────┴──► SOTA/cloud model
-```
-
-The exact model names and availability are configuration-dependent and can change over time. See [`anubis/docs/PROVIDERS.md`](anubis/docs/PROVIDERS.md).
+This is not a hardcoded rule. It is the mental model RA's router is built to support.
 
 ## Everyday commands
 
 | Goal | Command |
 |---|---|
-| Open TUI | `ra` |
-| Fast pipeline | `ra run "task" --quick` |
-| Full pipeline | `ra run "task"` |
-| Verify produced artifacts | `ra run "task" --verify` |
-| Machine-readable run | `ra run "task" --json` |
-| Inspect last run | `ra last --json` |
-| Show files/timings | `ra files`, `ra timings` |
-| Undo latest checkpoint | `ra undo` |
-| List sessions | `ra sessions` |
-| Export transcript | `ra export --out session.md` |
-| Agent catalog | `ra agents` |
-| Mixture of Agents | `ra moa "task"` |
-| Worktree team | `ra swarm ...` |
-| Sandbox status | `ra sandbox status` |
-| Health check | `ra doctor` |
+| Open TUI | <code>ra</code> |
+| Fast coding run | <code>ra run "task" --quick</code> |
+| Full run | <code>ra run "task"</code> |
+| Verify artifacts | <code>ra run "task" --verify</code> |
+| Machine-readable output | <code>ra run "task" --json</code> |
+| Inspect last run | <code>ra last --json</code> |
+| View files/timings | <code>ra files</code>, <code>ra timings</code> |
+| Undo latest checkpoint | <code>ra undo</code> |
+| List sessions | <code>ra sessions</code> |
+| Export transcript | <code>ra export --out session.md</code> |
+| Inspect agents | <code>ra agents</code> |
+| Run Mixture-of-Agents | <code>ra moa "task"</code> |
+| Inspect providers | <code>ra providers</code> |
+| Inspect model lanes | <code>ra lanes</code> |
+| Health/context diagnostics | <code>ra doctor</code> |
+| Sandbox status | <code>ra sandbox status</code> |
 
-Run `ra help` for the authoritative command list for your checkout.
+Run <code>ra help</code> for the command surface in your checkout.
 
-## TUI direction
+## Built for vibe coders, not only AI researchers
 
-The current TUI already provides the coding workspace, streaming conversation, palettes, themes, session controls, model information, and agent visibility.
+RA should feel useful even if you do not want to spend your day hand-tuning prompts.
 
-The next visual layer is intentionally more distinctive: an **Egyptian terminal that reacts to local time**. Planned scenes include dawn, daylight, sunset, and night; the sun/moon position, pyramids, stars, Eye of Ra, torches, and subtle ASCII transitions become ambient state rather than decoration that blocks work.
+The intended UX is:
 
-```text
-DAWN                 DAY                  SUNSET               NIGHT
-   \  |  /               ☀                    \ ☀                ·  ✦
- --  ☀  --           𓂀  /\  𓂀              /\ \              ☾    ·
-    / \              /\/  \/\             /  \              /\  𓂀
-___/___\___       __/________\__       ___/____\___       ___/______\___
-```
+**say what you want → inspect the plan when needed → let the runtime do the routing → review the diff → keep or undo the result.**
 
-That experience is **planned**, while the current TUI remains the functional baseline.
+The complexity belongs inside RA:
+
+- provider discovery;
+- model health;
+- context limits;
+- fallback chains;
+- agent selection;
+- task boundaries;
+- token budgets;
+- checkpoints;
+- verification.
+
+The user should not need to become a distributed-systems engineer just to ask an AI to build an app.
+
+## Trust, recovery, and safety
+
+RA can execute commands and modify files. Treat it like a powerful development tool, not a magic sandbox.
+
+Recommended practice:
+
+1. start important autonomous work from a clean Git state;
+2. keep API keys outside Git;
+3. review diffs before merging;
+4. use RA's permissions and sandbox where supported;
+5. use worktrees for parallel autonomous work;
+6. run project tests yourself for high-stakes changes;
+7. do not treat an AI-generated “tests passed” sentence as evidence by itself.
+
+The command sandbox has platform limitations and is **not** a hostile-code VM or a formal security certification.
+
+Measured safety work lives in [ra tests/SAFETY_RESULTS.md](ra%20tests/SAFETY_RESULTS.md).
+
+## Benchmarks: evidence, not mythology
+
+The repository includes competitive and installed-user test evidence under <code>ra tests/</code>.
+
+Those results are useful for regression testing and design decisions, but they are **point-in-time measurements on specific tasks, models, hardware, and provider conditions**. They should not be read as a universal claim that RA beats every coding tool on every repository.
+
+That distinction matters. RA should earn its reputation through reproducible results, not README bravado.
 
 ## Repository map
 
-```text
+~~~text
 RA/
-├── ra/                     # Primary RA runtime and TUI
-│   ├── src/cli.ts          # Real CLI entrypoint
-│   └── tests/              # Runtime tests
-├── anubis/                 # Orchestration/core services
-│   ├── src/                # routing, providers, sandbox, MoA, sessions...
-│   ├── tests/              # core tests
-│   └── bun.lock            # reproducible Bun dependency lock
-├── docs/                   # user/agent/architecture documentation
-├── pkgs/opencode/          # inherited/reference agent assets
-├── .github/workflows/      # CI
-├── install                 # local launcher installer
-├── PLAN.md                 # executable roadmap
+├── ra/                         # primary runtime, CLI, TUI
+│   ├── src/cli.ts              # public RA entrypoint
+│   └── tests/                  # runtime tests
+├── anubis/                     # orchestration + provider engine
+│   ├── src/                    # routing, providers, context, MoA, sessions...
+│   ├── docs/                   # provider/config docs
+│   └── ra.json                 # example/default routing profile
+├── docs/
+│   ├── ARCHITECTURE.md         # architecture and north star
+│   ├── AGENTS-CATALOG.md       # agent catalog
+│   └── assets/                 # README/brand visuals
+├── benchmarks/                 # evaluation assets
+├── scripts/                    # verification/release tooling
+├── ra tests/                   # installed-user / competitive / safety evidence
+├── STATUS.md                   # current engineering state
+├── ROADMAP.md                  # persistent backlog
+├── PLAN.md                     # implementation plan
 └── README.md
-```
+~~~
 
-`ra/src/cli.ts` is the primary CLI. `anubis/src/cli/main.ts` remains a compatibility launcher into that runtime.
+## Where RA is going
 
-## Development and release gate
+The end state is bigger than a single-machine coding CLI.
 
-Install dependencies:
+~~~text
+                         RA
+                          │
+                 intent + repository
+                          │
+                capability discovery
+                          │
+          ┌───────────────┴────────────────┐
+          │                                │
+   LOCAL AI MESH                    CLOUD SPECIALISTS
+          │                                │
+  ┌───────┼────────┐                       │
+  │       │        │                       │
+GPU A   GPU B   workstation          frontier models
+  │       │        │                       │
+  └───────┴────────┴──────────┬────────────┘
+                              │
+                   agents / MoA / swarms
+                              │
+                    tools + verification
+                              │
+                    checkpointed result
+~~~
 
-```bash
-cd anubis
-bun install --frozen-lockfile
-cd ..
-```
+The major direction is:
 
-Run the same offline release verification used by CI:
+1. **smarter context retrieval** — retrieve symbols/chunks instead of dumping repositories;
+2. **semantic capability discovery** — search the agent/tool/plugin registry instead of loading everything;
+3. **persistent project intelligence** — compact, attributable memory across long work;
+4. **local AI mesh** — multiple GPUs and servers scored by capability, latency, context, and cost;
+5. **stronger plugin contracts** — explicit filesystem/network/process/secrets capabilities;
+6. **distinctive Egyptian TUI** — time-aware dawn/day/sunset/night scenes around a serious coding workspace.
 
-```bash
-bash scripts/verify-release.sh
-```
+Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [PLAN.md](PLAN.md) for the deeper design.
 
-The gate is intended to prove four separate things before a GitHub merge:
+## Contributing
 
-1. the curated offline unit tests pass;
-2. the real RA CLI compiles into a standalone Bun executable;
-3. CLI/install smoke checks succeed without needing a live LLM;
-4. tracked build junk, secrets, caches, and generated artifacts are rejected.
+RA benefits most from contributions that improve one of four things:
 
-Live provider/LAN acceptance remains a separate test class because GitHub-hosted runners cannot reach a private Ollama server.
+- **reliability** — better tests, recovery, provider behavior;
+- **intelligence** — routing, context, agent/tool selection;
+- **local AI** — Ollama/vLLM/LM Studio/llama.cpp and multi-GPU workflows;
+- **UX** — make advanced orchestration feel simple.
 
-## Safety and trust boundaries
+Before changing behavior, run the repository verification gate and keep shipped/planned claims honest.
 
-RA can execute commands and edit files. Treat it like any powerful development tool:
+## License
 
-- review changes before merging;
-- keep API keys out of Git;
-- use the sandbox where supported;
-- keep important work committed before autonomous runs;
-- do not treat worktree isolation as OS-level security;
-- do not assume an AI-generated “tests passed” statement is proof — run the project tests yourself.
+MIT. See [LICENSE](LICENSE).
 
-The existing sandbox has platform limitations and is **not** a hostile-code VM or security certification. See [`ra tests/SAFETY_RESULTS.md`](ra%20tests/SAFETY_RESULTS.md) for measured coverage and limitations.
-
-## Roadmap
-
-The short version:
-
-```text
-Release gate
-    ↓
-Local AI mesh + provider preflight
-    ↓
-Token-saving context / delegation
-    ↓
-Semantic agent + skill + plugin search
-    ↓
-Plugin hardening / capability packs
-    ↓
-Time-aware Egyptian TUI
-    ↓
-Multi-GPU / multi-node orchestration
-```
-
-The detailed, testable roadmap is in [`PLAN.md`](PLAN.md).
-
-## License and attribution
-
-MIT licensed. Inspired by the broader coding-agent ecosystem, including [OpenCode](https://github.com/anomalyco/opencode). Existing attribution is preserved in [`NOTICE`](NOTICE).
+RA is inspired by the wider coding-agent ecosystem, including [OpenCode](https://github.com/anomalyco/opencode). Existing attribution is preserved in [NOTICE](NOTICE).
 
 ---
 
 <div align="center">
 
-**𓂀 Build with the small models. Summon the gods only when the problem deserves them.**
+### 𓂀 Build with the small models. Summon the gods only when the problem deserves them.
+
+**Local first. Many minds. Recoverable work.**
 
 </div>

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560" role="img" aria-labelledby="title desc">
+  <title id="title">RA — Relic Agent</title>
+  <desc id="desc">Egyptian themed banner for the RA local-first multi-agent coding runtime.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#09070d"/>
+      <stop offset="0.55" stop-color="#171020"/>
+      <stop offset="1" stop-color="#2a1720"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe29a"/>
+      <stop offset="1" stop-color="#e6a33c"/>
+    </linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5b371d"/>
+      <stop offset="0.5" stop-color="#b87932"/>
+      <stop offset="1" stop-color="#5b371d"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="stars" width="90" height="70" patternUnits="userSpaceOnUse">
+      <circle cx="8" cy="16" r="1" fill="#f5ddb1" opacity=".45"/>
+      <circle cx="58" cy="42" r="1.2" fill="#f5ddb1" opacity=".3"/>
+      <circle cx="84" cy="7" r=".8" fill="#f5ddb1" opacity=".5"/>
+    </pattern>
+  </defs>
+
+  <rect width="1400" height="560" rx="28" fill="url(#sky)"/>
+  <rect width="1400" height="560" rx="28" fill="url(#stars)"/>
+
+  <circle cx="1165" cy="132" r="74" fill="url(#sun)" opacity=".95" filter="url(#glow)"/>
+  <circle cx="1165" cy="132" r="92" fill="none" stroke="#e6a33c" stroke-width="2" opacity=".2"/>
+
+  <path d="M0 445 C170 420 260 432 390 414 C520 396 695 447 840 421 C1010 390 1180 419 1400 390 L1400 560 L0 560 Z" fill="#21130f"/>
+  <path d="M0 482 C180 452 325 492 505 460 C685 430 805 493 1000 452 C1140 423 1260 449 1400 429 L1400 560 L0 560 Z" fill="url(#sand)" opacity=".72"/>
+
+  <g opacity=".92">
+    <path d="M820 435 L948 238 L1078 435 Z" fill="#0c0a0c" stroke="#c48a3f" stroke-width="3"/>
+    <path d="M1002 435 L1098 290 L1193 435 Z" fill="#100c0d" stroke="#8f612e" stroke-width="2"/>
+    <path d="M680 435 L764 314 L849 435 Z" fill="#100c0d" stroke="#8f612e" stroke-width="2"/>
+  </g>
+
+  <g transform="translate(128 102)" fill="none" stroke="#e6b55f" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 78 C58 12 154 12 212 78 C154 144 58 144 0 78 Z" stroke-width="7"/>
+    <ellipse cx="106" cy="78" rx="41" ry="41" stroke-width="7"/>
+    <circle cx="106" cy="78" r="13" fill="#e6b55f" stroke="none"/>
+    <path d="M13 124 C52 138 77 151 105 172 C81 167 57 166 33 171" stroke-width="7"/>
+    <path d="M199 124 C167 141 139 153 111 173" stroke-width="7"/>
+    <path d="M120 177 C141 187 155 201 163 224" stroke-width="7"/>
+  </g>
+
+  <text x="128" y="378" fill="#f6ead0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="92" font-weight="800" letter-spacing="10">RA</text>
+  <text x="340" y="369" fill="#d9b86f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="34" font-weight="700" letter-spacing="5">RELIC AGENT</text>
+  <text x="130" y="420" fill="#d3c4ad" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" letter-spacing="1">Local-first AI coding orchestration for builders who want many minds, not one expensive prompt.</text>
+
+  <g transform="translate(130 467)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17" font-weight="700">
+    <rect width="178" height="42" rx="21" fill="#1d1718" stroke="#72512c"/>
+    <text x="22" y="27" fill="#f1d395">LOCAL FIRST</text>
+    <rect x="194" width="185" height="42" rx="21" fill="#1d1718" stroke="#72512c"/>
+    <text x="216" y="27" fill="#f1d395">76+ AGENTS</text>
+    <rect x="395" width="205" height="42" rx="21" fill="#1d1718" stroke="#72512c"/>
+    <text x="417" y="27" fill="#f1d395">MIXTURE OF AGENTS</text>
+    <rect x="616" width="210" height="42" rx="21" fill="#1d1718" stroke="#72512c"/>
+    <text x="638" y="27" fill="#f1d395">CONTEXT AWARE</text>
+  </g>
+</svg>

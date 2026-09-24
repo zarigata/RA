@@ -142,6 +142,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   let streamedThisTurn = "";
   let paletteOpen = false;
   let paletteViaSlash = false;
+  let paletteEditorBase: { text: string; cursor: number } | null = null;
   let paletteRows: PaletteRow[] = [];
   let paletteSelected = 0;
   let paletteScroll = 0;
@@ -474,6 +475,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   // ---------- palette / modal actions ----------
   const openPalette = (query: string) => {
     modal = null;
+    paletteEditorBase = { text: editor.text, cursor: editor.cursor };
     paletteOpen = true;
     paletteViaSlash = query.startsWith("/");
     editor.text = query;
@@ -483,10 +485,17 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     refreshPalette();
     scheduleRender();
   };
-  const closePalette = () => {
+  const closePalette = (keepEditor = false) => {
     paletteOpen = false;
     restoreThemePreview();
-    if (paletteViaSlash && editor.text.startsWith("/")) { editor.text = ""; editor.cursor = 0; }
+    if (!keepEditor && paletteEditorBase) {
+      editor.text = paletteEditorBase.text;
+      editor.cursor = paletteEditorBase.cursor;
+    } else if (!keepEditor && paletteViaSlash && editor.text.startsWith("/")) {
+      editor.text = "";
+      editor.cursor = 0;
+    }
+    paletteEditorBase = null;
     paletteViaSlash = false;
     scheduleRender();
   };
@@ -836,35 +845,32 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (!paletteOpen || !paletteRows[paletteSelected]) return;
         const entry = paletteRows[paletteSelected].entry;
         const action = entry.action;
+        if (action.type === "insert") {
+          // Restore the underlying prompt first, then apply the semantic insert
+          // action at its original cursor. Slash-opened palettes have no base,
+          // so they naturally insert into an empty prompt.
+          closePalette();
+          runAction(action as unknown as Record<string, unknown>);
+          return;
+        }
         if (action.type === "command") {
           editor.text = action.command + " ";
           editor.cursor = editor.text.length;
-          refreshPalette();
-          render();
+          closePalette(true);
           return;
         }
-        if (action.type === "insert") {
-          // Palette text is a search query, not prompt content. Replace it with
-          // the action's insertion text so file rows produce "@path " rather
-          // than appending the display label to "/query".
-          editor.text = action.text;
-          editor.cursor = editor.text.length;
-          if (entry.category === "file") {
-            closePalette();
-            return;
-          }
-          refreshPalette();
-          render();
-          return;
-        }
-        const label = entry.label;
-        editor.text = insertAtCursor(label);
-        editor.cursor += label.length;
-        closePalette();
+        editor.text = entry.label;
+        editor.cursor = editor.text.length;
+        closePalette(true);
         return;
       }
       case "shifttab":
-        if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); paletteScroll = Math.min(paletteScroll, paletteSelected); render(); }
+        if (paletteOpen) {
+          paletteSelected = Math.max(0, paletteSelected - 1);
+          paletteScroll = Math.min(paletteScroll, paletteSelected);
+          livePreview();
+          render();
+        }
         return;
       case "up":
         if (modal?.kind === "menu") {
@@ -941,7 +947,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         }
         editor.text = insertAtCursor(k.text);
         editor.cursor += k.text.length;
-        if (!paletteOpen && editor.text.startsWith("/") && !editor.text.includes(" ")) { paletteViaSlash = true; paletteOpen = true; }
+        if (!paletteOpen && editor.text.startsWith("/") && !editor.text.includes(" ")) {
+          paletteEditorBase = null;
+          paletteViaSlash = true;
+          paletteOpen = true;
+        }
         if (paletteOpen) refreshPalette();
         render();
         return;

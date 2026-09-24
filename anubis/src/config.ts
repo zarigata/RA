@@ -3,6 +3,7 @@
 import { readFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { createHash } from "node:crypto";
 import type { RouterConfig } from "./router.ts";
 import type { ContextPolicyConfig } from "./context-limits.ts";
 
@@ -93,9 +94,25 @@ export function loadRaConfig(root = RA_HOME): RaConfig {
   return applyEnvOverrides(cfg);
 }
 
-export function sessionPath(projectCwd: string): string {
+/** Collision-resistant key for per-project state stored under ~/.ra. */
+export function projectStateKey(projectCwd: string): string {
+  const readable = projectCwd
+    .replace(/[\\/]+/g, "_")
+    .replace(/[^A-Za-z0-9._-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(-72) || "default";
+  const hash = createHash("sha256").update(projectCwd).digest("hex").slice(0, 16);
+  return `${readable}-${hash}`;
+}
+
+/** Pre-ra.79 path, retained only so existing sessions can still be read. */
+export function legacySessionPath(projectCwd: string): string {
   const slug = projectCwd.replace(/\//g, "_").replace(/^_|_$/g, "") || "default";
   return join(RA_GLOBAL, "sessions", `${slug}.json`);
+}
+
+export function sessionPath(projectCwd: string): string {
+  return join(RA_GLOBAL, "sessions", `${projectStateKey(projectCwd)}.json`);
 }
 
 /** Optional per-project overrides from cwd/.ra/project.json (written by `ra init`) */

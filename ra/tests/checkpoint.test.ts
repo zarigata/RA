@@ -1,10 +1,22 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { snapshotFile, restoreLatest, listCheckpoints, clearCheckpoints } from "../src/server/checkpoint.ts";
+import { snapshotFile, restoreLatest, listCheckpoints, clearCheckpoints, checkpointContent } from "../src/server/checkpoint.ts";
 
 describe("checkpoint/undo", () => {
+  test("checkpoint snapshots remain readable through the API", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-cp-private-"));
+    try {
+      writeFileSync(join(cwd, "secret-source.txt"), "private source");
+      snapshotFile(cwd, "secret-source.txt");
+      expect(checkpointContent(cwd, "secret-source.txt")).toBe("private source");
+    } finally {
+      clearCheckpoints(cwd);
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
   test("snapshot then restore reverts a file", () => {
     const cwd = mkdtempSync(join(tmpdir(), "ra-cp-"));
     try {

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, chmodSync } from "node:fs";
-import { join } from "node:path";
-import { sessionPath, RA_GLOBAL, type RaConfig } from "../../../anubis/src/config.ts";
+import { join, basename } from "node:path";
+import { sessionPath, legacySessionPath, RA_GLOBAL, type RaConfig } from "../../../anubis/src/config.ts";
 import { redact } from "../../../anubis/src/redact.ts";
 
 export interface Message {
@@ -19,8 +19,10 @@ export interface Session {
 }
 
 export function loadSession(cwd: string): Session {
-  const p = sessionPath(cwd);
-  if (existsSync(p)) return JSON.parse(readFileSync(p, "utf-8")) as Session;
+  const current = sessionPath(cwd);
+  if (existsSync(current)) return JSON.parse(readFileSync(current, "utf-8")) as Session;
+  const legacy = legacySessionPath(cwd);
+  if (legacy !== current && existsSync(legacy)) return JSON.parse(readFileSync(legacy, "utf-8")) as Session;
   return { id: cwd, cwd, messages: [], simpleMode: false, created: Date.now() };
 }
 
@@ -40,33 +42,27 @@ export function appendMessage(session: Session, role: Message["role"], content: 
 export function listSessions(): Session[] {
   const dir = join(RA_GLOBAL, "sessions");
   if (!existsSync(dir)) return [];
-  const out: Session[] = [];
+  const byId = new Map<string, { session: Session; canonical: boolean }>();
   for (const f of readdirSync(dir)) {
     if (!f.endsWith(".json")) continue;
     try {
-      const s = JSON.parse(readFileSync(join(dir, f), "utf-8")) as Session;
-      if (s && typeof s.cwd === "string") out.push(s);
+      const session = JSON.parse(readFileSync(join(dir, f), "utf-8")) as Session;
+      if (!session || typeof session.cwd !== "string" || typeof session.id !== "string") continue;
+      const canonical = basename(sessionPath(session.cwd)) === f;
+      const prev = byId.get(session.id);
+      if (!prev || (canonical && !prev.canonical)) byId.set(session.id, { session, canonical });
     } catch {
       /* skip corrupt session files */
     }
   }
-  return out.sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+  return [...byId.values()]
+    .map((x) => x.session)
+    .sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
 }
 
 /** Find a session by id. Returns the session or null. */
 export function findSession(id: string): Session | null {
-  const dir = join(RA_GLOBAL, "sessions");
-  if (!existsSync(dir)) return null;
-  for (const f of readdirSync(dir)) {
-    if (!f.endsWith(".json")) continue;
-    try {
-      const s = JSON.parse(readFileSync(join(dir, f), "utf-8")) as Session;
-      if (s.id === id) return s;
-    } catch {
-      /* skip corrupt session files */
-    }
-  }
-  return null;
+  return listSessions().find((s) => s.id === id) ?? null;
 }
 
 /** Switch the "active" session by writing a pointer file. The TUI reads this on startup. */
@@ -91,23 +87,24 @@ export function getActiveSession(): Session | null {
   }
 }
 
-/** Delete a session by id. Returns true if a file was removed. */
+/** Delete a session by id. Removes canonical and legacy copies. */
 export function deleteSession(id: string): boolean {
   const dir = join(RA_GLOBAL, "sessions");
   if (!existsSync(dir)) return false;
+  let removed = false;
   for (const f of readdirSync(dir)) {
     if (!f.endsWith(".json")) continue;
     try {
-      const s = JSON.parse(readFileSync(join(dir, f), "utf-8")) as Session;
-      if (s.id === id) {
+      const session = JSON.parse(readFileSync(join(dir, f), "utf-8")) as Session;
+      if (session.id === id) {
         unlinkSync(join(dir, f));
-        return true;
+        removed = true;
       }
     } catch {
       /* skip */
     }
   }
-  return false;
+  return removed;
 }
 
 /** One-line reattach summary for a session with prior messages. */

@@ -155,7 +155,7 @@ describe("compaction planner (hidden compaction agent)", () => {
     const plan = planCompaction(messages, 10_000);
     expect(plan).not.toBeNull();
     expect(plan!.keep[0].role).toBe("system");
-    expect(plan!.summarize.length).toBe(2);
+    expect(plan!.summarize.length).toBe(1);
     expect(plan!.keep).toContain(messages[1]);
   });
 

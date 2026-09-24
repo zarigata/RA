@@ -33,6 +33,7 @@ import { decodeKeys, type Key } from "./keys.ts";
 import { MOUSE_ENTER, MOUSE_EXIT, ALT_ENTER, ALT_EXIT, PASTE_ENTER, PASTE_EXIT, SYNC_BEGIN, SYNC_END, CURSOR_HIDE, CURSOR_SHOW, fg as hexFg, bg as hexBg } from "./mouse.ts";
 import { renderSplashFrame, parseOscColorReply, luminance, OSC_TITLE, OSC_QUERY_BG } from "./splash.ts";
 import { renderMenuOverlay, renderShortcutsOverlay, renderOnboardingOverlay, type MenuEntry } from "./overlays.ts";
+import { buildHeader, buildInputLabel, footerHints, getTuiGlyphs, useAsciiGlyphs, workspaceLabel } from "./chrome.ts";
 import { visibleCatalog } from "../agents/catalog.ts";
 
 export type { TuiOptions };
@@ -86,6 +87,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   const stdin = process.stdin;
   const stdout = process.stdout;
   const prefs = loadPrefs();
+  const glyphs = getTuiGlyphs(useAsciiGlyphs(process.env));
   let onboarded = prefs.onboarded === true;
   let savedTheme = prefs.theme;
   stdin.setRawMode(true);
@@ -318,23 +320,23 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     for (const seg of segments) {
       if (seg.kind === "user") {
         lines.push("");
-        lines.push(sty.user("  ▸ you"));
+        lines.push(sty.user(`  ${glyphs.user} you`));
         for (const l of renderMarkdown(seg.text, mdStyle, width - 4)) lines.push(`    ${l}`);
       } else if (seg.kind === "assistant") {
         lines.push("");
-        lines.push(sty.ok("  ◆ RA"));
+        lines.push(sty.ok(`  ${glyphs.assistant} RA`));
         for (const l of renderMarkdown(seg.text, mdStyle, width - 4)) lines.push(`  ${l}`);
       } else if (seg.kind === "info") {
         lines.push("");
         for (const l of seg.text.split("\n")) lines.push(sty.muted(`  ${l}`));
       } else {
-        lines.push(sty.warn(`  ⚠ ${seg.text}`));
+        lines.push(sty.warn(`  ${glyphs.warning} ${seg.text}`));
       }
     }
     if (streaming) {
       lines.push("");
-      lines.push(sty.ok("  ◆ RA"));
-      for (const l of renderMarkdown(streaming.text + "▌", mdStyle, width - 4)) lines.push(`  ${l}`);
+      lines.push(sty.ok(`  ${glyphs.assistant} RA`));
+      for (const l of renderMarkdown(streaming.text + glyphs.streaming, mdStyle, width - 4)) lines.push(`  ${l}`);
     }
     return lines;
   };
@@ -344,8 +346,17 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     const out: string[] = [];
 
     const cwdShort = opts.cwd.replace(/^\/Users\/[^/]+/, "~");
-    const busyTag = busy ? `  ● ${statusText || "busy"}` : "";
-    const header = ` 𓃡 ${APP_NAME} ${RA_VERSION}  ·  ${config.profile ?? "default"}  ·  small ${short(config.small_model)} · big ${short(config.model)}${busyTag}`;
+    const header = buildHeader({
+      width: W,
+      app: APP_NAME,
+      version: RA_VERSION,
+      profile: config.profile ?? "default",
+      smallModel: config.small_model,
+      bigModel: config.model,
+      busy,
+      status: statusText || "busy",
+      glyphs,
+    });
     out.push(sty.bar(fit(W, header)));
 
     if (paletteOpen) {
@@ -381,7 +392,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       scrollOffset = Math.min(scrollOffset, Math.max(0, vLines.length - maxVisible));
     }
 
-    const label = busy ? ` ⣿ ${SPINNER[spinnerFrame % SPINNER.length]} ${statusText || "working…"} ` : ` ${APP_NAME} › type / to search everything · ? for shortcuts `;
+    const label = buildInputLabel({ app: APP_NAME, busy, status: statusText, spinner: SPINNER[spinnerFrame % SPINNER.length], glyphs });
     const cursorAt = Math.min(editor.cursor, editor.text.length);
     const before = editor.text.slice(0, cursorAt);
     const at = editor.text.slice(cursorAt, cursorAt + 1) || " ";
@@ -391,16 +402,10 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     out.push(sty.accent("│") + fit(W - 2, inputLine) + sty.accent("│"));
     out.push(sty.accent(`╰${"─".repeat(Math.max(0, W - 2))}╯`));
 
-    const chips: Array<[string, string]> = [
-      ["/", "everything"],
-      ["ctrl+p", "palette"],
-      ["?", "shortcuts"],
-      ["esc", busy ? "cancel" : "close"],
-      ["ctrl+d", "quit"],
-    ];
+    const chips = footerHints(busy);
     let chipLine = " ";
     for (const [k, v] of chips) chipLine += sty.bar(` ${k} `) + sty.chip(` ${v} `);
-    const right = `${cwdShort}${branch() ? ` · ⑂ ${branch()}` : ""} · ${themeId.current}`;
+    const right = workspaceLabel({ cwd: cwdShort, branch: branch(), theme: themeId.current, glyphs });
     out.push(fit(Math.max(0, W - visibleWidth(right) - 1), chipLine) + sty.muted(right));
 
     // modals paint over the base frame

@@ -1,6 +1,6 @@
 // Checkpoint/undo — snapshot files before an agent edit batch, restore on demand.
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, chmodSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { RA_GLOBAL } from "../../../anubis/src/config.ts";
 
@@ -32,8 +32,11 @@ function loadManifest(cwd: string): Checkpoint[] {
 
 function saveManifest(cwd: string, list: Checkpoint[]): void {
   const dir = checkpointDir(cwd);
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(manifestPath(cwd), JSON.stringify(list, null, 2), "utf-8");
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  try { chmodSync(dir, 0o700); } catch { /* best effort on non-POSIX filesystems */ }
+  const manifest = manifestPath(cwd);
+  writeFileSync(manifest, JSON.stringify(list, null, 2), { encoding: "utf-8", mode: 0o600 });
+  try { chmodSync(manifest, 0o600); } catch { /* best effort on non-POSIX filesystems */ }
 }
 
 /**
@@ -54,8 +57,9 @@ export function snapshotFile(cwd: string, relPath: string): string | null {
   if (cp.files.includes(relPath)) return cp.id;
   if (!cp.files.includes(relPath)) cp.files.push(relPath);
   const store = join(checkpointDir(cwd), cp.id, relPath);
-  mkdirSync(dirname(store), { recursive: true });
-  writeFileSync(store, content, "utf-8");
+  mkdirSync(dirname(store), { recursive: true, mode: 0o700 });
+  writeFileSync(store, content, { encoding: "utf-8", mode: 0o600 });
+  try { chmodSync(store, 0o600); } catch { /* best effort on non-POSIX filesystems */ }
   saveManifest(cwd, list);
   return cp.id;
 }

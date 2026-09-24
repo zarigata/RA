@@ -66,4 +66,23 @@ describe("daemon", () => {
     const text = await res.text();
     expect(text).toContain("RA Dashboard");
   });
+
+  test("dashboard escapes session metadata", async () => {
+    const evil = `<img src=x onerror="alert(1)">`;
+    try {
+      const post = await fetch(`${base}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd: evil, role: "user", content: "x" }),
+      });
+      expect(post.status).toBe(200);
+
+      const res = await fetch(`${base}/`);
+      const html = await res.text();
+      expect(html).not.toContain(evil);
+      expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+    } finally {
+      await fetch(`${base}/session?id=${encodeURIComponent(evil)}`, { method: "DELETE" });
+    }
+  });
 });

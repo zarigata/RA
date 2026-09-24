@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadSession, saveSession, appendMessage, listSessions, deleteSession, findSession, switchSession, getActiveSession, formatSessions, exportSession, formatReattach } from "../src/server/session.ts";
-import { RA_GLOBAL } from "../../anubis/src/config.ts";
+import { RA_GLOBAL, sessionPath } from "../../anubis/src/config.ts";
 
 describe("session persistence", () => {
   test("loadSession returns a fresh session for unknown cwd", () => {
@@ -28,6 +28,20 @@ describe("session persistence", () => {
       expect(reloaded.messages[0].content).toBe("hello");
     } finally {
       rmSync(cwd, { recursive: true });
+    }
+  });
+
+
+  test("persisted session files are owner-only on POSIX", () => {
+    if (process.platform === "win32") return;
+    const cwd = mkdtempSync(join(tmpdir(), "ra-sess-mode-"));
+    try {
+      const session = loadSession(cwd);
+      appendMessage(session, "user", "private");
+      expect(statSync(sessionPath(cwd)).mode & 0o777).toBe(0o600);
+    } finally {
+      rmSync(cwd, { recursive: true });
+      rmSync(sessionPath(cwd), { force: true });
     }
   });
 

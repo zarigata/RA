@@ -1,6 +1,6 @@
 // src/config.ts — load ra.json with anubis.json fallback + profile merge
 
-import { readFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { RouterConfig } from "./router.ts";
@@ -73,7 +73,8 @@ export interface RaConfig extends RouterConfig {
 
 export function ensureRaDirs(): void {
   for (const d of [RA_GLOBAL, join(RA_GLOBAL, "sessions"), join(RA_GLOBAL, "benchmarks")]) {
-    if (!existsSync(d)) mkdirSync(d, { recursive: true });
+    if (!existsSync(d)) mkdirSync(d, { recursive: true, mode: 0o700 });
+    try { chmodSync(d, 0o700); } catch { /* best effort on non-POSIX filesystems */ }
   }
 }
 

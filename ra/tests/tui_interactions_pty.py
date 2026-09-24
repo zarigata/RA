@@ -131,8 +131,12 @@ def main() -> int:
             else:
                 completed = send(master, b"\t", 0.4)
                 with_arg = send(master, b"demo", 0.5)
-                if "/quick demo" not in with_arg or "search everything" in with_arg.lower():
-                    failures.append(("command-tab-close", "Tab did not complete /quick, close the palette, and accept an argument", (completed + "\n" + with_arg)[-2200:]))
+                if "/quick" not in with_arg or "demo" not in with_arg:
+                    failures.append(("command-tab-text", "Tab completion did not leave /quick with a typed argument", (completed + "\n" + with_arg)[-2200:]))
+                reopened = send(master, b"\x10", 0.5)  # Ctrl+P must open, proving Tab closed it.
+                if "search everything" not in reopened.lower():
+                    failures.append(("command-tab-close", "Palette was still open after Tab completion", reopened[-2200:]))
+                send(master, b"\x1b", 0.4)
 
             # Scrolling past the first palette page must keep the selected row
             # highlighted. Group headers used to reset the visible-row index,

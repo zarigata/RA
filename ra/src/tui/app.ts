@@ -782,7 +782,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
             if (keyTrace) keyLog(`ctrl+c abort -> ${aborted} (activeRuns=${activeRunCount()})`);
             statusText = aborted ? "cancelling…" : "finishing…";
           }
-          else { editor.text = ""; editor.cursor = 0; }
+          else {
+            editor.text = "";
+            editor.cursor = 0;
+            if (paletteOpen) refreshPalette();
+          }
           scheduleRender();
           return;
         }
@@ -792,7 +796,13 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           return;
         }
         if (k.name === "l") { segments.length = 0; scheduleRender(); return; }
-        if (k.name === "u") { editor.text = ""; editor.cursor = 0; scheduleRender(); return; }
+        if (k.name === "u") {
+          editor.text = "";
+          editor.cursor = 0;
+          if (paletteOpen) refreshPalette();
+          scheduleRender();
+          return;
+        }
         return;
       case "escape":
         if (keyTrace) keyLog(`escape key: modal=${modal?.kind ?? "-"} mixture=${pendingMixture !== null} palette=${paletteOpen} busy=${busy}`);

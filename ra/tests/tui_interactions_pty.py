@@ -110,6 +110,18 @@ def main() -> int:
                 if "@src/app.ts" not in inserted:
                     failures.append(("file-tab-insert", "Tab did not insert @src/app.ts into the prompt", inserted[-2200:]))
 
+            # Scrolling past the first palette page must keep the selected row
+            # highlighted. Group headers used to reset the visible-row index,
+            # making the selection marker disappear and mouse hitboxes drift.
+            send(master, b"\x15", 0.3)  # Ctrl+U
+            send(master, b"\x10", 0.4)  # Ctrl+P
+            os.write(master, b"\x1b[B" * 20)
+            raw_scroll = drain(master, 1.0)
+            last_frame = clean(raw_scroll.split(b"\x1b[H")[-1])
+            if "▌" not in last_frame:
+                failures.append(("palette-scroll-selection", "Selection marker disappeared after scrolling the palette", last_frame[-2600:]))
+            send(master, b"\x1b", 0.4)
+
             send(master, b"\x04", 0.3)  # Ctrl+D
         finally:
             if p.poll() is None:
@@ -128,7 +140,7 @@ def main() -> int:
             print(f"\nFAIL: {name}\n{message}\n--- terminal evidence ---\n{evidence}")
         return 1
 
-    print("RA TUI PTY: theme preview restore + file Tab insertion PASS")
+    print("RA TUI PTY: theme preview restore + file Tab insertion + scroll selection PASS")
     return 0
 
 

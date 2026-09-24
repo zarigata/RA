@@ -309,12 +309,6 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (Date.now() - branchAt > 10_000) { branchCache = gitBranch(); branchAt = Date.now(); }
     return branchCache;
   };
-  const short = (model?: string): string => {
-    if (!model) return "?";
-    const bare = model.includes("/") ? model.split("/").pop()! : model;
-    return bare.length > 24 ? bare.slice(0, 23) + "…" : bare;
-  };
-
   const renderViewportLines = (width: number): string[] => {
     const lines: string[] = [];
     for (const seg of segments) {

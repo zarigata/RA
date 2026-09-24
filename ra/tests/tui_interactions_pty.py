@@ -121,6 +121,18 @@ def main() -> int:
                 if "review @src/app.ts" not in inserted:
                     failures.append(("file-tab-insert", "Tab did not insert @src/app.ts into the existing prompt", inserted[-2200:]))
 
+            # Clearing a palette query must also recompute results; otherwise
+            # an empty query can keep showing stale "no matches" rows.
+            send(master, b"\x15", 0.3)  # Ctrl+U
+            send(master, b"\x10", 0.4)  # Ctrl+P
+            no_matches = send(master, b"zzzzzzzz", 0.5)
+            if "no matches" not in no_matches.lower():
+                failures.append(("palette-clear-precondition", "Impossible query did not produce no matches", no_matches[-2200:]))
+            cleared = send(master, b"\x15", 0.5)  # Ctrl+U inside palette
+            if "no matches" in cleared.lower() or "/quick" not in cleared:
+                failures.append(("palette-clear-refresh", "Ctrl+U cleared the query without refreshing palette results", cleared[-2200:]))
+            send(master, b"\x1b", 0.4)
+
             # Command completion should leave the completed command in the
             # editor and close the palette so arguments can be typed normally.
             send(master, b"\x15", 0.3)  # Ctrl+U

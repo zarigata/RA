@@ -128,9 +128,10 @@ def main() -> int:
             no_matches = send(master, b"zzzzzzzz", 0.5)
             if "no matches" not in no_matches.lower():
                 failures.append(("palette-clear-precondition", "Impossible query did not produce no matches", no_matches[-2200:]))
+            send(master, b"\x1b[B", 0.2)  # Down with no rows must not create index -1.
             cleared = send(master, b"\x15", 0.5)  # Ctrl+U inside palette
-            if "no matches" in cleared.lower() or "/quick" not in cleared:
-                failures.append(("palette-clear-refresh", "Ctrl+U cleared the query without refreshing palette results", cleared[-2200:]))
+            if "no matches" in cleared.lower() or "/quick" not in cleared or "▌" not in cleared:
+                failures.append(("palette-clear-refresh", "Clearing an empty result set did not restore fresh results with a valid selection", cleared[-2200:]))
             send(master, b"\x1b", 0.4)
 
             # Command completion should leave the completed command in the

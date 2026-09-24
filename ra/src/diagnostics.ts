@@ -113,7 +113,7 @@ export class LspClient {
   private proc: ReturnType<typeof Bun.spawn> | null = null;
   private nextId = 1;
   private pending = new Map<number, (result: unknown) => void>();
-  private buffer = "";
+  private buffer = Buffer.alloc(0);
   private initialized = false;
 
   constructor(private config: LspServerConfig, private cwd: string) {}
@@ -134,11 +134,10 @@ export class LspClient {
     // Read newline-delimited JSON-RPC (LSP uses Content-Length headers)
     const reader = this.proc.stdout.getReader();
     void (async () => {
-      const decoder = new TextDecoder();
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        this.buffer += decoder.decode(value, { stream: true });
+        this.buffer = Buffer.concat([this.buffer, Buffer.from(value)]);
         this.parseLspMessages();
       }
     })();
@@ -156,21 +155,22 @@ export class LspClient {
   }
 
   private parseLspMessages(): void {
-    // LSP messages: Content-Length: N\r\n\r\n{json}
+    // LSP Content-Length is measured in bytes, not JavaScript characters.
+    const separator = Buffer.from("\r\n\r\n");
     while (true) {
-      const headerEnd = this.buffer.indexOf("\r\n\r\n");
+      const headerEnd = this.buffer.indexOf(separator);
       if (headerEnd < 0) break;
-      const headers = this.buffer.slice(0, headerEnd);
+      const headers = this.buffer.subarray(0, headerEnd).toString("ascii");
       const lengthMatch = headers.match(/Content-Length:\s*(\d+)/i);
       if (!lengthMatch) {
-        this.buffer = this.buffer.slice(headerEnd + 4);
+        this.buffer = this.buffer.subarray(headerEnd + separator.length);
         continue;
       }
       const length = parseInt(lengthMatch[1], 10);
-      const bodyStart = headerEnd + 4;
+      const bodyStart = headerEnd + separator.length;
       if (this.buffer.length < bodyStart + length) break;
-      const body = this.buffer.slice(bodyStart, bodyStart + length);
-      this.buffer = this.buffer.slice(bodyStart + length);
+      const body = this.buffer.subarray(bodyStart, bodyStart + length).toString("utf-8");
+      this.buffer = this.buffer.subarray(bodyStart + length);
       try {
         const msg = JSON.parse(body);
         if (msg.id !== undefined && this.pending.has(msg.id)) {
@@ -226,7 +226,7 @@ export class LspClient {
       const items = (result as { items?: Array<{ message: string; severity?: number; range?: { start: { line: number } } }> })?.items ?? [];
       return items.map((item) => ({
         file,
-        line: item.range?.start.line ? item.range.start.line + 1 : undefined,
+        line: item.range?.start.line !== undefined ? item.range.start.line + 1 : undefined,
         severity: item.severity === 1 ? "error" : "warning",
         message: item.message,
       }));

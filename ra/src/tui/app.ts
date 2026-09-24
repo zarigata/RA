@@ -115,6 +115,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   const themeId = { current: savedTheme ?? config.theme ?? "pharaonic" };
   let palette: ColorPalette = getPalette(themeId.current);
   let previewing = false;
+  let previewThemeOrigin: string | null = null;
   const scrollSpeed = Math.max(1, prefs.scrollSpeed ?? 3);
   const mdStyle = { accent: (s: string) => sty.accent(s), muted: (s: string) => sty.muted(s), strong: (s: string) => sty.strong(s), error: (s: string) => sty.err(s) };
 
@@ -279,6 +280,13 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     palette = getPalette(id);
     themeId.current = id;
     if (persist) savePrefs({ ...prefs, theme: id });
+  };
+  const restoreThemePreview = () => {
+    if (!previewing) return;
+    const original = previewThemeOrigin;
+    previewing = false;
+    previewThemeOrigin = null;
+    if (original) setTheme(original, false);
   };
 
   void collectProjectFiles(opts.cwd).then((f) => { projectFiles = f; if (paletteOpen) { refreshPalette(); scheduleRender(); } }).catch(() => {});
@@ -476,7 +484,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   };
   const closePalette = () => {
     paletteOpen = false;
-    if (previewing) { previewing = false; setTheme(themeId.current, false); }
+    restoreThemePreview();
     if (paletteViaSlash && editor.text.startsWith("/")) { editor.text = ""; editor.cursor = 0; }
     paletteViaSlash = false;
     scheduleRender();
@@ -825,18 +833,33 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         return;
       case "tab": {
         if (!paletteOpen || !paletteRows[paletteSelected]) return;
-        const label = paletteRows[paletteSelected].entry.label;
-        if (/^(agent:|\/)/.test(label)) {
-          editor.text = label + " ";
+        const entry = paletteRows[paletteSelected].entry;
+        const action = entry.action;
+        if (action.type === "command") {
+          editor.text = action.command + " ";
           editor.cursor = editor.text.length;
           refreshPalette();
-        } else {
-          editor.text = insertAtCursor(label);
-          editor.cursor += label.length;
-          closePalette();
+          render();
           return;
         }
-        render();
+        if (action.type === "insert") {
+          // Palette text is a search query, not prompt content. Replace it with
+          // the action's insertion text so file rows produce "@path " rather
+          // than appending the display label to "/query".
+          editor.text = action.text;
+          editor.cursor = editor.text.length;
+          if (entry.category === "file") {
+            closePalette();
+            return;
+          }
+          refreshPalette();
+          render();
+          return;
+        }
+        const label = entry.label;
+        editor.text = insertAtCursor(label);
+        editor.cursor += label.length;
+        closePalette();
         return;
       }
       case "shifttab":
@@ -928,11 +951,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   const livePreview = () => {
     const row = paletteRows[paletteSelected];
     if (row?.entry.category === "theme" && row.entry.action.type === "theme") {
+      if (!previewing) previewThemeOrigin = themeId.current;
       previewing = true;
       setTheme(String((row.entry.action as { theme: string }).theme), false);
-    } else if (previewing) {
-      previewing = false;
-      setTheme(themeId.current, false);
+    } else {
+      restoreThemePreview();
     }
   };
 

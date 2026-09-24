@@ -144,7 +144,7 @@ describe("compaction planner (hidden compaction agent)", () => {
     expect(planCompaction([msg("system", "s"), msg("user", "u"), msg("assistant", "a")], 1000)).toBeNull();
   });
 
-  test("over threshold: keeps system + last exchange, summarizes the middle", () => {
+  test("over threshold: keeps system, original task + last exchange, summarizes the middle", () => {
     const messages = [
       msg("system", "s".repeat(100)),
       msg("user", "task"),
@@ -155,8 +155,8 @@ describe("compaction planner (hidden compaction agent)", () => {
     const plan = planCompaction(messages, 10_000);
     expect(plan).not.toBeNull();
     expect(plan!.keep[0].role).toBe("system");
-    expect(plan!.summarize.length).toBe(2);
-    expect(plan!.keep).not.toContain(messages[1]);
+    expect(plan!.summarize.length).toBe(1);
+    expect(plan!.keep).toContain(messages[1]);
   });
 
   test("short conversations are never compacted", () => {

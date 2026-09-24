@@ -25,3 +25,10 @@ Rules:
 - If a role fails, retry once, then report the failure honestly.
 - Keep the user informed of which model each role is using.
 - Prefer local models for simple tasks; use cloud models only when the task requires it.
+
+Execution discipline:
+- Inspect the repository and its instructions before proposing edits. Keep a short, explicit list of files and acceptance criteria for multi-file tasks.
+- Delegate bounded independent research or review when useful; give each agent a concrete deliverable and file scope. Do not count an agent's claim as verification.
+- After implementation, inspect the actual diff, run the narrow relevant tests, and fix failures before reporting completion.
+- When context is constrained, retain the original user objective, explicit constraints, changed paths, test results, outstanding work, and next action in the handoff. Do not replace these facts with a vague narrative.
+- Treat model-reported context as a ceiling; respect the configured server cap and leave space for the next tool result and response.

@@ -611,7 +611,9 @@ export function planCompaction(
 ): CompactionPlan | null {
   const total = messages.reduce((n, m) => n + m.content.length, 0);
   if (total <= thresholdChars || messages.length < 5) return null;
-  const keep = [messages[0], messages[messages.length - 2], messages[messages.length - 1]].filter(Boolean);
+  const taskIndex = messages.findIndex((m, i) => i > 0 && m.role === "user" && m.content.startsWith("Task: "));
+  const original = messages[taskIndex >= 0 ? taskIndex : 1];
+  const keep = [...new Set([messages[0], original, messages[messages.length - 2], messages[messages.length - 1]])];
   const keepSet = new Set(keep);
   const summarize = messages.slice(1, -2).filter((m) => !keepSet.has(m));
   if (!summarize.length) return null;
@@ -628,7 +630,12 @@ async function compactConversation(plan: CompactionPlan, config: RaConfig): Prom
   const smallId = config.small_model ?? config.model;
   const smallUsable = usableContext(modelMaxContext(smallId, config), smallId, modelKind(smallId, config), policy).windowTokens;
   const cap = Math.min(40_000, Math.floor(smallUsable * 0.6 * 4));
-  const transcript = plan.summarize.map((m) => `${m.role}: ${m.content}`).join("\n\n").slice(0, cap);
+  const transcriptAll = plan.summarize.map((m) => `${m.role}: ${m.content}`).join("\n\n");
+  // Keep both the first decisions and the most recent work when the small
+  // summarizer cannot read the entire transcript. Mark omitted material.
+  const head = Math.floor(cap * 0.35);
+  const transcript = transcriptAll.length <= cap ? transcriptAll
+    : `${transcriptAll.slice(0, head)}\n\n[Earlier tool output omitted to fit summarizer context]\n\n${transcriptAll.slice(-(cap - head - 80))}`;
   const res = await withRetry(() => client.nativeChatStream(model, [
     { role: "system", content: loadAgentPrompt("compaction") },
     { role: "user", content: `Summarize this agent conversation so work can continue with full fidelity:\n\n${transcript}` },
@@ -863,14 +870,15 @@ async function executeTaskAgent(
       };
       const thresholdChars = Math.max(8_000, Math.floor(ledger.budgetTokens * policy.lowWatermark * 4));
       const plan = planCompaction(messages, thresholdChars);
-      if (plan && i - lastCompactStep >= 3) {
+      if (pressure !== "ok" && plan && i - lastCompactStep >= 3) {
         lastCompactStep = i;
         try {
           const summary = await compactConversation(plan, config);
+          if (!summary.trim()) throw new Error("Compaction returned an empty summary");
           messages.splice(0, messages.length,
-            plan.keep[0],
+            plan.keep[0], plan.keep[1],
             { role: "user", content: `[Earlier conversation compacted by the compaction agent]\n${summary}` },
-            ...plan.keep.slice(1));
+            ...plan.keep.slice(2));
           if (opts.stats) opts.stats.compactions++;
           renderer?.(`\n\x1b[2m[RA compaction: ${plan.summarize.length} messages folded into a summary]\x1b[0m\n`);
         } catch { /* compaction is best-effort */ }
@@ -893,10 +901,11 @@ async function executeTaskAgent(
         compacted = true;
         try {
           const summary = await compactConversation(plan, config);
+          if (!summary.trim()) throw new Error("Compaction returned an empty summary");
           messages.splice(0, messages.length,
-            plan.keep[0],
+            plan.keep[0], plan.keep[1],
             { role: "user", content: `[Earlier conversation compacted by the compaction agent]\n${summary}` },
-            ...plan.keep.slice(1));
+            ...plan.keep.slice(2));
           renderer?.(`\n\x1b[2m[RA compaction: ${plan.summarize.length} messages folded into a summary]\x1b[0m\n`);
         } catch { /* compaction is best-effort */ }
       }

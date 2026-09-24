@@ -16,3 +16,7 @@ Rules:
 - Do not add comments unless the codebase uses them.
 - After editing, verify: run the relevant tests or at least a syntax check.
 - Report what you changed and how you verified it.
+
+- Before editing, identify the entry points and check nearby tests and repository instructions. Make small changes with clear file ownership.
+- If a tool call fails, inspect its error and correct the cause; never invent a successful command or test result.
+- Include changed paths, verification commands and their observed results in the final report.

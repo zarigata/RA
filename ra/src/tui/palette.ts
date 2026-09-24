@@ -99,16 +99,16 @@ const GROUP_LABEL: Record<PaletteEntry["category"], string> = {
 };
 
 /** Insert a dim group header row whenever the category changes (pure). */
-export function groupRows(rows: PaletteRow[]): Array<{ kind: "header"; label: string } | { kind: "row"; row: PaletteRow }> {
-  const out: Array<{ kind: "header"; label: string } | { kind: "row"; row: PaletteRow }> = [];
+export function groupRows(rows: PaletteRow[]): Array<{ kind: "header"; label: string } | { kind: "row"; row: PaletteRow; index: number }> {
+  const out: Array<{ kind: "header"; label: string } | { kind: "row"; row: PaletteRow; index: number }> = [];
   let last = "";
-  for (const row of rows) {
+  rows.forEach((row, index) => {
     if (row.entry.category !== last) {
       last = row.entry.category;
       out.push({ kind: "header", label: GROUP_LABEL[last] });
     }
-    out.push({ kind: "row", row });
-  }
+    out.push({ kind: "row", row, index });
+  });
   return out;
 }
 

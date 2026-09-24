@@ -224,6 +224,18 @@ describe("@-mention file picker", () => {
     }
   });
 
+  test("does not inline credential files through @-mentions", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-mention-secret-"));
+    try {
+      writeFileSync(join(cwd, ".env"), "OPENAI_API_KEY=sk-test-secret-value\n");
+      const out = expandMentions("inspect @.env", cwd);
+      expect(out).toContain("@.env");
+      expect(out).not.toContain("sk-test-secret-value");
+    } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
   test("skips email-like tokens", () => {
     const cwd = mkdtempSync(join(tmpdir(), "ra-mention-"));
     try {

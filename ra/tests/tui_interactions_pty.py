@@ -41,7 +41,8 @@ def drain(master: int, seconds: float) -> bytes:
 
 def send(master: int, data: bytes, wait: float = 0.5) -> str:
     os.write(master, data)
-    return clean(drain(master, wait))
+    raw = drain(master, wait)
+    return clean(raw.split(b"\x1b[H")[-1])
 
 
 def main() -> int:
@@ -97,18 +98,40 @@ def main() -> int:
             if "pharaonic" not in restored.lower():
                 failures.append(("theme-preview-restore", "Esc did not restore the original pharaonic theme", restored[-2200:]))
 
-            # Clear the palette query left in the editor, then verify that Tab
-            # executes the file entry's insert action (@path) instead of its
-            # display label.
+            # Ctrl+P is an overlay: cancelling it must restore the prompt that
+            # was already being edited rather than replacing it with the query.
             send(master, b"\x15", 0.3)  # Ctrl+U
+            send(master, b"draft", 0.3)
+            send(master, b"\x10", 0.4)  # Ctrl+P
+            send(master, b"theme", 0.4)
+            cancelled = send(master, b"\x1b", 0.6)
+            if "draft" not in cancelled:
+                failures.append(("palette-cancel-prompt", "Ctrl+P + Esc did not restore the existing prompt", cancelled[-2200:]))
+
+            # File insertion must apply its semantic @path action to the saved
+            # prompt, not append a display label to the palette query.
+            send(master, b"\x15", 0.3)  # Ctrl+U
+            send(master, b"review ", 0.3)
             send(master, b"\x10", 0.4)  # Ctrl+P
             search = send(master, b"app.ts", 0.8)
             if "src/app.ts" not in search:
                 failures.append(("file-tab-precondition", "src/app.ts was not visible in palette results", search[-2200:]))
             else:
                 inserted = send(master, b"\t", 0.7)
-                if "@src/app.ts" not in inserted:
-                    failures.append(("file-tab-insert", "Tab did not insert @src/app.ts into the prompt", inserted[-2200:]))
+                if "review @src/app.ts" not in inserted:
+                    failures.append(("file-tab-insert", "Tab did not insert @src/app.ts into the existing prompt", inserted[-2200:]))
+
+            # Command completion should leave the completed command in the
+            # editor and close the palette so arguments can be typed normally.
+            send(master, b"\x15", 0.3)  # Ctrl+U
+            send(master, b"\x10", 0.4)  # Ctrl+P
+            command_search = send(master, b"quick", 0.5)
+            if "/quick" not in command_search:
+                failures.append(("command-tab-precondition", "/quick was not visible in palette results", command_search[-2200:]))
+            else:
+                completed = send(master, b"\t", 0.6)
+                if "/quick " not in completed or "search everything" in completed.lower():
+                    failures.append(("command-tab-close", "Tab did not complete /quick and close the palette", completed[-2200:]))
 
             # Scrolling past the first palette page must keep the selected row
             # highlighted. Group headers used to reset the visible-row index,
@@ -140,7 +163,7 @@ def main() -> int:
             print(f"\nFAIL: {name}\n{message}\n--- terminal evidence ---\n{evidence}")
         return 1
 
-    print("RA TUI PTY: theme preview restore + file Tab insertion + scroll selection PASS")
+    print("RA TUI PTY: preview restore + prompt preservation + Tab completion + scroll selection PASS")
     return 0
 
 

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, statSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { snapshotFile, restoreLatest, listCheckpoints, clearCheckpoints, checkpointContent } from "../src/server/checkpoint.ts";
-import { RA_GLOBAL } from "../../anubis/src/config.ts";
+import { RA_GLOBAL, projectStateKey } from "../../anubis/src/config.ts";
 
 describe("checkpoint/undo", () => {
   test("checkpoint snapshots are owner-only on POSIX", () => {
@@ -14,8 +14,7 @@ describe("checkpoint/undo", () => {
       expect(checkpointContent(cwd, "secret-source.txt")).toBe("private source");
       if (process.platform !== "win32") {
         const cp = listCheckpoints(cwd)[0];
-        const slug = cwd.replace(/\//g, "_").replace(/^_|_$/g, "") || "default";
-        const stored = join(RA_GLOBAL, "checkpoints", slug, cp.id, "secret-source.txt");
+        const stored = join(RA_GLOBAL, "checkpoints", projectStateKey(cwd), cp.id, "secret-source.txt");
         expect(statSync(stored).mode & 0o777).toBe(0o600);
       }
     } finally {
@@ -53,6 +52,31 @@ describe("checkpoint/undo", () => {
       expect(restoreLatest(cwd)).toEqual([]);
     } finally {
       rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("legacy-colliding project paths keep independent checkpoints", () => {
+    const root = mkdtempSync(join(tmpdir(), "ra-cp-collision-"));
+    const cwdA = join(root, "a", "b_c");
+    const cwdB = join(root, "a_b", "c");
+    try {
+      mkdirSync(cwdA, { recursive: true });
+      mkdirSync(cwdB, { recursive: true });
+      writeFileSync(join(cwdA, "same.txt"), "A original");
+      writeFileSync(join(cwdB, "same.txt"), "B original");
+      snapshotFile(cwdA, "same.txt");
+      snapshotFile(cwdB, "same.txt");
+      writeFileSync(join(cwdA, "same.txt"), "A changed");
+      writeFileSync(join(cwdB, "same.txt"), "B changed");
+
+      restoreLatest(cwdA);
+      restoreLatest(cwdB);
+      expect(readFileSync(join(cwdA, "same.txt"), "utf-8")).toBe("A original");
+      expect(readFileSync(join(cwdB, "same.txt"), "utf-8")).toBe("B original");
+    } finally {
+      clearCheckpoints(cwdA);
+      clearCheckpoints(cwdB);
+      rmSync(root, { recursive: true });
     }
   });
 

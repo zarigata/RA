@@ -115,6 +115,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   const themeId = { current: savedTheme ?? config.theme ?? "pharaonic" };
   let palette: ColorPalette = getPalette(themeId.current);
   let previewing = false;
+  let previewThemeOrigin: string | null = null;
   const scrollSpeed = Math.max(1, prefs.scrollSpeed ?? 3);
   const mdStyle = { accent: (s: string) => sty.accent(s), muted: (s: string) => sty.muted(s), strong: (s: string) => sty.strong(s), error: (s: string) => sty.err(s) };
 
@@ -141,6 +142,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   let streamedThisTurn = "";
   let paletteOpen = false;
   let paletteViaSlash = false;
+  let paletteEditorBase: { text: string; cursor: number } | null = null;
   let paletteRows: PaletteRow[] = [];
   let paletteSelected = 0;
   let paletteScroll = 0;
@@ -272,13 +274,20 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   ];
   const refreshPalette = () => {
     paletteRows = searchPalette(editor.text, allEntries(), 40);
-    paletteSelected = Math.min(paletteSelected, Math.max(0, paletteRows.length - 1));
-    paletteScroll = Math.min(paletteScroll, paletteSelected);
+    paletteSelected = Math.max(0, Math.min(paletteSelected, Math.max(0, paletteRows.length - 1)));
+    paletteScroll = Math.max(0, Math.min(paletteScroll, paletteSelected));
   };
   const setTheme = (id: string, persist: boolean) => {
     palette = getPalette(id);
     themeId.current = id;
     if (persist) savePrefs({ ...prefs, theme: id });
+  };
+  const restoreThemePreview = () => {
+    if (!previewing) return;
+    const original = previewThemeOrigin;
+    previewing = false;
+    previewThemeOrigin = null;
+    if (original) setTheme(original, false);
   };
 
   void collectProjectFiles(opts.cwd).then((f) => { projectFiles = f; if (paletteOpen) { refreshPalette(); scheduleRender(); } }).catch(() => {});
@@ -360,19 +369,31 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       out.push(sty.accent(`├${"─".repeat(Math.max(0, W - 2))}┤`));
       const rows = groupRows(paletteRows);
       const maxRows = Math.max(3, H - 12);
-      const start = Math.max(0, Math.min(paletteScroll, rows.length - maxRows));
+      let start = rows.findIndex((r) => r.kind === "row" && r.index >= paletteScroll);
+      if (start < 0) start = Math.max(0, rows.length - maxRows);
+      const selectedGrouped = rows.findIndex((r) => r.kind === "row" && r.index === paletteSelected);
+      if (selectedGrouped >= 0) {
+        if (selectedGrouped < start) start = selectedGrouped;
+        else if (selectedGrouped >= start + maxRows) start = selectedGrouped - maxRows + 1;
+      }
+      // Include a category header when it fits without pushing the selected
+      // result back out of the viewport.
+      if (
+        start > 0 &&
+        rows[start - 1]?.kind === "header" &&
+        (selectedGrouped < 0 || selectedGrouped < start - 1 + maxRows)
+      ) start--;
+      start = Math.max(0, Math.min(start, Math.max(0, rows.length - maxRows)));
       const visible = rows.slice(start, start + maxRows);
       rowHitbox = new Map();
-      let idx = -1;
       for (const r of visible) {
         if (r.kind === "header") { out.push(sty.muted(fit(W, ` ${r.label.toUpperCase()}`))); continue; }
-        idx++;
-        const selected = idx === paletteSelected;
+        const selected = r.index === paletteSelected;
         const marker = selected ? sty.accent("▌") : " ";
         const label = highlightMatches(r.row.entry.label, r.row.indices, `\x1b[1m${hexFg(palette.foreground)}`, "\x1b[0m");
         const detail = r.row.entry.detail ? sty.muted(` — ${truncateVisible(r.row.entry.detail, Math.max(10, W - visibleWidth(r.row.entry.label) - 14))}`) : "";
         out.push(fit(W - 1, ` ${marker}${label}${detail}`));
-        rowHitbox.set(out.length, idx);
+        rowHitbox.set(out.length, r.index);
       }
       if (!paletteRows.length) out.push(sty.muted(fit(W, "  no matches — keep typing")));
       out.push(sty.muted(fit(W, `  ↑↓ select · enter run · tab insert · esc close · mouse clickable (${paletteRows.length})`)));
@@ -446,6 +467,12 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     renderScheduled = true;
     setTimeout(() => { renderScheduled = false; try { render(); } catch { /* mid-resize */ } }, 24);
   };
+  const onResize = () => {
+    screenWidth = stdout.columns ?? screenWidth;
+    screenHeight = stdout.rows ?? screenHeight;
+    scheduleRender();
+  };
+  stdout.on("resize", onResize);
 
   // ---------- history seeding ----------
   if (session.messages.length === 0) {
@@ -465,6 +492,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   // ---------- palette / modal actions ----------
   const openPalette = (query: string) => {
     modal = null;
+    if (!paletteOpen) paletteEditorBase = { text: editor.text, cursor: editor.cursor };
     paletteOpen = true;
     paletteViaSlash = query.startsWith("/");
     editor.text = query;
@@ -474,10 +502,17 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     refreshPalette();
     scheduleRender();
   };
-  const closePalette = () => {
+  const closePalette = (keepEditor = false) => {
     paletteOpen = false;
-    if (previewing) { previewing = false; setTheme(themeId.current, false); }
-    if (paletteViaSlash && editor.text.startsWith("/")) { editor.text = ""; editor.cursor = 0; }
+    restoreThemePreview();
+    if (!keepEditor && paletteEditorBase) {
+      editor.text = paletteEditorBase.text;
+      editor.cursor = paletteEditorBase.cursor;
+    } else if (!keepEditor && paletteViaSlash && editor.text.startsWith("/")) {
+      editor.text = "";
+      editor.cursor = 0;
+    }
+    paletteEditorBase = null;
     paletteViaSlash = false;
     scheduleRender();
   };
@@ -485,6 +520,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
 
   const quit = () => {
     saveSession(session);
+    stdout.off("resize", onResize);
     stdout.write(MOUSE_EXIT + PASTE_EXIT + CURSOR_SHOW + ALT_EXIT);
     stdin.setRawMode(false);
     setActiveSubagentTracker(null);
@@ -757,7 +793,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
             if (keyTrace) keyLog(`ctrl+c abort -> ${aborted} (activeRuns=${activeRunCount()})`);
             statusText = aborted ? "cancelling…" : "finishing…";
           }
-          else { editor.text = ""; editor.cursor = 0; }
+          else {
+            editor.text = "";
+            editor.cursor = 0;
+            if (paletteOpen) refreshPalette();
+          }
           scheduleRender();
           return;
         }
@@ -767,7 +807,13 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           return;
         }
         if (k.name === "l") { segments.length = 0; scheduleRender(); return; }
-        if (k.name === "u") { editor.text = ""; editor.cursor = 0; scheduleRender(); return; }
+        if (k.name === "u") {
+          editor.text = "";
+          editor.cursor = 0;
+          if (paletteOpen) refreshPalette();
+          scheduleRender();
+          return;
+        }
         return;
       case "escape":
         if (keyTrace) keyLog(`escape key: modal=${modal?.kind ?? "-"} mixture=${pendingMixture !== null} palette=${paletteOpen} busy=${busy}`);
@@ -825,22 +871,34 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         return;
       case "tab": {
         if (!paletteOpen || !paletteRows[paletteSelected]) return;
-        const label = paletteRows[paletteSelected].entry.label;
-        if (/^(agent:|\/)/.test(label)) {
-          editor.text = label + " ";
-          editor.cursor = editor.text.length;
-          refreshPalette();
-        } else {
-          editor.text = insertAtCursor(label);
-          editor.cursor += label.length;
+        const entry = paletteRows[paletteSelected].entry;
+        const action = entry.action;
+        if (action.type === "insert") {
+          // Restore the underlying prompt first, then apply the semantic insert
+          // action at its original cursor. Slash-opened palettes have no base,
+          // so they naturally insert into an empty prompt.
           closePalette();
+          runAction(action as unknown as Record<string, unknown>);
           return;
         }
-        render();
+        if (action.type === "command") {
+          editor.text = action.command + " ";
+          editor.cursor = editor.text.length;
+          closePalette(true);
+          return;
+        }
+        editor.text = entry.label;
+        editor.cursor = editor.text.length;
+        closePalette(true);
         return;
       }
       case "shifttab":
-        if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); paletteScroll = Math.min(paletteScroll, paletteSelected); render(); }
+        if (paletteOpen) {
+          paletteSelected = Math.max(0, paletteSelected - 1);
+          paletteScroll = Math.min(paletteScroll, paletteSelected);
+          livePreview();
+          render();
+        }
         return;
       case "up":
         if (modal?.kind === "menu") {
@@ -866,8 +924,13 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           return;
         }
         if (paletteOpen) {
-          paletteSelected = Math.min(paletteRows.length - 1, paletteSelected + 1);
-          if (paletteSelected >= paletteScroll + 12) paletteScroll = paletteSelected - 11;
+          if (paletteRows.length) {
+            paletteSelected = Math.min(paletteRows.length - 1, paletteSelected + 1);
+            if (paletteSelected >= paletteScroll + 12) paletteScroll = paletteSelected - 11;
+          } else {
+            paletteSelected = 0;
+            paletteScroll = 0;
+          }
           livePreview();
           render();
           return;
@@ -917,7 +980,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         }
         editor.text = insertAtCursor(k.text);
         editor.cursor += k.text.length;
-        if (!paletteOpen && editor.text.startsWith("/") && !editor.text.includes(" ")) { paletteViaSlash = true; paletteOpen = true; }
+        if (!paletteOpen && editor.text.startsWith("/") && !editor.text.includes(" ")) {
+          paletteEditorBase = null;
+          paletteViaSlash = true;
+          paletteOpen = true;
+        }
         if (paletteOpen) refreshPalette();
         render();
         return;
@@ -928,11 +995,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   const livePreview = () => {
     const row = paletteRows[paletteSelected];
     if (row?.entry.category === "theme" && row.entry.action.type === "theme") {
+      if (!previewing) previewThemeOrigin = themeId.current;
       previewing = true;
       setTheme(String((row.entry.action as { theme: string }).theme), false);
-    } else if (previewing) {
-      previewing = false;
-      setTheme(themeId.current, false);
+    } else {
+      restoreThemePreview();
     }
   };
 

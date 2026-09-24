@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadSession, saveSession, appendMessage, listSessions, deleteSession, findSession, switchSession, getActiveSession, formatSessions, exportSession, formatReattach } from "../src/server/session.ts";
-import { RA_GLOBAL } from "../../anubis/src/config.ts";
+import { RA_GLOBAL, sessionPath, legacySessionPath } from "../../anubis/src/config.ts";
 
 describe("session persistence", () => {
   test("loadSession returns a fresh session for unknown cwd", () => {
@@ -27,6 +27,61 @@ describe("session persistence", () => {
       expect(reloaded.messages.length).toBe(2);
       expect(reloaded.messages[0].content).toBe("hello");
     } finally {
+      rmSync(cwd, { recursive: true });
+    }
+  });
+
+
+  test("persisted session files are owner-only on POSIX", () => {
+    if (process.platform === "win32") return;
+    const cwd = mkdtempSync(join(tmpdir(), "ra-sess-mode-"));
+    try {
+      const session = loadSession(cwd);
+      appendMessage(session, "user", "private");
+      expect(statSync(sessionPath(cwd)).mode & 0o777).toBe(0o600);
+    } finally {
+      rmSync(cwd, { recursive: true });
+      rmSync(sessionPath(cwd), { force: true });
+    }
+  });
+
+
+  test("distinct projects that collided under legacy slugs stay isolated", () => {
+    const root = mkdtempSync(join(tmpdir(), "ra-sess-collision-"));
+    const cwdA = join(root, "a", "b_c");
+    const cwdB = join(root, "a_b", "c");
+    mkdirSync(cwdA, { recursive: true });
+    mkdirSync(cwdB, { recursive: true });
+    try {
+      expect(legacySessionPath(cwdA)).toBe(legacySessionPath(cwdB));
+      expect(sessionPath(cwdA)).not.toBe(sessionPath(cwdB));
+
+      const a = loadSession(cwdA);
+      const b = loadSession(cwdB);
+      appendMessage(a, "user", "from A");
+      appendMessage(b, "user", "from B");
+
+      expect(loadSession(cwdA).messages.at(-1)?.content).toBe("from A");
+      expect(loadSession(cwdB).messages.at(-1)?.content).toBe("from B");
+    } finally {
+      deleteSession(cwdA);
+      deleteSession(cwdB);
+      rmSync(root, { recursive: true });
+    }
+  });
+
+  test("loadSession still reads a legacy session file", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-sess-legacy-"));
+    const legacy = legacySessionPath(cwd);
+    try {
+      writeFileSync(legacy, JSON.stringify({
+        id: cwd, cwd, messages: [{ role: "user", content: "legacy", ts: 1 }],
+        simpleMode: false, created: 1,
+      }));
+      expect(loadSession(cwd).messages[0].content).toBe("legacy");
+    } finally {
+      rmSync(legacy, { force: true });
+      rmSync(sessionPath(cwd), { force: true });
       rmSync(cwd, { recursive: true });
     }
   });

@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll, afterAll } from "bun:test";
-import { startDaemon } from "../src/server/daemon.ts";
+import { startDaemon, DEFAULT_HOST } from "../src/server/daemon.ts";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -17,6 +17,11 @@ afterAll(() => {
 });
 
 describe("daemon", () => {
+  test("defaults to loopback instead of all interfaces", () => {
+    expect(DEFAULT_HOST).toBe("127.0.0.1");
+    expect(server?.hostname).toBe("127.0.0.1");
+  });
+
   test("health endpoint responds", async () => {
     const res = await fetch(`${base}/health`);
     const body = await res.json();
@@ -60,5 +65,24 @@ describe("daemon", () => {
     expect(res.headers.get("content-type")).toContain("text/html");
     const text = await res.text();
     expect(text).toContain("RA Dashboard");
+  });
+
+  test("dashboard escapes session metadata", async () => {
+    const evil = `<img src=x onerror="alert(1)">`;
+    try {
+      const post = await fetch(`${base}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd: evil, role: "user", content: "x" }),
+      });
+      expect(post.status).toBe(200);
+
+      const res = await fetch(`${base}/`);
+      const html = await res.text();
+      expect(html).not.toContain(evil);
+      expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+    } finally {
+      await fetch(`${base}/session?id=${encodeURIComponent(evil)}`, { method: "DELETE" });
+    }
   });
 });

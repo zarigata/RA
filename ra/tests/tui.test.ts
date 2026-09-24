@@ -99,7 +99,7 @@ describe("markdown rendering", () => {
     expect(visibleWidth(s)).toBe(11);
     expect(visibleWidth(truncateVisible(s, 7))).toBeLessThanOrEqual(7);
     expect(visibleWidth("𓂀 RA")).toBe(4);
-    expect(truncateVisible("𓂀 RA terminal", 6)).toBe("𓂀 RA…");
+    expect(truncateVisible("𓂀 RA terminal", 6)).toBe("𓂀 RA …");
   });
 });
 
@@ -117,10 +117,13 @@ describe("unified palette", () => {
     themes: [{ id: "pharaonic", name: "Pharaonic" }],
   });
 
-  test("empty query groups by category order", () => {
+  test("empty query groups by category order without losing result indexes", () => {
     const rows = searchPalette("", entries, 40);
-    const groups = groupRows(rows).filter((r) => r.kind === "header").map((r) => (r as { label: string }).label);
+    const grouped = groupRows(rows);
+    const groups = grouped.filter((r) => r.kind === "header").map((r) => (r as { label: string }).label);
+    const indexes = grouped.filter((r) => r.kind === "row").map((r) => r.kind === "row" ? r.index : -1);
     expect(groups[0]).toBe("Commands");
+    expect(indexes).toEqual(rows.map((_, i) => i));
   });
 
   test("slash-prefixed query finds everything (themes too)", () => {
@@ -133,7 +136,7 @@ describe("unified palette", () => {
   test("file search without slash", () => {
     const rows = searchPalette("app.ts", entries, 40);
     expect(rows[0].entry.label).toBe("src/app.ts");
-    expect(rows[0].entry.action.type).toBe("insert");
+    expect(rows[0].entry.action).toEqual({ type: "insert", text: "@src/app.ts " });
   });
 
   test("actions carry runnable semantics", () => {
@@ -255,7 +258,7 @@ describe("menu overlays", () => {
 });
 
 describe("cross-platform backend resolution", () => {
-  const { resolveBackend } = require("../src/sandbox.ts");
+  const { resolveBackend, bubblewrapNetworkArgs } = require("../src/sandbox.ts");
   const base = { mode: "workspace-write" as const, consent: false, hasSeatbelt: false, bwrapPath: null as string | null };
   test("macOS uses Seatbelt, fails closed without it", () => {
     expect(resolveBackend({ ...base, platform: "darwin", hasSeatbelt: true }).backend).toBe("macOS Seatbelt");
@@ -273,5 +276,10 @@ describe("cross-platform backend resolution", () => {
     expect(resolveBackend({ ...base, platform: "win32", mode: "off" })).toMatchObject({ backend: "disabled", unsandboxed: true });
     expect(resolveBackend({ ...base, platform: "win32" }).backend).toBe("unavailable");
     expect(resolveBackend({ ...base, platform: "sunos" }).backend).toBe("unavailable");
+  });
+  test("bubblewrap network deny fails closed without netns", () => {
+    expect(bubblewrapNetworkArgs("deny", true)).toEqual(["--unshare-net"]);
+    expect(bubblewrapNetworkArgs("allow", false)).toEqual([]);
+    expect(() => bubblewrapNetworkArgs("deny", false)).toThrow(/fails closed|cannot enforce/);
   });
 });

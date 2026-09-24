@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { sessionPath, RA_GLOBAL, type RaConfig } from "../../../anubis/src/config.ts";
 import { redact } from "../../../anubis/src/redact.ts";
@@ -25,7 +25,9 @@ export function loadSession(cwd: string): Session {
 }
 
 export function saveSession(session: Session): void {
-  writeFileSync(sessionPath(session.cwd), JSON.stringify(session, null, 2), "utf-8");
+  const path = sessionPath(session.cwd);
+  writeFileSync(path, JSON.stringify(session, null, 2), { encoding: "utf-8", mode: 0o600 });
+  try { chmodSync(path, 0o600); } catch { /* best effort on non-POSIX filesystems */ }
 }
 
 export function appendMessage(session: Session, role: Message["role"], content: string): void {
@@ -72,7 +74,8 @@ export function switchSession(id: string): Session | null {
   const session = findSession(id);
   if (!session) return null;
   const pointerPath = join(RA_GLOBAL, "active-session.json");
-  writeFileSync(pointerPath, JSON.stringify({ id, cwd: session.cwd }, null, 2), "utf-8");
+  writeFileSync(pointerPath, JSON.stringify({ id, cwd: session.cwd }, null, 2), { encoding: "utf-8", mode: 0o600 });
+  try { chmodSync(pointerPath, 0o600); } catch { /* best effort on non-POSIX filesystems */ }
   return session;
 }
 

@@ -274,8 +274,8 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   ];
   const refreshPalette = () => {
     paletteRows = searchPalette(editor.text, allEntries(), 40);
-    paletteSelected = Math.min(paletteSelected, Math.max(0, paletteRows.length - 1));
-    paletteScroll = Math.min(paletteScroll, paletteSelected);
+    paletteSelected = Math.max(0, Math.min(paletteSelected, Math.max(0, paletteRows.length - 1)));
+    paletteScroll = Math.max(0, Math.min(paletteScroll, paletteSelected));
   };
   const setTheme = (id: string, persist: boolean) => {
     palette = getPalette(id);
@@ -924,8 +924,13 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           return;
         }
         if (paletteOpen) {
-          paletteSelected = Math.min(paletteRows.length - 1, paletteSelected + 1);
-          if (paletteSelected >= paletteScroll + 12) paletteScroll = paletteSelected - 11;
+          if (paletteRows.length) {
+            paletteSelected = Math.min(paletteRows.length - 1, paletteSelected + 1);
+            if (paletteSelected >= paletteScroll + 12) paletteScroll = paletteSelected - 11;
+          } else {
+            paletteSelected = 0;
+            paletteScroll = 0;
+          }
           livePreview();
           render();
           return;

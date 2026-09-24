@@ -369,8 +369,9 @@ export function expandMentions(input: string, cwd: string): string {
     if (!path || path.includes("@")) return full;
     try {
       const abs = safePath(cwd, path);
+      assertFileAccess(abs, false, cwd);
       if (!existsSync(abs) || statSync(abs).isDirectory()) return full;
-      const content = readFileSync(abs, "utf-8");
+      const content = redact(readFileSync(abs, "utf-8")).text;
       return `\`\`\`${path}\n${content}\n\`\`\``;
     } catch {
       return full;

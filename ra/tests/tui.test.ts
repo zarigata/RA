@@ -4,6 +4,7 @@ import { decodeMouse, hexToRgb } from "../src/tui/mouse.ts";
 import { decodeKeys } from "../src/tui/keys.ts";
 import { renderMarkdown, visibleWidth, truncateVisible } from "../src/tui/markdown.ts";
 import { paletteItems, searchPalette, groupRows } from "../src/tui/palette.ts";
+import { buildHeader, buildInputLabel, footerHints, getTuiGlyphs, useAsciiGlyphs, workspaceLabel } from "../src/tui/chrome.ts";
 
 describe("fuzzy matcher", () => {
   test("matches subsequence with boundary preference", () => {
@@ -136,6 +137,65 @@ describe("unified palette", () => {
   test("actions carry runnable semantics", () => {
     const rows = searchPalette("agent:ptah", entries, 40);
     expect(rows[0].entry.action).toEqual({ type: "insert", text: "agent:ptah " });
+  });
+});
+
+
+describe("responsive TUI chrome", () => {
+  test("uses Egyptian Unicode chrome by default and portable ASCII on demand", () => {
+    expect(useAsciiGlyphs({ TERM: "xterm-256color" })).toBe(false);
+    expect(useAsciiGlyphs({ RA_ASCII: "1" })).toBe(true);
+    expect(useAsciiGlyphs({ TERM: "dumb" })).toBe(true);
+    expect(getTuiGlyphs(false).brand).toBe("𓂀");
+    expect(getTuiGlyphs(true).brand).toBe("RA");
+  });
+
+  test("header collapses cleanly on narrow terminals", () => {
+    const glyphs = getTuiGlyphs(false);
+    const narrow = buildHeader({
+      width: 56,
+      app: "RA",
+      version: "1.0.0-ra.77",
+      profile: "default",
+      smallModel: "provider/very-long-small-model-name",
+      bigModel: "provider/very-long-big-model-name",
+      glyphs,
+    });
+    expect(narrow).toContain("𓂀 RA");
+    expect(narrow).not.toContain("small ");
+    expect(narrow).not.toContain("big ");
+
+    const wide = buildHeader({
+      width: 140,
+      app: "RA",
+      version: "1.0.0-ra.77",
+      profile: "default",
+      smallModel: "provider/small-model",
+      bigModel: "provider/big-model",
+      busy: true,
+      status: "orchestrating…",
+      glyphs,
+    });
+    expect(wide).toContain("small small-model");
+    expect(wide).toContain("big big-model");
+    expect(wide).toContain("orchestrating");
+  });
+
+  test("input/footer/workspace labels stay consistent", () => {
+    const glyphs = getTuiGlyphs(false);
+    expect(buildInputLabel({ app: "RA", glyphs })).toContain("/ search");
+    expect(buildInputLabel({ app: "RA", busy: true, status: "working", spinner: "⠋", glyphs })).toContain("working");
+    expect(footerHints(true).find(([k]) => k === "esc")?.[1]).toBe("cancel");
+    expect(workspaceLabel({ cwd: "~/RA", branch: "main", theme: "pharaonic", glyphs })).toContain("⑂ main");
+  });
+
+  test("ASCII splash avoids Unicode brand art", () => {
+    const { renderSplashFrame, ASCII_LOGO } = require("../src/tui/splash.ts");
+    const lines = renderSplashFrame({ width: 60, height: 20, accent: "#fbbf24", accent2: "#22c55e", muted: "#888888", version: "1", ascii: true });
+    const joined = lines.join("\n");
+    expect(joined).toContain(ASCII_LOGO[0].trim());
+    expect(joined).not.toContain("████");
+    expect(joined).not.toContain("░");
   });
 });
 

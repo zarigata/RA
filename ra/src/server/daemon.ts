@@ -25,6 +25,16 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[ch]!);
+}
+
 function readBody(req: Request): Promise<Record<string, unknown>> {
   return req.json().catch(() => ({}));
 }
@@ -53,7 +63,7 @@ export function startDaemon(opts: DaemonOptions = {}) {
         const rows = sessions
           .map(
             (s) =>
-              `<tr><td>${s.id}</td><td>${s.messages.length}</td><td>${new Date(s.created ?? 0).toISOString()}</td><td>${s.cwd}</td></tr>`,
+              `<tr><td>${escapeHtml(s.id)}</td><td>${s.messages.length}</td><td>${new Date(s.created ?? 0).toISOString()}</td><td>${escapeHtml(s.cwd)}</td></tr>`,
           )
           .join("");
         const html = `<!DOCTYPE html>

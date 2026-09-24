@@ -3,14 +3,21 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, statSync } from "node
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { snapshotFile, restoreLatest, listCheckpoints, clearCheckpoints, checkpointContent } from "../src/server/checkpoint.ts";
+import { RA_GLOBAL } from "../../anubis/src/config.ts";
 
 describe("checkpoint/undo", () => {
-  test("checkpoint snapshots remain readable through the API", () => {
+  test("checkpoint snapshots are owner-only on POSIX", () => {
     const cwd = mkdtempSync(join(tmpdir(), "ra-cp-private-"));
     try {
       writeFileSync(join(cwd, "secret-source.txt"), "private source");
       snapshotFile(cwd, "secret-source.txt");
       expect(checkpointContent(cwd, "secret-source.txt")).toBe("private source");
+      if (process.platform !== "win32") {
+        const cp = listCheckpoints(cwd)[0];
+        const slug = cwd.replace(/\//g, "_").replace(/^_|_$/g, "") || "default";
+        const stored = join(RA_GLOBAL, "checkpoints", slug, cp.id, "secret-source.txt");
+        expect(statSync(stored).mode & 0o777).toBe(0o600);
+      }
     } finally {
       clearCheckpoints(cwd);
       rmSync(cwd, { recursive: true });

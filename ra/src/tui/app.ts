@@ -34,6 +34,7 @@ import { MOUSE_ENTER, MOUSE_EXIT, ALT_ENTER, ALT_EXIT, PASTE_ENTER, PASTE_EXIT, 
 import { renderSplashFrame, parseOscColorReply, luminance, OSC_TITLE, OSC_QUERY_BG } from "./splash.ts";
 import { renderMenuOverlay, renderShortcutsOverlay, renderOnboardingOverlay, type MenuEntry } from "./overlays.ts";
 import { visibleCatalog } from "../agents/catalog.ts";
+import { ambientScene } from "./ambient.ts";
 
 export type { TuiOptions };
 
@@ -345,8 +346,10 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
 
     const cwdShort = opts.cwd.replace(/^\/Users\/[^/]+/, "~");
     const busyTag = busy ? `  ● ${statusText || "busy"}` : "";
+    const scene = ambientScene(new Date(), spinnerFrame, W);
     const header = ` 𓃡 ${APP_NAME} ${RA_VERSION}  ·  ${config.profile ?? "default"}  ·  small ${short(config.small_model)} · big ${short(config.model)}${busyTag}`;
     out.push(sty.bar(fit(W, header)));
+    if (H >= 14 && !paletteOpen) out.push(sty.muted(fit(W, ` ${scene}`)));
 
     if (paletteOpen) {
       const title = ` search everything — commands · agents · files · models · sessions · themes `;
@@ -374,7 +377,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       out.push(sty.accent(`╰${"─".repeat(Math.max(0, W - 2))}╯`));
     } else {
       const vLines = renderViewportLines(W);
-      const maxVisible = Math.max(4, H - 6);
+      const maxVisible = Math.max(4, H - (H >= 14 ? 7 : 6));
       const from = Math.max(0, vLines.length - maxVisible - scrollOffset);
       const visible = vLines.slice(from, from + maxVisible);
       for (let i = 0; i < maxVisible; i++) out.push(fit(W, visible[i] ?? ""));
@@ -661,8 +664,8 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (!streamTimer) streamTimer = setTimeout(() => { streamTimer = null; render(); }, 40);
   });
   const spinnerTimer = setInterval(() => {
-    if (!busy) return;
     spinnerFrame++;
+    if (!busy && spinnerFrame % 8 !== 0) return;
     render();
   }, 140);
 

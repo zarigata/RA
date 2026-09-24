@@ -69,6 +69,45 @@ Run the tests, fix what fails, and explain the architecture when you finish.
 
 <img src="docs/assets/ra-vibecoding-flow.svg" alt="RA vibe coding flow" width="100%">
 
+## See RA in motion
+
+The terminal has a searchable command and agent palette, streaming replies, a live activity indicator, and a local-time sky that changes from dawn to night. The scene animates gently while you work and leaves room for the editor on smaller screens.
+
+```text
+ 𓃡 RA  ·  pharaonic  ·  small local · big cloud
+ ☾ NIGHT  𓂀  23:14 · ✦ · ✧ · ✦
+
+  You: inspect the failing tests, fix the parser, then verify.
+  RA: reading the parser and its tests…
+  Ptah: changed src/parser.ts · Maat: reviewing the diff
+
+ ╭ RA › type / to search everything · ? for shortcuts ─────╮
+ │ _                                                       │
+ ╰─────────────────────────────────────────────────────────╯
+```
+
+*Illustrative transcript; available agents and models depend on your configuration.*
+
+### Context that survives long work
+
+<img src="docs/assets/ra-context-journey.svg" alt="RA context budget and continuation: discover, watch, fold, resume" width="100%">
+
+RA probes model context where supported, applies a serving-host cap, reserves reply space, and watches prompt pressure. At the low watermark it can summarize older exchanges while keeping the original task and the newest exchange. At critical pressure or a provider overflow it saves a handoff and starts a fresh continuation, within the configured resume limit. A server's advertised window does **not** guarantee the VRAM needed to use it. Configure `context.server_cap` to match the actual server allocation.
+
+```jsonc
+{
+  "context": {
+    "adaptive": true,
+    "server_cap": { "ollama-lan": 32768 },
+    "low_watermark": 0.7,
+    "critical_watermark": 0.9,
+    "resume_limit": 3
+  }
+}
+```
+
+Compaction and continuation depend on the configured models responding successfully; an exhausted resume budget returns a partial result and the saved handoff path.
+
 ## What already ships
 
 RA is under active development, but the core runtime is real. The current repository includes:
@@ -91,7 +130,7 @@ RA is under active development, but the core runtime is real. The current reposi
 | Command sandboxing | ⚠️ | Useful boundary with platform limitations; not a hostile-code VM |
 | Semantic capability search | 📋 | Planned: retrieve only the agents/tools/plugins needed for the task |
 | Multi-node GPU scheduler | 📋 | Planned: treat multiple AI servers as one local compute fabric |
-| Time-aware Egyptian ambient TUI | 📋 | Planned: dawn/day/sunset/night terminal scenes without blocking work |
+| Time-aware Egyptian ambient TUI | ✅ | Dawn/day/sunset/night scene in the full-screen terminal, with a subtle idle animation |
 
 **Legend:** ✅ shipped · ⚠️ shipped with limitations · 📋 planned
 

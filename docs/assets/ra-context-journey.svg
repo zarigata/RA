@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+<title id="title">RA context journey</title><desc id="desc">A model window is measured, capped by its serving host, watched for pressure, then summarized into a handoff for continuation.</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#0b0d19"/><stop offset="1" stop-color="#261a28"/></linearGradient><linearGradient id="gold"><stop stop-color="#e2a74b"/><stop offset="1" stop-color="#fbe3a1"/></linearGradient></defs>
+<rect width="1200" height="360" rx="24" fill="url(#bg)"/>
+<text x="54" y="62" fill="#fbe3a1" font-family="sans-serif" font-size="30" font-weight="bold">KEEP THE QUEST. SHED THE NOISE.</text>
+<text x="54" y="96" fill="#ad9d95" font-family="sans-serif" font-size="17">Context budget follows the model and the server that actually serves it.</text>
+<g font-family="sans-serif" text-anchor="middle"><rect x="55" y="142" width="245" height="140" rx="16" fill="#342636" stroke="#c58b49"/><text x="177" y="194" fill="#fbe3a1" font-size="22">01 · DISCOVER</text><text x="177" y="227" fill="#cabdb3" font-size="16">probe model window</text><text x="177" y="252" fill="#cabdb3" font-size="16">apply server cap</text>
+<rect x="333" y="142" width="245" height="140" rx="16" fill="#342636" stroke="#c58b49"/><text x="455" y="194" fill="#fbe3a1" font-size="22">02 · WATCH</text><text x="455" y="227" fill="#cabdb3" font-size="16">reserve reply tokens</text><text x="455" y="252" fill="#cabdb3" font-size="16">track prompt pressure</text>
+<rect x="611" y="142" width="245" height="140" rx="16" fill="#342636" stroke="#c58b49"/><text x="733" y="194" fill="#fbe3a1" font-size="22">03 · FOLD</text><text x="733" y="227" fill="#cabdb3" font-size="16">retain original task</text><text x="733" y="252" fill="#cabdb3" font-size="16">summarize middle work</text>
+<rect x="889" y="142" width="245" height="140" rx="16" fill="#342636" stroke="#c58b49"/><text x="1011" y="194" fill="#fbe3a1" font-size="22">04 · RESUME</text><text x="1011" y="227" fill="#cabdb3" font-size="16">checkpoint progress</text><text x="1011" y="252" fill="#cabdb3" font-size="16">continue fresh run</text></g>
+<path d="M304 212h22m256 0h22m256 0h22" stroke="url(#gold)" stroke-width="4" stroke-linecap="round"/>
+<text x="55" y="324" fill="#a99b96" font-family="sans-serif" font-size="14">Measured usage when available · conservative estimates otherwise · saved handoff on context exhaustion</text>
+</svg>

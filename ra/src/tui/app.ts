@@ -371,7 +371,18 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       const maxRows = Math.max(3, H - 12);
       let start = rows.findIndex((r) => r.kind === "row" && r.index >= paletteScroll);
       if (start < 0) start = Math.max(0, rows.length - maxRows);
-      else if (start > 0 && rows[start - 1]?.kind === "header") start--;
+      const selectedGrouped = rows.findIndex((r) => r.kind === "row" && r.index === paletteSelected);
+      if (selectedGrouped >= 0) {
+        if (selectedGrouped < start) start = selectedGrouped;
+        else if (selectedGrouped >= start + maxRows) start = selectedGrouped - maxRows + 1;
+      }
+      // Include a category header when it fits without pushing the selected
+      // result back out of the viewport.
+      if (
+        start > 0 &&
+        rows[start - 1]?.kind === "header" &&
+        (selectedGrouped < 0 || selectedGrouped < start - 1 + maxRows)
+      ) start--;
       start = Math.max(0, Math.min(start, Math.max(0, rows.length - maxRows)));
       const visible = rows.slice(start, start + maxRows);
       rowHitbox = new Map();

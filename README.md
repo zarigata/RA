@@ -16,7 +16,7 @@
 **RA is a local-first, provider-agnostic AI coding runtime built for serious vibe coding.**  
 It can use small local models for high-volume work, larger cloud models for hard problems, specialist agents for different engineering roles, and checkpoints/tests to keep autonomous work recoverable.
 
-[Quick start](#quick-start) · [Why RA](#why-ra) · [Architecture](#how-ra-thinks) · [Agents](#the-egyptian-agent-legion) · [Models](#use-the-right-model-for-the-right-job) · [Roadmap](#where-ra-is-going)
+[Quick start](#quick-start) · [TUI](#the-terminal-workspace) · [Why RA](#why-ra) · [Architecture](#how-ra-thinks) · [Agents](#the-egyptian-agent-legion) · [Models](#use-the-right-model-for-the-right-job) · [Roadmap](#where-ra-is-going)
 
 </div>
 
@@ -75,7 +75,7 @@ RA is under active development, but the core runtime is real. The current reposi
 
 | Capability | Status | What it means |
 |---|:---:|---|
-| Full-screen interactive TUI + headless CLI | ✅ | Work interactively with <code>ra</code> or automate with <code>ra run</code> |
+| Full-screen interactive TUI + headless CLI | ✅ | Responsive terminal chrome, search palette, themes, mouse/keyboard controls, ASCII fallback, and <code>ra run</code> automation |
 | 76 visible specialist agents | ✅ | Core Egyptian roles plus engineering specialists |
 | Layered Mixture-of-Agents | ✅ | Multiple proposals, critics, synthesis, agreement/disagreement |
 | Provider Mosaic | ✅ | Capability-aware routing across local, LAN, cloud, and compatible endpoints |
@@ -328,6 +328,58 @@ Launch the interactive workspace:
 ra
 ~~~
 
+## The terminal workspace
+
+The TUI is meant to stay useful while RA is planning, streaming, delegating, and verifying—not just look decorative.
+
+~~~text
+ 𓂀 RA 1.0.0-ra.77  ·  default  ·  small planner  ·  big coder
+
+   › you
+     inspect this repo and fix the failing tests
+
+   ◆ RA
+     I found the failing path. Applying the smallest safe patch…
+
+ ╭ 𓂀 RA ╼ / search · ? shortcuts ───────────────────────────────╮
+ │ type your next instruction                                    │
+ ╰───────────────────────────────────────────────────────────────╯
+  / search   ctrl+p palette   ? keys   esc close   ctrl+d quit
+  ~/project · ⑂ main · pharaonic
+~~~
+
+The interface includes:
+
+- a responsive header that collapses cleanly on narrow terminals;
+- distinct user, assistant, warning, streaming, and busy-state markers;
+- a unified fuzzy palette for commands, agents, files, models, sessions, and themes;
+- keyboard and mouse navigation, including right-click menus;
+- markdown/table rendering, live streaming, activity state, and session context;
+- persisted themes plus automatic light/dark terminal detection where supported;
+- an ASCII-safe fallback for basic consoles and terminals with weak Unicode support.
+
+Force portable ASCII chrome and splash art when needed:
+
+~~~bash
+RA_ASCII=1 ra
+~~~
+
+<code>TERM=dumb</code> also enables the ASCII glyph set automatically. Set <code>RA_NO_SPLASH=1</code> to skip the startup splash, or <code>RA_LEGACY_TUI=1</code> to use the readline fallback.
+
+Useful TUI controls:
+
+| Key | Action |
+|---|---|
+| <code>/</code> | Search commands, agents, files, models, sessions, and themes |
+| <code>Ctrl+P</code> | Open/close the palette |
+| <code>?</code> / <code>F1</code> | Show shortcuts |
+| <code>Esc</code> | Close overlays or cancel an active turn |
+| <code>Ctrl+C</code> | Cancel active work; clear input when idle |
+| <code>Ctrl+L</code> | Clear the visible conversation |
+| <code>Ctrl+D</code> | Quit RA |
+| Mouse wheel | Scroll history |
+| Right click | Open the RA context menu |
+
 Or run a task headlessly:
 
 ~~~bash
@@ -339,6 +391,8 @@ Run the release gate:
 ~~~bash
 bash scripts/verify-release.sh
 ~~~
+
+That gate is the repository's main confidence check: it runs the Bun test suites, compile/smoke checks, and repository hygiene verification used by GitHub Actions. Live-provider acceptance stays separate because private LAN endpoints and paid APIs are not appropriate mandatory CI dependencies.
 
 ## A good first RA setup
 

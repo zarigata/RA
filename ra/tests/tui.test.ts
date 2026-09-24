@@ -99,7 +99,7 @@ describe("markdown rendering", () => {
     expect(visibleWidth(s)).toBe(11);
     expect(visibleWidth(truncateVisible(s, 7))).toBeLessThanOrEqual(7);
     expect(visibleWidth("𓂀 RA")).toBe(4);
-    expect(truncateVisible("𓂀 RA terminal", 6)).toBe("𓂀 RA…");
+    expect(truncateVisible("𓂀 RA terminal", 6)).toBe("𓂀 RA …");
   });
 });
 
@@ -133,7 +133,7 @@ describe("unified palette", () => {
   test("file search without slash", () => {
     const rows = searchPalette("app.ts", entries, 40);
     expect(rows[0].entry.label).toBe("src/app.ts");
-    expect(rows[0].entry.action.type).toBe("insert");
+    expect(rows[0].entry.action).toEqual({ type: "insert", text: "@src/app.ts " });
   });
 
   test("actions carry runnable semantics", () => {

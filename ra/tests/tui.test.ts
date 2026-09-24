@@ -98,6 +98,8 @@ describe("markdown rendering", () => {
     const s = "\x1b[36mhello\x1b[0m world";
     expect(visibleWidth(s)).toBe(11);
     expect(visibleWidth(truncateVisible(s, 7))).toBeLessThanOrEqual(7);
+    expect(visibleWidth("𓂀 RA")).toBe(4);
+    expect(truncateVisible("𓂀 RA terminal", 6)).toBe("𓂀 RA…");
   });
 });
 

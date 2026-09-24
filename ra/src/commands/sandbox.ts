@@ -21,7 +21,11 @@ export async function sandboxCommand(args: string[], cwd: string, config: RaConf
   const settings: SandboxConfig = { ...config.sandbox };
   if (action === "status") {
     if (args.slice(1).some(a => a !== "--json")) throw new Error("Unexpected sandbox status argument");
-    const data = { ...sandboxSettings({ cwd, sandbox: settings }), cwd, environment: "allowlist; private HOME and temporary directory", protected: ["credentials", "Git metadata", "agent policy", "installed RA runtime"] };
+    const resolved = sandboxSettings({ cwd, sandbox: settings });
+    const network = resolved.unsandboxed && resolved.mode !== "off"
+      ? "unrestricted (unsandboxed consent)"
+      : resolved.network;
+    const data = { ...resolved, network, cwd, environment: "allowlist; private HOME and temporary directory", protected: ["credentials", "Git metadata", "agent policy", "installed RA runtime"] };
     return { code: 0, data, text: `RA sandbox: ${data.backend} · ${data.mode} · subprocess network ${data.network}\nWorkspace: ${cwd}\nEnvironment: ${data.environment}\n${SANDBOX_HELP}` };
   }
   if (action !== "exec") throw new Error(SANDBOX_HELP);

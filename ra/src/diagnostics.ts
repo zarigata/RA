@@ -247,17 +247,9 @@ export class LspClient {
   }
 }
 
-/** Check if an LSP server is available for a file type. */
-export function hasLspServer(file: string): boolean {
-  const config = findLspServer(file);
+/** Check if an LSP server is actually installed for a file type. */
+export function hasLspServer(file: string, servers: LspServerConfig[] = BUILTIN_LSP_SERVERS): boolean {
+  const config = findLspServer(file, servers);
   if (!config) return false;
-  try {
-    const proc = Bun.spawn(["which", config.command], { stdout: "pipe", stderr: "pipe" });
-    const exitCode = proc.exited;
-    // Synchronous optimistic check — we can't await here without making this async
-    // Return true for known configs; the LspClient.start() will fail if the binary is missing
-    return true;
-  } catch {
-    return false;
-  }
+  return Bun.which(config.command) !== null;
 }

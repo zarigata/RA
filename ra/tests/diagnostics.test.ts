@@ -81,4 +81,10 @@ describe("LSP server protocol", () => {
     const result = hasLspServer("foo.ts");
     expect(typeof result).toBe("boolean");
   });
+  test("hasLspServer is false when the configured executable is missing", () => {
+    const custom: LspServerConfig[] = [
+      { command: "__ra_missing_lsp_binary__", extensions: ["xyz"] },
+    ];
+    expect(hasLspServer("file.xyz", custom)).toBe(false);
+  });
 });

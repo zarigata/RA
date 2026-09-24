@@ -22,6 +22,15 @@ export interface ResolvedBackend {
  * running without an OS boundary on platforms without a backend; without it,
  * RA fails closed.
  */
+export function bubblewrapNetworkArgs(network: "deny" | "allow", netns: boolean): string[] {
+  if (network === "allow") return [];
+  if (netns) return ["--unshare-net"];
+  throw new Error(
+    "Linux bubblewrap cannot enforce sandbox.network=deny because network namespaces are unavailable. "
+    + "RA fails closed; use --network allow only if shared subprocess networking is acceptable."
+  );
+}
+
 export function resolveBackend(opts: {
   platform: NodeJS.Platform;
   mode: "workspace-write" | "read-only" | "off";
@@ -227,23 +236,23 @@ function prepareCommand(context: CommandContext, args: string[], options: Launch
   const env = commandEnvironment(scratch, options.env);
   let command = args;
   if (settings.backend === "Linux bubblewrap" && settings.bwrapPath) {
-    const netIsolated = settings.network === "deny" && bwrapProbeResult(settings.bwrapPath).netns;
+    const probe = bwrapProbeResult(settings.bwrapPath);
+    const networkArgs = bubblewrapNetworkArgs(settings.network as "deny" | "allow", probe.netns);
     const bwrap: string[] = [settings.bwrapPath,
       "--dev", "/dev", "--proc", "/proc",
       "--ro-bind", "/", "/",
       "--clearenv", "--die-with-parent"];
     if (settings.mode === "workspace-write") bwrap.push("--bind", cwd, cwd);
-    bwrap.push("--bind", scratch, scratch);
-    if (netIsolated) bwrap.push("--unshare-net");
+    bwrap.push("--bind", scratch, scratch, ...networkArgs);
     for (const [k, v] of Object.entries(env)) bwrap.push("--setenv", k, v);
     command = [...bwrap, ...args];
-    settings.network = settings.network === "deny" && !netIsolated ? "shared (netns unavailable)" : settings.network;
   } else if (!settings.unsandboxed) {
     const path = join(scratch, "policy.sb");
     writeFileSync(path, profile(cwd, scratch, settings.mode, settings.network, env, gitWrite, commandReadRoots(tool, args)), { mode: 0o600 });
     command = ["/usr/bin/sandbox-exec", "-f", path, ...args];
   }
   const tag = settings.unsandboxed && settings.mode !== "off" ? `${settings.backend} (no isolation; user consent)` : settings.backend;
+  if (settings.unsandboxed && settings.mode !== "off") settings.network = "unrestricted (unsandboxed consent)";
   return { cwd, scratch, env, command, settings: { ...settings, backend: tag } };
   } catch (error) { rmSync(scratch, { recursive: true, force: true }); throw error; }
 }

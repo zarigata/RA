@@ -99,7 +99,7 @@ describe("markdown rendering", () => {
     expect(visibleWidth(s)).toBe(11);
     expect(visibleWidth(truncateVisible(s, 7))).toBeLessThanOrEqual(7);
     expect(visibleWidth("𓂀 RA")).toBe(4);
-    expect(truncateVisible("𓂀 RA terminal", 6)).toBe("𓂀 RA…");
+    expect(truncateVisible("𓂀 RA terminal", 6)).toBe("𓂀 RA …");
   });
 });
 

@@ -10,6 +10,14 @@ export const LOGO: string[] = [
   "╚═╝  ╚═╝╚═╝  ╚═╝",
 ];
 
+export const ASCII_LOGO: string[] = [
+  "RRRR    AAA ",
+  "R   R  A   A",
+  "RRRR   AAAAA",
+  "R  R   A   A",
+  "R   R  A   A",
+];
+
 export const TAGLINE = "R E L I C   A G E N T";
 
 /** Interpolate two #rrggbb colors, t in [0,1] (pure). */
@@ -36,6 +44,7 @@ const hexFg = (hexColor: string) => {
 
 // Width-1 ASCII/box tiles only: every cell is exactly one terminal column.
 const TILE = ["·", "/", ":", "\\", "-", "░", "|", "+"];
+const ASCII_TILE = [".", "/", ":", "\\", "-", ".", "|", "+"];
 
 /**
  * Build the splash frame lines.
@@ -49,8 +58,11 @@ export function renderSplashFrame(opts: {
   accent2: string;
   muted: string;
   version: string;
+  ascii?: boolean;
 }): string[] {
   const { width: W, height: H, accent, accent2, muted } = opts;
+  const logo = opts.ascii ? ASCII_LOGO : LOGO;
+  const tile = opts.ascii ? ASCII_TILE : TILE;
   const dimFg = (hexColor: string, level: number) => {
     const [r, g, b] = hex(hexColor);
     const f = level / 20;
@@ -60,7 +72,7 @@ export function renderSplashFrame(opts: {
   for (let y = 0; y < H; y++) {
     let row = "";
     for (let x = 0; x < W; x++) {
-      row += TILE[(y * 7 + x * 5) % TILE.length];
+      row += tile[(y * 7 + x * 5) % tile.length];
     }
     lines.push(`\x1b[2m${dimFg(muted, 9 + ((y * 3) % 6))}${row}\x1b[0m`);
   }
@@ -73,12 +85,12 @@ export function renderSplashFrame(opts: {
     const tail = plain.slice(left + text.length);
     lines[rowIndex] = head + style(text) + tail;
   };
-  const logoH = LOGO.length + 3;
+  const logoH = logo.length + 3;
   const top = Math.max(0, Math.floor((H - logoH) / 2) - 1);
-  for (let i = 0; i < LOGO.length; i++) {
-    const t = i / Math.max(1, LOGO.length - 1);
+  for (let i = 0; i < logo.length; i++) {
+    const t = i / Math.max(1, logo.length - 1);
     const color = rgbSeq(mixColor(accent, accent2, t));
-    const text = LOGO[i];
+    const text = logo[i];
     const rowIndex = top + i;
     const tileRow = lines[rowIndex];
     const plain = tileRow.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "");
@@ -88,9 +100,9 @@ export function renderSplashFrame(opts: {
     lines[rowIndex] = head + color + text + "\x1b[0m" + tail;
   }
   const tagText = TAGLINE;
-  composite(top + LOGO.length + 1, tagText, (s) => `\x1b[1m${hexFg(muted)}${s}\x1b[0m`);
+  composite(top + logo.length + 1, tagText, (s) => `\x1b[1m${hexFg(muted)}${s}\x1b[0m`);
   const verText = `v${opts.version}  ·  press any key to begin`;
-  composite(top + LOGO.length + 2, verText, (s) => `\x1b[2m${hexFg(muted)}${s}\x1b[0m`);
+  composite(top + logo.length + 2, verText, (s) => `\x1b[2m${hexFg(muted)}${s}\x1b[0m`);
   return lines;
 }
 

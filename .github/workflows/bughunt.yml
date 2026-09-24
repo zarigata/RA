@@ -1,0 +1,25 @@
+name: RA bug hunt
+on:
+  push:
+    branches: [test/ra-bughunt-20260924]
+
+permissions:
+  contents: read
+
+jobs:
+  tui-behavior:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install RA
+        run: |
+          ./install
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Existing TUI unit tests
+        run: |
+          cd ra
+          bun test tests/tui.test.ts tests/tui-upgrade.test.ts
+      - name: PTY interaction bug hunt
+        run: python3 "ra tests/bughunt_tui_pty.py"

@@ -150,6 +150,25 @@ def main() -> int:
                 failures.append(("palette-scroll-selection", "Selection marker disappeared after scrolling the palette", last_frame[-2600:]))
             send(master, b"\x1b", 0.4)
 
+            # Terminal resize must update layout dimensions and keep palette
+            # selection visible even on a short viewport.
+            fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 20, 72, 0, 0))
+            try:
+                os.killpg(p.pid, signal.SIGWINCH)
+            except Exception:
+                pass
+            drain(master, 0.4)
+            send(master, b"\x10", 0.4)  # Ctrl+P
+            os.write(master, b"\x1b[B" * 10)
+            raw_small = drain(master, 1.0)
+            small_frame = clean(raw_small.split(b"\x1b[H")[-1])
+            small_lines = [line for line in small_frame.splitlines() if line]
+            if small_lines and max(len(line) for line in small_lines) > 76:
+                failures.append(("terminal-resize-width", "TUI kept rendering at the old terminal width after resize", small_frame[-2400:]))
+            if "▌" not in small_frame:
+                failures.append(("terminal-resize-selection", "Selected palette row disappeared in a short resized terminal", small_frame[-2400:]))
+            send(master, b"\x1b", 0.4)
+
             send(master, b"\x04", 0.3)  # Ctrl+D
         finally:
             if p.poll() is None:
@@ -168,7 +187,7 @@ def main() -> int:
             print(f"\nFAIL: {name}\n{message}\n--- terminal evidence ---\n{evidence}")
         return 1
 
-    print("RA TUI PTY: preview restore + prompt preservation + Tab completion + scroll selection PASS")
+    print("RA TUI PTY: preview + prompt + completion + scroll + resize PASS")
     return 0
 
 

@@ -368,19 +368,20 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       out.push(sty.accent(`├${"─".repeat(Math.max(0, W - 2))}┤`));
       const rows = groupRows(paletteRows);
       const maxRows = Math.max(3, H - 12);
-      const start = Math.max(0, Math.min(paletteScroll, rows.length - maxRows));
+      let start = rows.findIndex((r) => r.kind === "row" && r.index >= paletteScroll);
+      if (start < 0) start = Math.max(0, rows.length - maxRows);
+      else if (start > 0 && rows[start - 1]?.kind === "header") start--;
+      start = Math.max(0, Math.min(start, Math.max(0, rows.length - maxRows)));
       const visible = rows.slice(start, start + maxRows);
       rowHitbox = new Map();
-      let idx = -1;
       for (const r of visible) {
         if (r.kind === "header") { out.push(sty.muted(fit(W, ` ${r.label.toUpperCase()}`))); continue; }
-        idx++;
-        const selected = idx === paletteSelected;
+        const selected = r.index === paletteSelected;
         const marker = selected ? sty.accent("▌") : " ";
         const label = highlightMatches(r.row.entry.label, r.row.indices, `\x1b[1m${hexFg(palette.foreground)}`, "\x1b[0m");
         const detail = r.row.entry.detail ? sty.muted(` — ${truncateVisible(r.row.entry.detail, Math.max(10, W - visibleWidth(r.row.entry.label) - 14))}`) : "";
         out.push(fit(W - 1, ` ${marker}${label}${detail}`));
-        rowHitbox.set(out.length, idx);
+        rowHitbox.set(out.length, r.index);
       }
       if (!paletteRows.length) out.push(sty.muted(fit(W, "  no matches — keep typing")));
       out.push(sty.muted(fit(W, `  ↑↓ select · enter run · tab insert · esc close · mouse clickable (${paletteRows.length})`)));

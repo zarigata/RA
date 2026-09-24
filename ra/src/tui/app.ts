@@ -970,6 +970,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       accent2: palette.success,
       muted: palette.muted,
       version: RA_VERSION,
+      ascii: useAsciiGlyphs(process.env),
     });
     process.stdout.write(SYNC_BEGIN + "\x1b[H" + lines.map((l) => fit(screenWidth, l ?? "") + "\x1b[K").join("\n") + SYNC_END);
   };

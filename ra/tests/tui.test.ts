@@ -258,7 +258,7 @@ describe("menu overlays", () => {
 });
 
 describe("cross-platform backend resolution", () => {
-  const { resolveBackend } = require("../src/sandbox.ts");
+  const { resolveBackend, bubblewrapNetworkArgs } = require("../src/sandbox.ts");
   const base = { mode: "workspace-write" as const, consent: false, hasSeatbelt: false, bwrapPath: null as string | null };
   test("macOS uses Seatbelt, fails closed without it", () => {
     expect(resolveBackend({ ...base, platform: "darwin", hasSeatbelt: true }).backend).toBe("macOS Seatbelt");
@@ -276,5 +276,10 @@ describe("cross-platform backend resolution", () => {
     expect(resolveBackend({ ...base, platform: "win32", mode: "off" })).toMatchObject({ backend: "disabled", unsandboxed: true });
     expect(resolveBackend({ ...base, platform: "win32" }).backend).toBe("unavailable");
     expect(resolveBackend({ ...base, platform: "sunos" }).backend).toBe("unavailable");
+  });
+  test("bubblewrap network deny fails closed without netns", () => {
+    expect(bubblewrapNetworkArgs("deny", true)).toEqual(["--unshare-net"]);
+    expect(bubblewrapNetworkArgs("allow", false)).toEqual([]);
+    expect(() => bubblewrapNetworkArgs("deny", false)).toThrow(/fails closed|cannot enforce/);
   });
 });

@@ -144,12 +144,15 @@ export function wrap(s: string, width: number): string[] {
   return out.length ? out : [""];
 }
 
-/** Visible width, ignoring ANSI escape sequences (pure). */
+/** Visible width, ignoring ANSI escape sequences (pure).
+ * Counts Unicode code points instead of UTF-16 code units so Egyptian
+ * hieroglyphs and other non-BMP symbols do not add phantom columns.
+ */
 export function visibleWidth(s: string): number {
-  return s.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").length;
+  return Array.from(s.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "")).length;
 }
 
-/** Truncate to visible width, keeping trailing escape state simple. */
+/** Truncate to visible width without splitting a Unicode code point. */
 export function truncateVisible(s: string, width: number): string {
   if (visibleWidth(s) <= width) return s;
   let out = "";
@@ -159,9 +162,10 @@ export function truncateVisible(s: string, width: number): string {
     const m = /^\x1b\[[0-9;?]*[a-zA-Z]/.exec(s.slice(i));
     if (m) { out += m[0]; i += m[0].length; continue; }
     if (visible >= width - 1) { out += "…"; break; }
-    out += s[i];
+    const cp = String.fromCodePoint(s.codePointAt(i)!);
+    out += cp;
     visible++;
-    i++;
+    i += cp.length;
   }
   return out;
 }

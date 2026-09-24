@@ -475,7 +475,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   // ---------- palette / modal actions ----------
   const openPalette = (query: string) => {
     modal = null;
-    paletteEditorBase = { text: editor.text, cursor: editor.cursor };
+    if (!paletteOpen) paletteEditorBase = { text: editor.text, cursor: editor.cursor };
     paletteOpen = true;
     paletteViaSlash = query.startsWith("/");
     editor.text = query;

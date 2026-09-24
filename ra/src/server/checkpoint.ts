@@ -2,7 +2,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, chmodSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { RA_GLOBAL } from "../../../anubis/src/config.ts";
+import { RA_GLOBAL, projectStateKey } from "../../../anubis/src/config.ts";
 
 export interface Checkpoint {
   id: string;
@@ -12,6 +12,10 @@ export interface Checkpoint {
 }
 
 function checkpointDir(cwd: string): string {
+  return join(RA_GLOBAL, "checkpoints", projectStateKey(cwd));
+}
+
+function legacyCheckpointDir(cwd: string): string {
   const slug = cwd.replace(/\//g, "_").replace(/^_|_$/g, "") || "default";
   return join(RA_GLOBAL, "checkpoints", slug);
 }
@@ -20,14 +24,27 @@ function manifestPath(cwd: string): string {
   return join(checkpointDir(cwd), "manifest.json");
 }
 
+function legacyManifestPath(cwd: string): string {
+  return join(legacyCheckpointDir(cwd), "manifest.json");
+}
+
 function loadManifest(cwd: string): Checkpoint[] {
-  const p = manifestPath(cwd);
-  if (!existsSync(p)) return [];
+  const current = manifestPath(cwd);
+  const legacy = legacyManifestPath(cwd);
+  const p = existsSync(current) ? current : existsSync(legacy) ? legacy : null;
+  if (!p) return [];
   try {
     return JSON.parse(readFileSync(p, "utf-8")) as Checkpoint[];
   } catch {
     return [];
   }
+}
+
+function checkpointStore(cwd: string, id: string, relPath: string): string | null {
+  const current = join(checkpointDir(cwd), id, relPath);
+  if (existsSync(current)) return current;
+  const legacy = join(legacyCheckpointDir(cwd), id, relPath);
+  return existsSync(legacy) ? legacy : null;
 }
 
 function saveManifest(cwd: string, list: Checkpoint[]): void {
@@ -71,8 +88,8 @@ export function restoreLatest(cwd: string): string[] {
   const cp = list[0];
   const restored: string[] = [];
   for (const rel of cp.files) {
-    const store = join(checkpointDir(cwd), cp.id, rel);
-    if (!existsSync(store)) continue;
+    const store = checkpointStore(cwd, cp.id, rel);
+    if (!store) continue;
     const abs = join(cwd, rel);
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, readFileSync(store, "utf-8"), "utf-8");
@@ -91,8 +108,9 @@ export function listCheckpoints(cwd: string): Checkpoint[] {
 
 /** Discard all checkpoints for a project. */
 export function clearCheckpoints(cwd: string): void {
-  const dir = checkpointDir(cwd);
-  if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+  for (const dir of new Set([checkpointDir(cwd), legacyCheckpointDir(cwd)])) {
+    if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 /** Return the latest checkpoint's snapshot content for a file, or null. */
@@ -100,7 +118,7 @@ export function checkpointContent(cwd: string, relPath: string): string | null {
   const list = loadManifest(cwd);
   if (!list.length) return null;
   const cp = list[0];
-  const store = join(checkpointDir(cwd), cp.id, relPath);
-  if (!existsSync(store)) return null;
+  const store = checkpointStore(cwd, cp.id, relPath);
+  if (!store) return null;
   return readFileSync(store, "utf-8");
 }

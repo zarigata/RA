@@ -85,7 +85,9 @@ say "Running offline unit tests"
     ../ra/tests/replay.test.ts \
     ../ra/tests/swarm.test.ts \
     ../ra/tests/ide.test.ts \
-    ../ra/tests/eval.test.ts
+    ../ra/tests/eval.test.ts \
+    ../ra/tests/tui.test.ts \
+    ../ra/tests/tui-upgrade.test.ts
 )
 
 say "Smoke-testing the source CLI"

@@ -117,10 +117,13 @@ describe("unified palette", () => {
     themes: [{ id: "pharaonic", name: "Pharaonic" }],
   });
 
-  test("empty query groups by category order", () => {
+  test("empty query groups by category order without losing result indexes", () => {
     const rows = searchPalette("", entries, 40);
-    const groups = groupRows(rows).filter((r) => r.kind === "header").map((r) => (r as { label: string }).label);
+    const grouped = groupRows(rows);
+    const groups = grouped.filter((r) => r.kind === "header").map((r) => (r as { label: string }).label);
+    const indexes = grouped.filter((r) => r.kind === "row").map((r) => r.kind === "row" ? r.index : -1);
     expect(groups[0]).toBe("Commands");
+    expect(indexes).toEqual(rows.map((_, i) => i));
   });
 
   test("slash-prefixed query finds everything (themes too)", () => {

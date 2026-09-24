@@ -456,6 +456,12 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     renderScheduled = true;
     setTimeout(() => { renderScheduled = false; try { render(); } catch { /* mid-resize */ } }, 24);
   };
+  const onResize = () => {
+    screenWidth = stdout.columns ?? screenWidth;
+    screenHeight = stdout.rows ?? screenHeight;
+    scheduleRender();
+  };
+  stdout.on("resize", onResize);
 
   // ---------- history seeding ----------
   if (session.messages.length === 0) {
@@ -503,6 +509,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
 
   const quit = () => {
     saveSession(session);
+    stdout.off("resize", onResize);
     stdout.write(MOUSE_EXIT + PASTE_EXIT + CURSOR_SHOW + ALT_EXIT);
     stdin.setRawMode(false);
     setActiveSubagentTracker(null);

@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll, afterAll } from "bun:test";
-import { startDaemon } from "../src/server/daemon.ts";
+import { startDaemon, DEFAULT_HOST } from "../src/server/daemon.ts";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -17,6 +17,11 @@ afterAll(() => {
 });
 
 describe("daemon", () => {
+  test("defaults to loopback instead of all interfaces", () => {
+    expect(DEFAULT_HOST).toBe("127.0.0.1");
+    expect(server?.hostname).toBe("127.0.0.1");
+  });
+
   test("health endpoint responds", async () => {
     const res = await fetch(`${base}/health`);
     const body = await res.json();

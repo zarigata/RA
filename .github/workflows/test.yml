@@ -38,6 +38,9 @@ jobs:
       - name: Test, compile, smoke-check, and verify repository hygiene
         run: bash scripts/verify-release.sh
 
+      - name: Full-screen TUI interaction regressions
+        run: python3 ra/tests/tui_interactions_pty.py
+
   # Live provider acceptance intentionally stays outside mandatory hosted CI.
   # Private LAN Ollama endpoints are unreachable from GitHub-hosted runners,
   # and pull requests should not require paid/cloud model calls to go green.

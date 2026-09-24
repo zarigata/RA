@@ -129,9 +129,10 @@ def main() -> int:
             if "/quick" not in command_search:
                 failures.append(("command-tab-precondition", "/quick was not visible in palette results", command_search[-2200:]))
             else:
-                completed = send(master, b"\t", 0.6)
-                if "/quick " not in completed or "search everything" in completed.lower():
-                    failures.append(("command-tab-close", "Tab did not complete /quick and close the palette", completed[-2200:]))
+                completed = send(master, b"\t", 0.4)
+                with_arg = send(master, b"demo", 0.5)
+                if "/quick demo" not in with_arg or "search everything" in with_arg.lower():
+                    failures.append(("command-tab-close", "Tab did not complete /quick, close the palette, and accept an argument", (completed + "\n" + with_arg)[-2200:]))
 
             # Scrolling past the first palette page must keep the selected row
             # highlighted. Group headers used to reset the visible-row index,

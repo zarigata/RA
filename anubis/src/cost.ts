@@ -17,13 +17,16 @@ const PRICE_TABLE: Record<string, ModelPrice> = {
   "google/gemini-2.5-pro": { in: 1.25, out: 10 },
   "google/gemini-2.5-flash": { in: 0.075, out: 0.3 },
   "openai/gpt-5": { in: 1.25, out: 10 },
+  "openai/gpt-5.6-luna": { in: 0.2, out: 1.2 },
+  "openai/gpt-5.6-terra": { in: 2, out: 12 },
+  "openai/gpt-5.6-sol": { in: 4, out: 20 },
   "openai/o3-mini": { in: 1.1, out: 4.4 },
   "zai/glm-4.6": { in: 0.6, out: 2.2 },
   // Ollama Cloud — rough; subscription often applies
   "ollama-cloud/glm-5.2": { in: 0, out: 0 },
 };
 
-const FREE_PREFIXES = ["ollama/", "ollama-lan/", "lmstudio/", "lmstudio-lan/", "llamacpp/", "llamacpp-lan/"];
+const FREE_PREFIXES = ["ollama/", "ollama-lan/", "lmstudio/", "lmstudio-lan/", "llamacpp/", "llamacpp-lan/", "openai-compatible-local/"];
 
 export function isFree(model: string): boolean {
   return FREE_PREFIXES.some((p) => model.startsWith(p));

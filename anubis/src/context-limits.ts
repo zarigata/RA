@@ -66,6 +66,7 @@ export const CONTEXT_TABLE: Array<{ match: string[]; window: number; note: strin
   { match: ["kimi"], window: 128 * K, note: "" },
   { match: ["claude"], window: 200 * K, note: "" },
   { match: ["gemini"], window: 128 * K, note: "" },
+  { match: ["gpt-5.6"], window: 1_050_000, note: "OpenAI GPT-5.6 API context window" },
   { match: ["gpt-5", "gpt-4", "o3", "o4"], window: 128 * K, note: "" },
   { match: ["minimax", "nemotron"], window: 128 * K, note: "" },
   { match: ["gemma2"], window: 8 * K, note: "gemma2 is 8k" },

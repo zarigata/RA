@@ -2,10 +2,16 @@ import { collectToolCalls, collectedToolText, type StreamToolCall } from "./tool
 import { recordLatency } from "./latency.ts";
 // src/ollama.ts — Ollama client (cloud OpenAI-compat + LAN/local native)
 
+export type ProviderApi = "chat-completions" | "responses";
+
 export interface OllamaConfig {
   baseURL: string;
   apiKey: string;
   kind: "cloud" | "local";
+  /** Stable provider prefix used for usage/cost attribution. */
+  provider?: string;
+  /** HTTP API used by the provider. */
+  api?: ProviderApi;
   /** Force OpenAI-compatible /chat/completions even for local servers (LM Studio, llama.cpp). */
   openaiCompat?: boolean;
 }
@@ -149,23 +155,33 @@ export class OllamaClient {
     return this.cfg.baseURL;
   }
 
+  get provider(): string {
+    if (this.cfg.provider) return this.cfg.provider;
+    if (this.cfg.kind === "cloud") return "ollama-cloud";
+    return this.cfg.openaiCompat ? "openai-compatible-local" : "ollama-lan";
+  }
+
+  get api(): ProviderApi {
+    return this.cfg.api ?? "chat-completions";
+  }
+
   static fromEnv(env: Record<string, string | undefined>): OllamaClient {
     const apiKey = env.OLLAMA_API_KEY;
     const baseURL = env.OLLAMA_BASE_URL ?? "https://ollama.com/v1";
     if (!apiKey) throw new Error("OLLAMA_API_KEY not set");
-    return new OllamaClient({ baseURL, apiKey, kind: "cloud" });
+    return new OllamaClient({ baseURL, apiKey, kind: "cloud", provider: "ollama-cloud", api: "chat-completions" });
   }
 
   /** LAN/local ollama — .251 is the preferred "small" box */
   static fromLocal(baseURL: string): OllamaClient {
     const url = baseURL.endsWith("/v1") ? baseURL : `${baseURL.replace(/\/$/, "")}/v1`;
-    return new OllamaClient({ baseURL: url, apiKey: "ollama", kind: "local" });
+    return new OllamaClient({ baseURL: url, apiKey: "ollama", kind: "local", provider: "ollama-lan", api: "chat-completions" });
   }
 
   /** OpenAI-compatible local server (LM Studio, llama.cpp server) — no key needed. */
   static fromOpenAI(baseURL: string): OllamaClient {
     const url = baseURL.endsWith("/v1") ? baseURL : `${baseURL.replace(/\/$/, "")}/v1`;
-    return new OllamaClient({ baseURL: url, apiKey: "local", kind: "local", openaiCompat: true });
+    return new OllamaClient({ baseURL: url, apiKey: "local", kind: "local", provider: "openai-compatible-local", api: "chat-completions", openaiCompat: true });
   }
 
   async probe(timeoutMs = 3000): Promise<boolean> {
@@ -505,8 +521,12 @@ function bareModel(configured: string): string {
   return configured.includes("/") ? configured.split("/").pop()! : configured;
 }
 
-function isCloudModel(configured: string): boolean {
-  return configured.startsWith("ollama-cloud/") || configured.startsWith("cloud/");
+export function isCloudModel(configured: string): boolean {
+  const slash = configured.indexOf("/");
+  if (slash <= 0) return false;
+  const provider = configured.slice(0, slash).toLowerCase();
+  if (provider === "cloud" || provider === "ollama-cloud") return true;
+  return !/^(ollama|ollama-lan|lmstudio|lmstudio-lan|llamacpp|llamacpp-lan|local|openai-compatible-local)$/.test(provider);
 }
 
 /** Small Ollama: .251 LAN first, then localhost gemma fallback */
@@ -550,7 +570,7 @@ export async function discoverLocalOpenAI(
 
 export interface ProviderDef {
   name?: string;
-  options?: { baseURL?: string; apiKey?: string };
+  options?: { baseURL?: string; apiKey?: string; api?: ProviderApi };
   models?: Record<string, unknown>;
 }
 
@@ -570,15 +590,22 @@ export function resolveProviderClient(
   // Built-in Ollama providers are handled by the dedicated Ollama path below;
   // only resolve genuinely custom providers here (e.g. zai, anthropic, google).
   if (/^ollama/i.test(provider)) return null;
-  const def = providers?.[provider];
+  const def = providers?.[provider] ?? (provider === "openai" ? {
+    name: "OpenAI",
+    options: {
+      baseURL: env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+      apiKey: "{env:OPENAI_API_KEY}",
+      api: "responses" as ProviderApi,
+    },
+  } : undefined);
   if (!def?.options?.baseURL) return null;
-  const baseURL = def.options.baseURL;
+  const baseURL = def.options.baseURL.replace(/\/$/, "");
   const rawKey = def.options.apiKey ?? "";
   const apiKey = rawKey.startsWith("{env:") && rawKey.endsWith("}")
     ? (env[rawKey.slice(5, -1)] ?? "")
     : rawKey;
   const kind: "cloud" | "local" = /localhost|127\.0\.0\.1|192\.168\./.test(baseURL) ? "local" : "cloud";
-  return new OllamaClient({ baseURL, apiKey, kind });
+  return new OllamaClient({ baseURL, apiKey, kind, provider, api: def.options.api ?? "chat-completions" });
 }
 
 /**

@@ -328,6 +328,7 @@ export class OllamaClient {
   }
 
   async chat(model: string, messages: ChatMessage[], opts: { maxTokens?: number; timeoutMs?: number; temperature?: number } = {}): Promise<ChatResult> {
+    if (this.cfg.api === "responses") return this.responsesChat(model, messages, opts);
     const timeoutMs = opts.timeoutMs ?? 180_000;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -363,6 +364,127 @@ export class OllamaClient {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("abort") || (e as { name?: string })?.name === "TimeoutError") {
         throw new Error(`chat timeout after ${timeoutMs}ms model=${model}`);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async responsesChat(
+    model: string,
+    messages: ChatMessage[],
+    opts: { maxTokens?: number; timeoutMs?: number; temperature?: number } = {},
+  ): Promise<ChatResult> {
+    const timeoutMs = opts.timeoutMs ?? 180_000;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${this.cfg.baseURL}/responses`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.cfg.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          model,
+          input: messages.map((m) => ({ role: m.role, content: m.content })),
+          ...(opts.maxTokens != null ? { max_output_tokens: opts.maxTokens } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error(`responses ${res.status}: ${await res.text()}`);
+      const data = (await res.json()) as {
+        model?: string;
+        output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
+        usage?: ResponsesUsage;
+        error?: { message?: string };
+      };
+      if (data.error) throw new Error(`responses error: ${data.error.message ?? JSON.stringify(data.error)}`);
+      const content = extractResponsesText(data);
+      if (!content.trim()) throw new Error(`Empty response from ${model}`);
+      return {
+        content,
+        model: data.model ?? model,
+        usage: mapResponsesUsage(data.usage) ?? null,
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("abort") || msg.includes("Timeout") || (e as { name?: string })?.name === "TimeoutError") {
+        throw new Error(`responses timeout after ${timeoutMs}ms model=${model}`);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async responsesChatStream(model: string, messages: ChatMessage[], opts: StreamChatOptions = {}): Promise<ChatResult> {
+    opts.signal?.throwIfAborted();
+    const timeoutMs = opts.timeoutMs ?? 180_000;
+    const ctrl = new AbortController();
+    if (opts.signal) opts.signal.addEventListener("abort", () => ctrl.abort(), { once: true });
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let content = "";
+    let usage: ChatUsage | null = null;
+    let usedModel = model;
+    try {
+      const res = await fetch(`${this.cfg.baseURL}/responses`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.cfg.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          model,
+          input: messages.map((m) => ({ role: m.role, content: m.content })),
+          stream: true,
+          ...(opts.maxTokens != null ? { max_output_tokens: opts.maxTokens } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error(`responsesStream ${res.status}: ${await res.text()}`);
+      const reader = res.body!.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const frames = buf.split(/\r?\n\r?\n/);
+        buf = frames.pop() ?? "";
+        for (const frame of frames) {
+          for (const line of frame.split(/\r?\n/)) {
+            if (!line.startsWith("data:")) continue;
+            const part = parseResponsesSSEFrame(line.slice(5));
+            if (!part) continue;
+            if (part.model) usedModel = part.model;
+            if (part.usage) usage = part.usage;
+            if (part.token) {
+              content += part.token;
+              opts.onToken?.(part.token);
+            }
+          }
+        }
+      }
+      for (const line of buf.split(/\r?\n/)) {
+        if (!line.startsWith("data:")) continue;
+        const part = parseResponsesSSEFrame(line.slice(5));
+        if (!part) continue;
+        if (part.model) usedModel = part.model;
+        if (part.usage) usage = part.usage;
+        if (part.token) {
+          content += part.token;
+          opts.onToken?.(part.token);
+        }
+      }
+      if (!content.trim()) throw new Error(`Empty response from ${model}`);
+      return { content, model: usedModel, usage };
+    } catch (e) {
+      if (opts.signal?.aborted) throw new Error(opts.signal.reason ? String(opts.signal.reason) : `model call aborted after ${timeoutMs}ms timeout (model=${model})`);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("abort") || msg.includes("Timeout") || (e as { name?: string })?.name === "TimeoutError") {
+        throw new Error(`responsesStream timeout after ${timeoutMs}ms model=${model}`);
       }
       throw e;
     } finally {
@@ -500,6 +622,7 @@ export class OllamaClient {
 
   /** SSE streaming for OpenAI-compatible endpoints (Ollama Cloud, LM Studio). */
   async chatStream(model: string, messages: ChatMessage[], opts: StreamChatOptions = {}): Promise<ChatResult> {
+    if (this.cfg.api === "responses") return this.responsesChatStream(model, messages, opts);
     opts.signal?.throwIfAborted();
     const timeoutMs = opts.timeoutMs ?? 180_000;
     const ctrl = new AbortController();

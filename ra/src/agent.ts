@@ -633,7 +633,7 @@ async function compactConversation(plan: CompactionPlan, config: RaConfig): Prom
     { role: "system", content: loadAgentPrompt("compaction") },
     { role: "user", content: `Summarize this agent conversation so work can continue with full fidelity:\n\n${transcript}` },
   ], { signal: reserveCall(), contextTokens: smallUsable }));
-  recordChatUsage(res.model, client.kind === "cloud", res.usage, { in: transcript.length, out: res.content.length });
+  recordChatUsage(`${client.provider}/${res.model}`, client.kind === "cloud", res.usage, { in: transcript.length, out: res.content.length });
   return res.content;
 }
 
@@ -977,7 +977,7 @@ async function executeTaskAgent(
       if (opts.stats) opts.stats.usedTokens = ledger.usedTokens([...messages, { role: "assistant", content: last }]);
     }
     const inChars = messages.reduce((n, m) => n + m.content.length, 0);
-    recordChatUsage(res.model, activeClient.kind === "cloud", res.usage, { in: inChars, out: last.length }, ctx.cwd);
+    recordChatUsage(`${activeClient.provider}/${res.model}`, activeClient.kind === "cloud", res.usage, { in: inChars, out: last.length }, ctx.cwd);
     messages.push({ role: "assistant", content: last });
 
     const tool = await execToolBlock(ctx, last, config, agentPerms, spawn, bashPatterns, mcpRt.call);
@@ -1049,7 +1049,7 @@ export async function runOrchestratorTurn(
   const res = await withRetry(() => client.nativeChatStream(model, [
     { role: "system", content: system }, ...(ctx.history ?? []), { role: "user", content: userText },
   ], { signal: reserveCall(), onToken: scopedRenderer() }));
-  recordChatUsage(res.model, client.kind === "cloud", res.usage, {
+  recordChatUsage(`${client.provider}/${res.model}`, client.kind === "cloud", res.usage, {
     in: system.length + userText.length,
     out: res.content.length,
   }, ctx.cwd);
@@ -1114,7 +1114,7 @@ export async function aggregateMoa(task: string, results: MoAResult[], config: R
     },
     { role: "user", content: prompt },
   ], { signal: reserveCall() }));
-  recordChatUsage(res.model, client.kind === "cloud", res.usage, {
+  recordChatUsage(`${client.provider}/${res.model}`, client.kind === "cloud", res.usage, {
     in: prompt.length,
     out: res.content.length,
   });

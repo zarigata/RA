@@ -120,6 +120,71 @@ export function parseSSEFrame(
   };
 }
 
+
+type ResponsesUsage = { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+
+export function mapResponsesUsage(usage?: ResponsesUsage | null): ChatUsage | undefined {
+  if (!usage) return undefined;
+  const prompt_tokens = usage.input_tokens ?? 0;
+  const completion_tokens = usage.output_tokens ?? 0;
+  return {
+    prompt_tokens,
+    completion_tokens,
+    total_tokens: usage.total_tokens ?? prompt_tokens + completion_tokens,
+  };
+}
+
+export function extractResponsesText(data: {
+  output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
+}): string {
+  const chunks: string[] = [];
+  for (const item of data.output ?? []) {
+    if (item.type !== "message") continue;
+    for (const part of item.content ?? []) {
+      if (part.type === "output_text" && typeof part.text === "string") chunks.push(part.text);
+    }
+  }
+  return chunks.join("");
+}
+
+/** Parse a Responses API SSE data payload. Pure for CI contract tests. */
+export function parseResponsesSSEFrame(
+  frame: string,
+): { token: string; model?: string; usage?: ChatUsage; done?: boolean } | null {
+  const f = frame.trim();
+  if (!f) return null;
+  if (f === "[DONE]") return { token: "", done: true };
+  let j: {
+    type?: string;
+    delta?: string;
+    message?: string;
+    error?: { message?: string } | string;
+    response?: { model?: string; usage?: ResponsesUsage; error?: { message?: string } };
+  };
+  try {
+    j = JSON.parse(f);
+  } catch {
+    return null;
+  }
+  if (j.type === "error") {
+    const message = typeof j.error === "string" ? j.error : j.error?.message ?? j.message ?? "unknown error";
+    throw new Error(`Provider stream error: ${message}`);
+  }
+  if (j.type === "response.failed") {
+    throw new Error(`Provider stream error: ${j.response?.error?.message ?? "response failed"}`);
+  }
+  if (j.type === "response.output_text.delta") return { token: j.delta ?? "" };
+  if (j.type === "response.completed") {
+    return {
+      token: "",
+      done: true,
+      model: j.response?.model,
+      usage: mapResponsesUsage(j.response?.usage),
+    };
+  }
+  return { token: "" };
+}
+
 /** Split `keepAlive` like "30m" / "1h" / "600s" into Ollama's milliseconds form. */
 export function keepAliveMs(keepAlive?: string): number | undefined {
   if (!keepAlive) return undefined;

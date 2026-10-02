@@ -53,7 +53,7 @@ describe("routing modes", () => {
     expect(isCloudModelId("ollama-cloud/glm-5.2")).toBe(true);
     expect(isCloudModelId("cloud/x")).toBe(true);
     expect(isCloudModelId("ollama-lan/gpt-oss:20b")).toBe(false);
-    expect(isCloudModelId("zai/glm-4.6")).toBe(false);
+    expect(isCloudModelId("zai/glm-4.6")).toBe(true);
   });
 });
 

@@ -1,3 +1,4 @@
+import { memoryPacket } from "./memory-cards.ts";
 import { withAgentRun, withAgentScope, currentScope, checkRun, runSignal, reserveCall, scopedRenderer, cancelRuns } from "./execution.ts";
 import { normalizeToolText } from "../../anubis/src/tool-call.ts";
 import { readFileSync, existsSync } from "node:fs";
@@ -19,7 +20,7 @@ import type { McpServerEntry, McpTool } from "./mcp.ts";
 import { resolveAgentFile, taskCatalogHint } from "./agents/catalog.ts";
 import { toolSkill } from "./skills.ts";
 import { toolRepoMap } from "./repomap.ts";
-import { applyRoutingMode, downshiftForBudget, escalationChain } from "../../anubis/src/routing.ts";
+import { applyRoutingMode, downshiftForBudget, escalationChain, resolveRoutingMode, isCloudModelId } from "../../anubis/src/routing.ts";
 import { jobForRole } from "../../anubis/src/profiles.ts";
 import { pickForJobLive } from "../../anubis/src/capability.ts";
 import { isQuotaError, markExhausted } from "../../anubis/src/quota.ts";
@@ -713,6 +714,8 @@ async function executeTaskAgent(
   // Hybrid routing (ra.76): the mode adjusts the tier decision before
   // airgap/frontmatter overrides — an agent that pins its model always wins.
   let configured = applyRoutingMode((tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model, tier, config);
+  const controllerMode = resolveRoutingMode(config, env) === "local-controller";
+  const localControl = controllerMode && role !== "ptah";
   const airgap = isAirgapped(config, env);
   if (airgap) configured = localizeModel(configured, config.small_model ?? "ollama-lan/gpt-oss:20b");
   const meta = loadAgentMeta(role, ctx.cwd);
@@ -724,7 +727,7 @@ async function executeTaskAgent(
   // provider (local-biased), and returns a failover chain. Frontmatter pins
   // win; the budget guard keeps the last word on cost.
   let capabilityChain: string[] = [];
-  if (!meta.model && config.capability_router?.enabled !== false && !airgap) {
+  if (!meta.model && config.capability_router?.enabled !== false && !airgap && !controllerMode) {
     const routing = await pickForJobLive(jobForRole(role, tier), config, env);
     if (routing) {
       configured = routing.primary.model;
@@ -739,6 +742,10 @@ async function executeTaskAgent(
   }
   // Context escalation (ra.78) pins the bigger-window model above all routing.
   if (opts.modelOverride) configured = opts.modelOverride;
+  if (localControl) {
+    if (!config.small_model || isCloudModelId(config.small_model)) throw new Error("local-controller requires a local small_model");
+    configured = config.small_model;
+  }
   if (currentScope()?.node) currentScope()!.node!.model = configured;
   emitGlobalHook("agent.turn.start", { role, task, model: configured });
   const { client, model } = await pickClientForModel(configured, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
@@ -753,7 +760,7 @@ async function executeTaskAgent(
   const allowed = [...ctx.capabilities!.tools];
   const hint = buildToolHint(allowed, mcpRt.tools);
   const accessMode = ctx.capabilities!.readOnly ? "\nThis operation is read-only, including all delegated agents. Inspect and propose; do not modify files." : "";
-  const system = `${loadAgentPrompt(role, ctx.cwd)}${accessMode}${loadProjectMemory(ctx.cwd)}\nProject files (top level):\n${tools.listDir(ctx, ".").slice(0, 4000)}\n${hint}`;
+  const system = `${loadAgentPrompt(role, ctx.cwd)}${accessMode}${loadProjectMemory(ctx.cwd)}${memoryPacket(ctx.cwd, task)}\nProject files (top level):\n${tools.listDir(ctx, ".").slice(0, 4000)}\n${hint}`;
 
   let rootOutput = "";
   // The active client can change mid-loop: cross-provider failover (quota,
@@ -806,7 +813,7 @@ async function executeTaskAgent(
     ...resolveModelFallbacks(configured, config.fallbacks),
     ...escalationChain(configured, config),
     ...capabilityChain,
-  ])];
+  ])].filter(candidate => !localControl || !isCloudModelId(candidate));
   const fallbackEvents: FallbackEvent[] = [];
   const withFallbacks = (r: TaskResult): TaskResult =>
     fallbackEvents.length > 0 ? { ...r, fallbacks: [...fallbackEvents] } : r;

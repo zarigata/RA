@@ -13,11 +13,12 @@
 import { buildReport, loadUsage } from "./cost.ts";
 import type { RaConfig } from "./config.ts";
 
-export type RoutingMode = "local-first" | "quality-first" | "balanced" | "economy";
-export const ROUTING_MODES: RoutingMode[] = ["local-first", "quality-first", "balanced", "economy"];
+export type RoutingMode = "local-first" | "quality-first" | "balanced" | "economy" | "local-controller";
+export const ROUTING_MODES: RoutingMode[] = ["local-first", "quality-first", "balanced", "economy", "local-controller"];
 
 export function isCloudModelId(model: string): boolean {
-  return /^(ollama-cloud|cloud)\//i.test(model);
+  const prefix = model.split("/")[0].toLowerCase();
+  return model.includes("/") && !["ollama", "ollama-lan", "ollama-local"].includes(prefix);
 }
 
 export function resolveRoutingMode(config: Pick<RaConfig, "routing">, env: Record<string, string | undefined> = process.env): RoutingMode {
@@ -36,6 +37,11 @@ export function applyRoutingMode(
   config: Pick<RaConfig, "routing" | "model" | "small_model">,
 ): string {
   const mode = resolveRoutingMode(config);
+  if (mode === "local-controller") {
+    const local = config.small_model;
+    if (!local || isCloudModelId(local)) throw new Error("local-controller requires a local small_model");
+    return tier === "code" || tier === "heavy" ? config.model : local;
+  }
   if (mode === "quality-first") {
     if (tier === "meta") return config.small_model ?? configured;
     return config.model ?? configured;

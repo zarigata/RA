@@ -30,7 +30,7 @@ export interface RaConfig extends RouterConfig {
     budget_usd?: number;
   }>;
   /** Hybrid routing between local and cloud lanes (ra.76): local-first default. */
-  routing?: { mode?: "local-first" | "quality-first" | "balanced" | "economy"; escalate_threshold?: number };
+  routing?: { mode?: "local-first" | "quality-first" | "balanced" | "economy" | "local-controller"; escalate_threshold?: number };
   /** Provider Mosaic (ra.77): benchmark-driven capability routing across every configured provider. */
   capability_router?: {
     enabled?: boolean;

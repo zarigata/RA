@@ -19,8 +19,10 @@ export interface ToolContext {
 }
 
 export function safePath(cwd: string, p: string): string {
-  const root = resolve(cwd);
-  const abs = resolve(cwd, p);
+  // Resolve the root through symlinks first (macOS /var → /private/var): the
+  // caller may pass a lexical cwd while artifact paths arrive fully resolved.
+  const root = realpathSync(resolve(cwd));
+  const abs = resolve(root, p);
   if (abs !== root && !abs.startsWith(root + sep)) {
     throw new Error(`path escapes project: ${p}`);
   }

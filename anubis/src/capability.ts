@@ -50,7 +50,8 @@ const envKey = (apiKeyTpl: unknown, env: Record<string, string | undefined>): bo
 };
 
 const isLocalUrl = (baseURL: unknown): boolean =>
-  typeof baseURL === "string" && (/localhost|127\.0\.0\.1|192\.168\./.test(baseURL) || baseURL === "");
+  typeof baseURL === "string" &&
+  (/localhost|127\.0\.0\.1|192\.168\./.test(baseURL.replace(/\{env:[A-Z0-9_]+\}/g, "")) || baseURL === "");
 
 /**
  * Every model RA could route to right now: the configured lanes plus every

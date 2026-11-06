@@ -85,6 +85,13 @@ export const MODEL_PROFILES: ModelProfile[] = [
     note: "solid open generalist",
   },
   {
+    // coder390: 19.6GB coder fine-tune on the LAN box — measured 17.3/21 (82.5%)
+    // on RA's 21-task eval vs glm-5.2's 18.3/21 (87%), 2026-11-06 campaign.
+    match: ["coder390"],
+    scores: { code: 7, research: 6.5, reasoning: 7, review: 7, chat: 7, docs: 6.5 },
+    note: "solid local coder fine-tune — near-BIG eval pass rate",
+  },
+  {
     // MiniMax (M3 HLE 39) / Nemotron
     match: ["minimax"],
     scores: { code: 7, research: 7, reasoning: 7, review: 6.5, chat: 7, docs: 7 },

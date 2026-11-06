@@ -58,7 +58,7 @@ export const DEFAULT_LOCAL_CAP = 32768;
 const K = 1024;
 export const CONTEXT_TABLE: Array<{ match: string[]; window: number; note: string }> = [
   { match: ["qwen3.8"], window: 256 * K, note: "nominal 262k — always clamp with server_cap" },
-  { match: ["qwen3-coder", "qwen2.5-coder"], window: 128 * K, note: "coder variants ship long windows" },
+  { match: ["qwen3-coder", "qwen2.5-coder", "coder390"], window: 128 * K, note: "coder variants ship long windows" },
   { match: ["qwen"], window: 32 * K, note: "generic qwen — conservative 32k" },
   { match: ["gpt-oss"], window: 128 * K, note: "128k hardware context" },
   { match: ["glm-5", "glm-4"], window: 128 * K, note: "" },

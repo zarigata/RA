@@ -714,6 +714,9 @@ async function executeTaskAgent(
   let needsEdit = (opts.continuation ?? 0) === 0 && role === "ptah" && (canRunTool(config, "write") || canRunTool(config, "edit")) && /\b(create|write|update|fix|implement|build|change)\b/i.test(task) && !/no (?:tools|files)/i.test(task);
   let completionRepairs = 0;
   const assignment = resolveRoleModel(role, config);
+  // Tier routing: ptah classifies the task's own tier (code work → BIG);
+  // thoth is the planner so "plan" classifies as meta-tier (small/LAN) —
+  // planning is small-model work and keeps the local-first lane honest.
   const tier = classifyTier(task, role === "ptah" ? "code" : role === "thoth" ? "plan" : undefined);
   const tierModels = (config as RaConfig & { tier_models?: Record<string, string> }).tier_models;
   // Hybrid routing (ra.76): the mode adjusts the tier decision before

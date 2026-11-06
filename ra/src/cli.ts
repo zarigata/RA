@@ -114,8 +114,8 @@ Usage:
   ra benchmark init|smoke|run <name|all>
   ra --remote <URL>          Connect TUI to a running daemon (or set RA_REMOTE env)
 
-Small models: LAN Ollama via OLLAMA_LAN_URL (configured small_model; localhost fallback)
-BIG models: Ollama Cloud (configured model)
+Small models: LAN Ollama via OLLAMA_LAN_URL (${loadRaConfig(ANUBIS_HOME).small_model ?? "localhost fallback"})
+BIG models: Ollama Cloud (${loadRaConfig(ANUBIS_HOME).model ?? "ollama-cloud"})
 
 In TUI:
   /quick /again /plan /code /pipeline /help /simple on /status /files /show /result /lane /intent /prefer /summary /timings /verify /history /clear

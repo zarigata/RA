@@ -502,7 +502,11 @@ const MODEL_FALLBACKS = ["qwen3.8:latest", "gemma4:12b", "gemma:latest", "gemma2
 const CLOUD_FALLBACKS = ["glm-5.2", "deepseek-v4-flash:0731", "gpt-oss:120b"];
 
 function bareModel(configured: string): string {
-  return configured.includes("/") ? configured.split("/").pop()! : configured;
+  // Strip only the provider prefix (first segment): model tags themselves may
+  // contain slashes (e.g. hf.co/owner/repo:Q6_K); splitting on the last slash
+  // would truncate them to a tag fragment and misroute the request.
+  const slash = configured.indexOf("/");
+  return slash >= 0 ? configured.slice(slash + 1) : configured;
 }
 
 function isCloudModel(configured: string): boolean {

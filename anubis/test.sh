@@ -26,6 +26,21 @@ lan_host_tag() {
   if [[ -n "$host" ]]; then echo "$host"; else echo "lan"; fi
 }
 LAN_TAG="$(lan_host_tag)"
+# Transient provider stalls (a model request wedging past the run deadline)
+# fail an entire full-dev attempt even though the provider is healthy seconds
+# later. The full-dev checks below are idempotent single-file tasks, so retry
+# them once — a hard failure must repeat to count.
+ra_retry() {
+  local attempt out rc
+  out="$(mktemp)"
+  for attempt in 1 2; do
+    set +e; "$@" >"$out" 2>&1; rc=$?; set -e
+    if [[ "$rc" -eq 0 ]]; then cat "$out"; rm -f "$out"; return 0; fi
+    echo "  (attempt $attempt failed rc=$rc — provider stall? retrying once)" >&2
+    sleep 5
+  done
+  cat "$out"; rm -f "$out"; return "$rc"
+}
 PROFILE_MODELS="$(bun -e "import { loadRaConfig } from './src/config.ts'; const c = loadRaConfig('.'); console.log((c.small_model ?? '') + ' ' + (c.model ?? ''));")"
 SMALL_MODEL="${RA_SMALL_MODEL:-$(printf '%s' "$PROFILE_MODELS" | awk '{print $1}')}"
 BIG_MODEL="${RA_MODEL:-$(printf '%s' "$PROFILE_MODELS" | awk '{print $2}')}"
@@ -203,8 +218,8 @@ echo "✓ ra selfcheck"
 echo "▶ ra demo (RA TUI full-dev one-shot)"
 DEMO_OUT="$(mktemp)"
 set +e
-"${RA_BIN[@]}" demo 2>&1 | tee "$DEMO_OUT"
-DEMO_RC=${PIPESTATUS[0]}
+ra_retry "${RA_BIN[@]}" demo >"$DEMO_OUT" 2>&1
+DEMO_RC=$?
 set -e
 if [[ "$DEMO_RC" -ne 0 ]] && ! grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt 2>/dev/null; then
   # The demo's small-model stage targets the stock LAN profile. With the LAN
@@ -346,8 +361,8 @@ OUTQ="$(mktemp)"
 set +e
 (
   cd "$WORKQ"
-  printf '/quick write a hello world function in one file\n/exit\n' | "${RA_BIN[@]}"
-) 2>&1 | tee "$OUTQ"
+  printf '/quick write a hello world function in one file\n/exit\n' | ra_retry "${RA_BIN[@]}"
+) >"$OUTQ" 2>&1
 set -e
 grep -q "RA TUI" "$OUTQ" || { echo "FAIL: TUI /quick missing RA TUI splash"; exit 1; }
 grep -qE "RA ✓ done|dev cycle complete" "$OUTQ" || { echo "FAIL: TUI /quick missing done"; exit 1; }
@@ -370,9 +385,9 @@ OUT="$(mktemp)"
 set +e
 (
   cd "$WORK"
-  "${RA_BIN[@]}" --task "write a hello world function in one file" --quick --verify
-) 2>&1 | tee "$OUT"
-RC=${PIPESTATUS[0]}
+  ra_retry "${RA_BIN[@]}" --task "write a hello world function in one file" --quick --verify
+) >"$OUT" 2>&1
+RC=$?
 set -e
 if [[ "$RC" -ne 0 ]]; then
   echo "FAIL: ra --task exit $RC"
@@ -763,8 +778,8 @@ echo "✓ orchestrator wrote index.html with hello"
 echo "▶ ra benchmark run all (must show RA TUI)"
 BENCH_OUT="$(mktemp)"
 set +e
-"${RA_BIN[@]}" benchmark run all 2>&1 | tee "$BENCH_OUT"
-BENCH_RC=${PIPESTATUS[0]}
+ra_retry "${RA_BIN[@]}" benchmark run all >"$BENCH_OUT" 2>&1
+BENCH_RC=$?
 set -e
 [[ "$BENCH_RC" -eq 0 ]] || { echo "FAIL: benchmark run all exit $BENCH_RC"; exit "$BENCH_RC"; }
 grep -q "RA TUI" "$BENCH_OUT" || { echo "FAIL: benchmark missing RA TUI"; exit 1; }

@@ -156,7 +156,7 @@ export class OllamaClient {
     return new OllamaClient({ baseURL, apiKey, kind: "cloud" });
   }
 
-  /** LAN/local ollama — .251 is the preferred "small" box */
+  /** LAN/local ollama — the preferred "small" box */
   static fromLocal(baseURL: string): OllamaClient {
     const url = baseURL.endsWith("/v1") ? baseURL : `${baseURL.replace(/\/$/, "")}/v1`;
     return new OllamaClient({ baseURL: url, apiKey: "ollama", kind: "local" });
@@ -498,8 +498,8 @@ export class OllamaClient {
   }
 }
 
-const MODEL_FALLBACKS = ["gpt-oss:20b", "gemma4:12b", "gemma:latest", "gemma2:2b"];
-const CLOUD_FALLBACKS = ["gpt-oss:120b", "glm-5.2", "deepseek-v4-flash:0731"];
+const MODEL_FALLBACKS = ["qwen3.8:latest", "gemma4:12b", "gemma:latest", "gemma2:2b"];
+const CLOUD_FALLBACKS = ["glm-5.2", "deepseek-v4-flash:0731", "gpt-oss:120b"];
 
 function bareModel(configured: string): string {
   return configured.includes("/") ? configured.split("/").pop()! : configured;
@@ -509,17 +509,15 @@ function isCloudModel(configured: string): boolean {
   return configured.startsWith("ollama-cloud/") || configured.startsWith("cloud/");
 }
 
-/** Small Ollama: .251 LAN first, then localhost gemma fallback */
+/** Small Ollama: the configured LAN box first (OLLAMA_LAN_URL), then localhost */
 export function smallOllamaUrls(env: Record<string, string | undefined>): string[] {
   const urls = [
-    env.OLLAMA_LAN_URL ?? "http://192.168.1.251:11434",
+    env.OLLAMA_LAN_URL ?? "http://localhost:11434",
     env.OLLAMA_LOCAL_URL ?? "http://localhost:11434",
     "http://localhost:11434",
   ];
   return [...new Set(urls)];
 }
-
-/** Small models: always .251 first (user's "local" box) */
 export async function pickOllamaEndpoint(
   env: Record<string, string | undefined>,
 ): Promise<OllamaClient> {
@@ -527,7 +525,7 @@ export async function pickOllamaEndpoint(
     const client = OllamaClient.fromLocal(url);
     if (await client.probe(2000)) return client;
   }
-  throw new Error("No reachable small Ollama (tried .251 and localhost)");
+  throw new Error("No reachable small Ollama (tried OLLAMA_LAN_URL and localhost)");
 }
 
 /**
@@ -556,8 +554,8 @@ export interface ProviderDef {
 
 /**
  * Resolve a `provider/model` string to an OpenAI-compatible client using the
- * `provider` config block. Supports `{env:VAR}` templating for the API key.
- * Returns null if the provider is not configured (caller falls back to Ollama).
+ * `provider` config block. Supports `{env:VAR}` templating for the API key and
+ * baseURL. Returns null if the provider is not configured (caller falls back to Ollama).
  */
 export function resolveProviderClient(
   configured: string,
@@ -572,11 +570,16 @@ export function resolveProviderClient(
   if (/^ollama/i.test(provider)) return null;
   const def = providers?.[provider];
   if (!def?.options?.baseURL) return null;
-  const baseURL = def.options.baseURL;
-  const rawKey = def.options.apiKey ?? "";
-  const apiKey = rawKey.startsWith("{env:") && rawKey.endsWith("}")
-    ? (env[rawKey.slice(5, -1)] ?? "")
-    : rawKey;
+  // Expand every {env:VAR} placeholder (key or baseURL, embedded or whole).
+  // A provider with an unset env placeholder is unusable, not misconfigured.
+  const expandEnv = (raw: string): string | null => {
+    const missing = [...raw.matchAll(/\{env:([A-Z0-9_]+)\}/g)].some((m) => !env[m[1]!]);
+    if (missing) return null;
+    return raw.replace(/\{env:([A-Z0-9_]+)\}/g, (_, k) => env[k]!);
+  };
+  const baseURL = expandEnv(def.options.baseURL);
+  if (!baseURL) return null;
+  const apiKey = expandEnv(def.options.apiKey ?? "") ?? "";
   const kind: "cloud" | "local" = /localhost|127\.0\.0\.1|192\.168\./.test(baseURL) ? "local" : "cloud";
   return new OllamaClient({ baseURL, apiKey, kind });
 }
@@ -585,7 +588,7 @@ export function resolveProviderClient(
  * Route by provider prefix:
  * - a configured `provider/*` (from the `provider` config block) → OpenAI-compatible client
  * - ollama-cloud/* → Ollama Cloud (BIG) with OLLAMA_API_KEY
- * - everything else → .251 LAN as small/local
+ * - everything else → the configured LAN box (OLLAMA_LAN_URL) as small/local
  */
 export async function pickClientForModel(
   configured: string,
@@ -613,11 +616,12 @@ export async function pickClientForModel(
     return { client: OllamaClient.fromEnv(env), model: bare };
   }
 
-  // Small / "local" = .251 gpt-oss:20b, then localhost gemma if needed
+  // Small / "local" = LAN qwen3.8 (OLLAMA_LAN_URL), then localhost gemma
   for (const url of smallOllamaUrls(env)) {
     const client = OllamaClient.fromLocal(url);
     if (!(await client.probe(2000))) continue;
-    // Prefer gpt-oss:20b on .251; gemma:* only if configured or gpt-oss missing
+    // Prefer the configured family on the LAN box; gemma:* only if configured
+    // or the configured family is missing on this host
     if (/gemma/i.test(bare) && !client.availableModels.some((m) => /gemma/i.test(m))) {
       continue; // configured gemma but this host has none — keep probing
     }
@@ -630,7 +634,7 @@ export async function pickClientForModel(
     const model = pickModel(configured, openai.availableModels);
     return { client: openai, model };
   }
-  throw new Error("No reachable small Ollama at .251 (or localhost gemma fallback)");
+  throw new Error("No reachable small Ollama at OLLAMA_LAN_URL (or localhost fallback)");
 }
 
 export function pickModel(
@@ -661,7 +665,7 @@ export function fallbackChain(configured: string): string[] {
   if (isCloudModel(configured)) {
     chain.push(...CLOUD_FALLBACKS.map((m) => `ollama-cloud/${m}`));
   } else {
-    chain.push("ollama-lan/gpt-oss:20b", "ollama/gemma:latest");
+    chain.push("ollama-lan/qwen3.8:latest", "ollama/gemma:latest");
   }
   return [...new Set(chain)];
 }
@@ -686,7 +690,7 @@ export function resolveModelFallbacks(configured: string, fallbacks?: ModelFallb
     fallbacks?.models?.[configured] ??
     fallbacks?.models?.[primary] ??
     fallbacks?.default ??
-    (cloud ? CLOUD_FALLBACKS.map((m) => `ollama-cloud/${m}`) : ["ollama-lan/gpt-oss:20b", "ollama/gemma:latest"]);
+    (cloud ? CLOUD_FALLBACKS.map((m) => `ollama-cloud/${m}`) : ["ollama-lan/qwen3.8:latest", "ollama/gemma:latest"]);
   const out: string[] = [];
   for (const entry of explicit) {
     const bare = bareModel(entry);
@@ -772,9 +776,11 @@ export async function runWithFallback(
 
 function hostTag(baseURL: string, kind: "cloud" | "local"): string {
   if (kind === "cloud") return "cloud";
-  if (baseURL.includes("192.168.1.251")) return "251";
-  if (/localhost|127\.0\.0\.1/.test(baseURL)) return "local";
-  return "lan";
+  const host = baseURL.replace(/^\w+:\/\//, "").split(/[/:?#]/)[0] ?? "";
+  if (/^(localhost|127\.0\.0\.1)$/.test(host)) return "local";
+  const m = host.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.(\d{1,3})$/);
+  if (m) return m[1]!;
+  return host || "lan";
 }
 
 /**
@@ -788,7 +794,7 @@ export async function warmOllama(
   keepAlive = "30m",
 ): Promise<{ model: string; ms: number; loaded: boolean }> {
   const client = await pickOllamaEndpoint(env);
-  const model = pickModel(preferredModel ?? "ollama-lan/gpt-oss:20b", client.availableModels);
+  const model = pickModel(preferredModel ?? "ollama-lan/qwen3.8:latest", client.availableModels);
   const base = client.baseURL.replace(/\/v1$/, "");
   const ka = keepAliveMs(keepAlive);
   const t0 = Date.now();

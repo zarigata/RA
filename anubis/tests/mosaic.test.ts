@@ -138,7 +138,7 @@ describe("capability router", () => {
     agent: {},
     provider: {
       "ollama-cloud": { options: { baseURL: "https://ollama.com/v1", apiKey: "{env:OLLAMA_API_KEY}" }, models: { "glm-5.2": {} } },
-      "ollama-lan": { options: { baseURL: "http://192.168.1.251:11434/v1" }, models: { "gpt-oss:20b": {} } },
+      "ollama-lan": { options: { baseURL: "http://192.0.2.50:11434/v1" }, models: { "gpt-oss:20b": {} } },
       google: { options: { baseURL: "https://generativelanguage.googleapis.com/v1beta", apiKey: "{env:GOOGLE_API_KEY}" }, models: { "gemini-3-pro": {} } },
       zai: { options: { baseURL: "https://api.z.ai/api/paas/v4", apiKey: "{env:ZAI_API_KEY}" }, models: { "glm-5.2": {} } },
     },

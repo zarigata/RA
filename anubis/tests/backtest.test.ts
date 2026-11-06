@@ -7,14 +7,14 @@ let client: Awaited<ReturnType<typeof pickOllamaEndpoint>>;
 let hasOllama = false;
 try {
   client = await pickOllamaEndpoint(env);
-  // These backtests characterize gpt-oss:20b specifically. The gemma localhost
+  // These backtests characterize qwen3.8:latest specifically. The gemma localhost
   // fallback cannot stand in for it (too slow for the longer prompts), so only
-  // run when the endpoint actually serves gpt-oss:20b.
-  hasOllama = client.availableModels.some((m: string) => m.startsWith("gpt-oss:20b"));
+  // run when the endpoint actually serves qwen3.8:latest.
+  hasOllama = client.availableModels.some((m: string) => m.startsWith("qwen3.8:latest"));
   if (hasOllama) {
     // Reachability is not responsiveness: a LAN box can accept the probe and
     // then hang on generation. Only run the backtests when a tiny chat works.
-    await client.nativeChat("gpt-oss:20b", [{ role: "user", content: "reply OK" }], {
+    await client.nativeChat("qwen3.8:latest", [{ role: "user", content: "reply OK" }], {
       timeoutMs: 20_000,
     });
   }
@@ -23,7 +23,7 @@ try {
 }
 
 describe.skipIf(!hasOllama)("Backtest: local/LAN Ollama", () => {
-  const model = () => pickModel("gpt-oss:20b", client.availableModels);
+  const model = () => pickModel("qwen3.8:latest", client.availableModels);
 
   async function chat(prompt: string) {
     let last: unknown;
@@ -39,12 +39,12 @@ describe.skipIf(!hasOllama)("Backtest: local/LAN Ollama", () => {
     throw last;
   }
 
-  test("gpt-oss:20b performs planning task", async () => {
+  test("qwen3.8:latest performs planning task", async () => {
     const res = await chat("Explain parallel vs sequential agent orchestration in one sentence.");
     expect(res.content.length).toBeGreaterThan(0);
   }, 200_000);
 
-  test("gpt-oss:20b performs summarization", async () => {
+  test("qwen3.8:latest performs summarization", async () => {
     const res = await chat("Summarize: 'RA is a terminal agent'.");
     expect(res.content.length).toBeGreaterThan(0);
   }, 200_000);

@@ -88,10 +88,14 @@ export function tableContext(modelId: string): number | null {
 /** Local/cloud classification from the id prefix or provider baseURL. */
 export function modelKind(modelId: string, config?: RaConfig): "local" | "cloud" {
   if (/^(ollama-cloud|cloud)\//i.test(modelId)) return "cloud";
+  // Built-in local providers are local regardless of their (possibly
+  // {env:VAR}-templated) baseURL.
+  if (/^(ollama-lan|ollama|lmstudio|llamacpp)\//i.test(modelId)) return "local";
   const providers = config?.provider as Record<string, { options?: { baseURL?: string } }> | undefined;
   const slash = modelId.indexOf("/");
   if (slash > 0 && providers) {
-    const url = providers[modelId.slice(0, slash)]?.options?.baseURL ?? "";
+    let url = providers[modelId.slice(0, slash)]?.options?.baseURL ?? "";
+    if (url) url = url.replace(/\{env:([A-Z0-9_]+)\}/g, (_, k) => process.env[k] ?? "");
     if (url && !/localhost|127\.0\.0\.1|192\.168\./.test(url)) return "cloud";
   }
   return "local";

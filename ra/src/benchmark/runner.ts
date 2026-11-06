@@ -99,7 +99,7 @@ export async function runScenario(scenarioPath: string): Promise<boolean> {
   const t0 = Date.now();
   let pipelineError: string | undefined;
   try {
-    // Full-dev path = RA TUI boxes + .251 gpt-oss plan + cloud/code model
+    // Full-dev path = RA TUI boxes + LAN small-model plan + cloud/code model
     await runFullDevTask(scenario.prompt, {
       root: ANUBIS_HOME,
       stages: ["thoth", "ptah"],
@@ -173,7 +173,8 @@ export async function benchmarkSmoke(): Promise<number> {
 
 export async function benchmarkRun(name: string): Promise<number> {
   console.log("RA benchmark");
-  console.log("RA prefer small@251 → big@cloud  (gemma @local fallback)");
+  const { preferLine } = await import("../../../anubis/src/tui.ts");
+  console.log(preferLine());
   benchmarkInit();
   lastScenarioReports = [];
   const root = join(ANUBIS_HOME, "..", "benchmarks");

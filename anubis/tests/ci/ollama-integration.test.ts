@@ -13,10 +13,10 @@ try {
 }
 
 function smallModel(): string {
-  return pickModel("gpt-oss:20b", client.availableModels);
+  return pickModel("ollama-lan/qwen3.8:latest", client.availableModels);
 }
 
-/** .251 can hitch under load — one retry, generous timeout */
+/** The LAN box can hitch under load — one retry, generous timeout */
 async function chatOnce(
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
 ) {
@@ -35,9 +35,9 @@ async function chatOnce(
 describe.skipIf(!hasOllama)("Ollama local/LAN integration", () => {
   test("lists available models via native API", async () => {
     expect(client.availableModels.length).toBeGreaterThan(0);
-    // Prefer gpt-oss on .251 when present
+    // Prefer the configured small model family on the LAN host when present
     const names = client.availableModels.join(" ");
-    expect(/gpt-oss|gemma/i.test(names)).toBe(true);
+    expect(/qwen3\.8|gemma|qwen/i.test(names)).toBe(true);
   });
 
   test("chat completion returns content", async () => {

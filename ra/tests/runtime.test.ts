@@ -19,8 +19,8 @@ describe("task tier classifier", () => {
     expect(tierModel("code", models)).toBe("ollama-lan/gpt-oss:20b");
   });
 
-  test("default tier fallback is gpt-oss:20b on LAN", () => {
-    expect(tierModel("meta")).toBe("ollama-lan/gpt-oss:20b");
+  test("default tier fallback is qwen3.8:latest on LAN", () => {
+    expect(tierModel("meta")).toBe("ollama-lan/qwen3.8:latest");
   });
 });
 

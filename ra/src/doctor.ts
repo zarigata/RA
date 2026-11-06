@@ -20,15 +20,19 @@ export async function runDoctor(): Promise<number> {
   check("ra.json", existsSync(`${ANUBIS_HOME}/ra.json`), "missing config");
 
   loadEnv(ANUBIS_HOME);
+  let config: import("../../anubis/src/config.ts").RaConfig | null = null;
+  try { config = (await import("../../anubis/src/config.ts")).loadRaConfig(ANUBIS_HOME); } catch { config = null; }
+  const { profileNotableRegex } = await import("../../anubis/src/ping.ts");
+  const notable = profileNotableRegex(config ?? undefined);
 
   try {
     const { pingAll, formatPings } = await import("../../anubis/src/ping.ts");
-    const pings = await pingAll(process.env as Record<string, string>);
+    const pings = await pingAll(process.env as Record<string, string>, config ?? undefined);
     console.log(formatPings(pings));
-    const lan = pings.find((p) => p.name === "251");
+    const lan = pings.find((p) => p.name !== "local" && p.name !== "cloud");
     const local = pings.find((p) => p.name === "local");
-    // Small is reachable if EITHER .251 or localhost is up (fallback chain).
-    check("Ollama small reachable", !!(lan?.ok || local?.ok), "start ollama on 192.168.1.251 or localhost");
+    // Small is reachable if EITHER the LAN box or localhost is up (fallback chain).
+    check("Ollama small reachable", !!(lan?.ok || local?.ok), "start ollama on your LAN server (OLLAMA_LAN_URL) or localhost");
   } catch {
     check("Ollama ping", false, "network / ollama down");
   }
@@ -37,43 +41,44 @@ export async function runDoctor(): Promise<number> {
     const small = await pickOllamaEndpoint(process.env as Record<string, string>);
     const { hostTag } = await import("../../anubis/src/tui.ts");
     const host = hostTag(small.baseURL, small.kind);
-    const hasSmall = small.availableModels.some((m) => /gpt-oss|gemma/i.test(m));
+    const hasSmall = small.availableModels.some((m) => notable.test(m));
     check(
-      `Small Ollama (@${host}, ${small.availableModels.length} models${hasSmall ? ", gpt-oss" : ""})`,
+      `Small Ollama (@${host}, ${small.availableModels.length} models${hasSmall ? ", profile model present" : ""})`,
       small.availableModels.length > 0,
-      "start ollama on 192.168.1.251 (gpt-oss:20b) or localhost gemma",
+      "start ollama on your LAN server (see OLLAMA_LAN_URL in anubis/.env) or localhost",
     );
+    if (config?.small_model && hasSmall && !small.availableModels.includes(config.small_model.split("/").pop()!)) {
+      console.log(`  ⚠ configured small model "${config.small_model}" not seen on @${host} — pull it or point small_model at a listed model`);
+    }
     // Context registry (ra.78): show each model's USABLE window (probed max
     // clamped by the num_ctx server cap), not the nominal marketing number.
     try {
-      const { loadRaConfig } = await import("../../anubis/src/config.ts");
       const { contextPolicy, formatContext, modelMaxContextLive, usableContext } = await import("../../anubis/src/context-limits.ts");
-      const config = loadRaConfig(ANUBIS_HOME);
-      const policy = contextPolicy(config);
+      const policy = contextPolicy(config ?? {});
       console.log(`○ adaptive context ${policy.adaptive ? "ON" : "OFF"} · low/critical ${Math.round(policy.lowWatermark * 100)}%/${Math.round(policy.criticalWatermark * 100)}% · continuations ≤${policy.resumeLimit}`);
       for (const m of small.availableModels.slice(0, 5)) {
-        const max = await modelMaxContextLive(small, m, config);
+        const max = await modelMaxContextLive(small, m, config ?? {});
         console.log(`    ${m} — ${formatContext(usableContext(max, m, small.kind, policy), max)}`);
       }
     } catch { /* registry display is best-effort */ }
   } catch {
-    check("Small Ollama .251 / localhost", false, "OLLAMA_LAN_URL=http://192.168.1.251:11434");
+    check("Small Ollama LAN / localhost", false, "set OLLAMA_LAN_URL in anubis/.env (e.g. http://your-lan-server:11434)");
   }
 
-  // Optional localhost gemma probe (only if LAN is different)
+  // Optional localhost fallback probe (only if LAN is different)
   const localUrl = process.env.OLLAMA_LOCAL_URL ?? "http://localhost:11434";
-  const lanUrl = process.env.OLLAMA_LAN_URL ?? "http://192.168.1.251:11434";
+  const lanUrl = process.env.OLLAMA_LAN_URL ?? "http://localhost:11434";
   if (localUrl.replace(/\/$/, "") !== lanUrl.replace(/\/$/, "")) {
     try {
       const local = OllamaClient.fromLocal(localUrl);
       if (await local.probe(1500)) {
-        const gemma = local.availableModels.filter((m) => /gemma/i.test(m));
-        console.log(`○ localhost fallback OK (${gemma.length ? gemma.join(", ") : local.availableModels.length + " models"})`);
+        const notableLocal = local.availableModels.filter((m) => notable.test(m));
+        console.log(`○ localhost fallback OK (${notableLocal.length ? notableLocal.join(", ") : local.availableModels.length + " models"})`);
       } else {
-        console.log("○ localhost gemma fallback not running (optional)");
+        console.log("○ localhost fallback not running (optional)");
       }
     } catch {
-      console.log("○ localhost gemma fallback not running (optional)");
+      console.log("○ localhost fallback not running (optional)");
     }
   }
 

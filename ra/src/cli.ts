@@ -22,8 +22,9 @@ function arg(flag: string): string | undefined {
 }
 
 if (args.includes("--version") || args.includes("-v") || args[0] === "version") {
+  const { preferLine } = await import("../../anubis/src/tui.ts");
   console.log(`${APP_NAME} ${RA_VERSION}`);
-  console.log("RA prefer small@251 → big@cloud  (gemma @local fallback)");
+  console.log(preferLine());
   process.exit(0);
 }
 
@@ -44,6 +45,7 @@ if (args[0] === "home") {
       lastCwd: last?.cwd,
       lane: last?.timings?.length ? formatLaneLine(last) : null,
       intent: last?.intent ? formatIntentLine(last) : null,
+      env: process.env as Record<string, string | undefined>,
     }),
   );
   process.exit(0);
@@ -88,9 +90,9 @@ Usage:
   ra eval [--model id]        Run the eval harness (all configured models, or one)
   ra catalog [--json]        Fetch models.dev provider catalog
   ra result                  One-line RA RESULT (bash greppable)
-  ra lane                    One-line RA lane (thoth@251 → ptah@cloud)
+  ra lane                    One-line RA lane (thoth@LAN → ptah@cloud)
   ra intent                  One-line RA intent (code|debug|plan|…)
-  ra prefer                  One-line RA prefer (small@251 → big@cloud)
+  ra prefer                  One-line RA prefer (small@LAN → big@cloud)
   ra files                   List files from last full-dev
   ra again [--quick] [--verify]  Re-run last full-dev task (same cwd)
   ra summary                 Last full-dev snapshot (status+result+timings)
@@ -98,11 +100,11 @@ Usage:
   ra show                    Print last written file
   ra verify                  Re-check last full-dev artifacts (no LLM)
   ra env                     Show Ollama endpoints (keys masked)
-  ra ping                    Latency check .251 / localhost / cloud
-  ra which                   Which small host is active (@251 or @local)
-  ra lanes                   Small@251 vs BIG@cloud routing map
+  ra ping                    Latency check LAN / localhost / cloud
+  ra which                   Which small host is active (@LAN or @local)
+  ra lanes                   Small@LAN vs BIG@cloud routing map
   ra providers               Capability router: profiles + quota health (ra.77)
-  ra models                  Probe gpt-oss/gemma on .251 + cloud BIG
+  ra models                  Probe the configured models on LAN + cloud BIG
   ra cost [--session]        Usage / cost report (per-session with --session)
   ra init                    Mark cwd as RA project
   ra demo                    One-shot RA TUI full-dev (hello.py) + verify
@@ -112,7 +114,7 @@ Usage:
   ra benchmark init|smoke|run <name|all>
   ra --remote <URL>          Connect TUI to a running daemon (or set RA_REMOTE env)
 
-Small models: 192.168.1.251 gpt-oss:20b (fallback: localhost gemma)
+Small models: LAN Ollama via OLLAMA_LAN_URL (qwen3.8 recommended; localhost fallback)
 BIG models: Ollama Cloud glm-5.2
 
 In TUI:
@@ -270,8 +272,9 @@ if (args[0] === "benchmark") {
 
 if (args.includes("--roles") || args[0] === "roles") {
   const cfg = loadRaConfig(ANUBIS_HOME);
+  const { preferLine } = await import("../../anubis/src/tui.ts");
   console.log(renderRolesTable(formatAssignments(resolveAll(cfg))));
-  console.log("RA prefer small@251 → big@cloud");
+  console.log(preferLine());
   process.exit(0);
 }
 
@@ -572,14 +575,18 @@ if (args[0] === "env") {
 if (args[0] === "ping") {
   const { pingAll, formatPings } = await import("../../anubis/src/ping.ts");
   loadEnv(ANUBIS_HOME);
-  console.log(formatPings(await pingAll(process.env as Record<string, string | undefined>)));
+  let pingCfg: import("../../anubis/src/config.ts").RaConfig | undefined;
+  try { pingCfg = loadRaConfig(ANUBIS_HOME); } catch { pingCfg = undefined; }
+  console.log(formatPings(await pingAll(process.env as Record<string, string | undefined>, pingCfg)));
   process.exit(0);
 }
 
 if (args[0] === "which") {
   const { formatRaWhich } = await import("../../anubis/src/which.ts");
   loadEnv(ANUBIS_HOME);
-  console.log(await formatRaWhich(process.env as Record<string, string | undefined>));
+  let whichCfg: import("../../anubis/src/config.ts").RaConfig | undefined;
+  try { whichCfg = loadRaConfig(ANUBIS_HOME); } catch { whichCfg = undefined; }
+  console.log(await formatRaWhich(process.env as Record<string, string | undefined>, whichCfg));
   process.exit(0);
 }
 
@@ -630,22 +637,24 @@ if (args[0] === "init") {
   mkdirSync(dir, { recursive: true });
   const marker = join(dir, "project.json");
   if (!existsSync(marker)) {
+    const { preferLine } = await import("../../anubis/src/tui.ts");
     writeFileSync(
       marker,
       JSON.stringify(
         {
           name: "RA project",
-          small: "ollama-lan/gpt-oss:20b",
+          small: "ollama-lan/qwen3.8:latest",
           big: "ollama-cloud/glm-5.2",
-          note: "Small models on 192.168.1.251; gemma on localhost as fallback",
+          note: `Small models on the LAN Ollama (OLLAMA_LAN_URL); localhost as fallback. ${preferLine()}`,
         },
         null,
         2,
       ) + "\n",
     );
   }
+  const { preferLine } = await import("../../anubis/src/tui.ts");
   console.log(`${APP_NAME} init → ${marker}`);
-  console.log(`RA prefer small@251 → big@cloud  (gemma @local fallback)`);
+  console.log(preferLine());
   console.log(`  ra --task "..." --quick --verify`);
   console.log(`  ra demo`);
   console.log(`  ./test.sh`);

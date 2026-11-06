@@ -1,35 +1,44 @@
 import { describe, expect, test } from "bun:test";
 import { pickModel, smallOllamaUrls, fallbackChain, runWithFallback, resolveProviderClient, discoverLocalOpenAI, OllamaClient } from "../src/ollama.ts";
 
+// RFC 5737 TEST-NET-1 documentation address — never a real host.
+const LAN_URL = "http://192.0.2.50:11434";
+
 describe("small Ollama routing", () => {
-  test(".251 first, localhost gemma second", () => {
-    const urls = smallOllamaUrls({});
-    expect(urls[0]).toBe("http://192.168.1.251:11434");
+  test("OLLAMA_LAN_URL first, localhost second", () => {
+    const urls = smallOllamaUrls({ OLLAMA_LAN_URL: LAN_URL });
+    expect(urls[0]).toBe(LAN_URL);
     expect(urls).toContain("http://localhost:11434");
     expect(urls.length).toBe(2);
   });
 
+  test("defaults to localhost when no LAN URL is configured", () => {
+    const urls = smallOllamaUrls({});
+    expect(urls[0]).toBe("http://localhost:11434");
+    expect(urls.length).toBe(1);
+  });
+
   test("OLLAMA_LOCAL_URL overrides localhost default", () => {
     const urls = smallOllamaUrls({
-      OLLAMA_LAN_URL: "http://192.168.1.251:11434",
+      OLLAMA_LAN_URL: LAN_URL,
       OLLAMA_LOCAL_URL: "http://127.0.0.1:11434",
     });
     expect(urls).toEqual([
-      "http://192.168.1.251:11434",
+      LAN_URL,
       "http://127.0.0.1:11434",
       "http://localhost:11434",
     ]);
   });
 
-  test("pickModel prefers gpt-oss:20b over gemma when both present", () => {
-    const available = ["gemma:latest", "gpt-oss:20b", "gemma2:2b"];
-    expect(pickModel("ollama-lan/gpt-oss:20b", available)).toBe("gpt-oss:20b");
-    expect(pickModel("missing", available)).toBe("gpt-oss:20b");
+  test("pickModel prefers the configured family when present", () => {
+    const available = ["gemma:latest", "qwen3.8:latest", "gemma2:2b"];
+    expect(pickModel("ollama-lan/qwen3.8:latest", available)).toBe("qwen3.8:latest");
+    expect(pickModel("missing", available)).toBe("qwen3.8:latest");
   });
 
-  test("pickModel falls back to gemma when gpt-oss absent", () => {
+  test("pickModel falls back to gemma when the configured family is absent", () => {
     const available = ["gemma:latest", "gemma2:2b"];
-    expect(pickModel("ollama-lan/gpt-oss:20b", available)).toBe("gemma:latest");
+    expect(pickModel("ollama-lan/qwen3.8:latest", available)).toBe("gemma:latest");
   });
 });
 
@@ -40,30 +49,30 @@ describe("fallback chain", () => {
     for (const m of chain.slice(1)) {
       expect(m.startsWith("ollama-cloud/")).toBe(true);
     }
-    expect(chain).not.toContain("ollama-lan/gpt-oss:20b");
+    expect(chain).not.toContain("ollama-lan/qwen3.8:latest");
     expect(chain).not.toContain("ollama/gemma:latest");
   });
 
   test("small model falls back only to other local models", () => {
-    const chain = fallbackChain("ollama-lan/gpt-oss:20b");
-    expect(chain[0]).toBe("ollama-lan/gpt-oss:20b");
+    const chain = fallbackChain("ollama-lan/qwen3.8:latest");
+    expect(chain[0]).toBe("ollama-lan/qwen3.8:latest");
     expect(chain).toContain("ollama/gemma:latest");
     expect(chain.every((m) => !m.startsWith("ollama-cloud/"))).toBe(true);
   });
 
   test("dedupes repeated candidates", () => {
-    const chain = fallbackChain("ollama-lan/gpt-oss:20b");
+    const chain = fallbackChain("ollama-lan/qwen3.8:latest");
     expect(new Set(chain).size).toBe(chain.length);
   });
 
   test("runWithFallback returns first success and records attempts", async () => {
     const calls: string[] = [];
     const { result, attempts } = await runWithFallback(
-      "ollama-lan/gpt-oss:20b",
+      "ollama-lan/qwen3.8:latest",
       {},
       async (_client, model) => {
         calls.push(model);
-        if (model === "gpt-oss:20b") {
+        if (model === "qwen3.8:latest") {
           return { content: "ok", model, usage: null };
         }
         throw new Error("down");
@@ -72,7 +81,7 @@ describe("fallback chain", () => {
         // Fake picker: resolve candidate to a bare model + a fake client.
         const bare = candidate.split("/").pop()!;
         return {
-          client: { baseURL: "http://192.168.1.251:11434", kind: "local" } as never,
+          client: { baseURL: LAN_URL, kind: "local" } as never,
           model: bare,
         };
       },
@@ -80,13 +89,13 @@ describe("fallback chain", () => {
     expect(result.content).toBe("ok");
     expect(attempts.length).toBeGreaterThanOrEqual(1);
     expect(attempts[0].ok).toBe(true);
-    expect(attempts[0].host).toBe("251");
+    expect(attempts[0].host).toBe("50");
   });
 
   test("runWithFallback throws when all candidates fail", async () => {
     await expect(
       runWithFallback(
-        "ollama-lan/gpt-oss:20b",
+        "ollama-lan/qwen3.8:latest",
         {},
         async () => {
           throw new Error("down");
@@ -114,22 +123,41 @@ describe("provider abstraction", () => {
     expect(client!.kind).toBe("cloud");
   });
 
+  test("resolveProviderClient expands {env:VAR} in baseURL", () => {
+    const client = resolveProviderClient(
+      "custom/model",
+      { custom: { options: { baseURL: "{env:CUSTOM_URL}/v1" } } },
+      { CUSTOM_URL: "https://api.example.com" },
+    );
+    expect(client).not.toBeNull();
+    expect(client!.baseURL).toBe("https://api.example.com/v1");
+  });
+
+  test("resolveProviderClient returns null when the baseURL env var is unset", () => {
+    const client = resolveProviderClient(
+      "custom/model",
+      { custom: { options: { baseURL: "{env:CUSTOM_URL}/v1" } } },
+      {},
+    );
+    expect(client).toBeNull();
+  });
+
   test("resolveProviderClient returns null for unconfigured provider", () => {
     expect(resolveProviderClient("unknown/model", undefined, {})).toBeNull();
     expect(resolveProviderClient("zai/glm-5.2", {}, {})).toBeNull();
   });
 
   test("resolveProviderClient returns null for bare model (no slash)", () => {
-    expect(resolveProviderClient("gpt-oss:20b", {}, {})).toBeNull();
+    expect(resolveProviderClient("qwen3.8:latest", {}, {})).toBeNull();
   });
 
   test("resolveProviderClient skips built-in ollama providers", () => {
     const providers = {
       ollama: { options: { baseURL: "http://localhost:11434/v1" } },
-      "ollama-lan": { options: { baseURL: "http://192.168.1.251:11434/v1" } },
+      "ollama-lan": { options: { baseURL: LAN_URL + "/v1" } },
     };
     expect(resolveProviderClient("ollama/gemma:latest", providers, {})).toBeNull();
-    expect(resolveProviderClient("ollama-lan/gpt-oss:20b", providers, {})).toBeNull();
+    expect(resolveProviderClient("ollama-lan/qwen3.8:latest", providers, {})).toBeNull();
   });
 
   test("resolveProviderClient infers local kind from localhost baseURL", () => {

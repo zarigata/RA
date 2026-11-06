@@ -121,11 +121,11 @@ export function formatIntentLine(run: LastRun | null): string {
 export function formatPreferLine(run: LastRun | null): string {
   const small = run?.timings?.find((t) => t.stage === "thoth");
   const big = run?.timings?.find((t) => t.host === "cloud");
-  const a = small ? `small@${small.host}` : run?.hosts?.includes("251")
-    ? "small@251"
-    : run?.hosts?.includes("local")
-      ? "small@local"
-      : "small@251";
+  const a = small
+    ? `small@${small.host}`
+    : run?.hosts?.find((h) => h !== "cloud")
+    ? `small@${run.hosts.find((h) => h !== "cloud")}`
+    : "small@local";
   const b = big ? `big@${big.host}` : run?.hosts?.includes("cloud") ? "big@cloud" : "big@cloud";
   return `RA prefer ${a} → ${b}`;
 }

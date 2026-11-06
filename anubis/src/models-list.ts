@@ -1,9 +1,10 @@
 /** Live model inventory for bash + TUI `/models` */
 import { OllamaClient, pickOllamaEndpoint } from "./ollama.ts";
 import { hostTag } from "./tui.ts";
+import { profileNotableRegex } from "./ping.ts";
 
 export async function formatRaModels(
-  cfg: { model?: string; small_model?: string },
+  cfg: { model?: string; small_model?: string; provider?: Record<string, { models?: Record<string, unknown> }> },
   env: Record<string, string | undefined>,
 ): Promise<string> {
   const lines = [
@@ -16,11 +17,16 @@ export async function formatRaModels(
     const small = await pickOllamaEndpoint(env);
     const host = hostTag(small.baseURL, small.kind);
     smallHost = host;
-    const notables = small.availableModels.filter((m) => /gpt-oss|gemma/i.test(m));
+    const notable = profileNotableRegex(cfg);
+    const notables = small.availableModels.filter((m) => notable.test(m));
     lines.push(
       `small @${host} (${small.availableModels.length}): ${small.availableModels.slice(0, 10).join(", ")}`,
     );
     if (notables.length) lines.push(`  notable: ${notables.join(", ")}`);
+    const wanted = cfg.small_model?.includes("/") ? cfg.small_model.split("/").pop()! : cfg.small_model;
+    if (wanted && !small.availableModels.includes(wanted)) {
+      lines.push(`  ⚠ configured small model "${wanted}" is not on this host — pull it (ollama pull ${wanted}) or set small_model in ra.json to a listed model`);
+    }
   } catch (e) {
     lines.push(`small probe failed: ${String(e)}`);
   }

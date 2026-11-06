@@ -56,7 +56,7 @@ describe("Anubis distribution integrity", () => {
   test("config references Ollama provider", () => {
     const cfg = JSON.parse(readFileSync(CONFIG, "utf8"));
     expect(cfg.provider).toHaveProperty("ollama-lan");
-    expect(cfg.provider["ollama-lan"].options.baseURL).toContain("251");
+    expect(cfg.provider["ollama-lan"].options.baseURL).toContain("{env:OLLAMA_LAN_URL}");
     expect(cfg.provider).toHaveProperty("ollama");
   });
 

@@ -23,7 +23,13 @@ import { applyRoutingMode, downshiftForBudget, escalationChain } from "../../anu
 import { jobForRole } from "../../anubis/src/profiles.ts";
 import { pickForJobLive } from "../../anubis/src/capability.ts";
 import { isQuotaError, markExhausted } from "../../anubis/src/quota.ts";
+import { hostTag } from "../../anubis/src/tui.ts";
 import { buildHandoff, saveHandoff, buildContinuationTask, resumeStepBudget, lowContextNotice, pickContextEscalation, todoState, type ContextStats, type HandoffReason } from "./resume.ts";
+
+/** Host tag for a local base URL: last IPv4 octet, hostname, or "local". */
+function hostTagOf(baseURL: string): string {
+  return hostTag(baseURL, "local");
+}
 
 /** Global hook registry — allows agent code to emit events without a PluginHost reference. */
 type GlobalHookFn = (input: Record<string, unknown>) => void;
@@ -714,7 +720,7 @@ async function executeTaskAgent(
   // airgap/frontmatter overrides — an agent that pins its model always wins.
   let configured = applyRoutingMode((tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model, tier, config);
   const airgap = isAirgapped(config, env);
-  if (airgap) configured = localizeModel(configured, config.small_model ?? "ollama-lan/gpt-oss:20b");
+  if (airgap) configured = localizeModel(configured, config.small_model ?? "ollama-lan/qwen3.8:latest");
   const meta = loadAgentMeta(role, ctx.cwd);
   // Frontmatter model override takes precedence over config/tier assignment —
   // must be applied BEFORE the client is picked, or it never takes effect.
@@ -781,7 +787,7 @@ async function executeTaskAgent(
   if (adaptive) await refreshLedger(configured);
   const result = await runAgentLoop();
   if (currentScope()?.node) currentScope()!.node!.model = result.model;
-  return { ...result, host: activeClient.kind === "cloud" ? "cloud" : activeClient.baseURL.includes("192.168.1.251") ? "251" : "local" };
+  return { ...result, host: activeClient.kind === "cloud" ? "cloud" : hostTagOf(activeClient.baseURL) };
 
   async function runAgentLoop(): Promise<TaskResult> {
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [

@@ -6,12 +6,37 @@ export interface PingResult {
   ok: boolean;
   ms: number;
   models?: number;
-  /** notable small models seen (gpt-oss/gemma) for bash greps */
+  /** notable small models seen (configured profile models) for bash greps */
   notable?: string[];
   error?: string;
 }
 
-export async function pingUrl(name: string, url: string, timeoutMs = 3000): Promise<PingResult> {
+/** Notable-model regex derived from the configured profile models + gemma fallback. */
+export function notableRegex(...configuredModels: Array<string | undefined>): RegExp {
+  const tokens = new Set(["gemma"]);
+  for (const m of configuredModels) {
+    if (!m) continue;
+    const bare = m.includes("/") ? m.split("/").pop()! : m;
+    const family = bare.split(":")[0]!;
+    if (!family) continue;
+    tokens.add(family);
+    // Coarse family for compound names: "qwen3-coder-30b-a3b-…" → "qwen3-coder"
+    const parts = family.split("-");
+    if (parts.length > 1) tokens.add(parts.slice(0, 2).join("-"));
+  }
+  const pattern = [...tokens].map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  return new RegExp(pattern, "i");
+}
+
+/** Notable regex for a whole config: lanes + the ollama-lan provider's model entries. */
+export function profileNotableRegex(
+  cfg?: { small_model?: string; model?: string; provider?: Record<string, { models?: Record<string, unknown> }> },
+): RegExp {
+  const lanModels = Object.keys(cfg?.provider?.["ollama-lan"]?.models ?? {});
+  return notableRegex(cfg?.small_model, cfg?.model, ...lanModels);
+}
+
+export async function pingUrl(name: string, url: string, timeoutMs = 3000, notable: RegExp = notableRegex()): Promise<PingResult> {
   const base = url.replace(/\/v1\/?$/, "").replace(/\/$/, "");
   const t0 = Date.now();
   try {
@@ -25,8 +50,7 @@ export async function pingUrl(name: string, url: string, timeoutMs = 3000): Prom
     const names = (data.models ?? [])
       .map((m) => m.name ?? m.model ?? "")
       .filter(Boolean);
-    const notable = names.filter((n) => /gpt-oss|gemma/i.test(n)).slice(0, 4);
-    return { name, url: base, ok: true, ms, models: names.length, notable };
+    return { name, url: base, ok: true, ms, models: names.length, notable: names.filter((n) => notable.test(n)).slice(0, 4) };
   } catch (e) {
     return { name, url: base, ok: false, ms: Date.now() - t0, error: String(e) };
   }
@@ -52,19 +76,29 @@ export async function pingCloud(baseURL: string, apiKey: string, timeoutMs = 500
   }
 }
 
-export async function pingAll(env: Record<string, string | undefined>): Promise<PingResult[]> {
-  const lan = env.OLLAMA_LAN_URL ?? "http://192.168.1.251:11434";
+export async function pingAll(env: Record<string, string | undefined>, configured?: { small_model?: string; model?: string; provider?: Record<string, { models?: Record<string, unknown> }> }): Promise<PingResult[]> {
+  const lan = env.OLLAMA_LAN_URL ?? "http://localhost:11434";
   const local = env.OLLAMA_LOCAL_URL ?? "http://localhost:11434";
+  const notable = profileNotableRegex(configured);
+  const lanTag = lanTagOf(lan);
   const out: PingResult[] = [
-    await pingUrl("251", lan),
+    await pingUrl(lanTag, lan, 3000, notable),
   ];
   if (local.replace(/\/$/, "") !== lan.replace(/\/$/, "")) {
-    out.push(await pingUrl("local", local));
+    out.push(await pingUrl("local", local, 3000, notable));
   }
   if (env.OLLAMA_API_KEY) {
     out.push(await pingCloud(env.OLLAMA_BASE_URL ?? "https://ollama.com/v1", env.OLLAMA_API_KEY));
   }
   return out;
+}
+
+function lanTagOf(url: string): string {
+  const host = url.replace(/^\w+:\/\//, "").split(/[/:?#]/)[0] ?? "";
+  if (/^(localhost|127\.0\.0\.1)$/.test(host)) return "local";
+  const m = host.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.(\d{1,3})$/);
+  if (m) return m[1]!;
+  return host || "lan";
 }
 
 export function formatPings(pings: PingResult[]): string {
@@ -77,12 +111,12 @@ export function formatPings(pings: PingResult[]): string {
       lines.push(`✗ ${p.name} ${p.url}  ${p.ms}ms  ${p.error ?? "down"}`);
     }
   }
-  const lan = pings.find((p) => p.name === "251");
+  const lan = pings.find((p) => p.name !== "local" && p.name !== "cloud");
   const local = pings.find((p) => p.name === "local");
   const cloud = pings.find((p) => p.name === "cloud");
-  const hasSmall = !!lan?.notable?.some((n) => /gpt-oss|gemma/i.test(n));
+  const hasSmall = !!lan?.notable?.length;
   const small =
-    lan?.ok && (hasSmall || !local?.ok) ? "small@251" : local?.ok ? "small@local" : lan?.ok ? "small@251" : "small@down";
+    lan?.ok && (hasSmall || !local?.ok) ? `small@${lan.name}` : local?.ok ? "small@local" : lan?.ok ? `small@${lan.name}` : "small@down";
   const big = cloud?.ok ? "big@cloud" : "big@down";
   lines.push(`RA prefer ${small} → ${big}`);
   return lines.join("\n");

@@ -38,7 +38,7 @@ jobs:
           OLLAMA_BASE_URL: https://ollama.com/v1
           # Cloud-only job: GitHub runners have no ollama, so LAN/LOCAL point
           # at localhost purely so the probes fail fast (connection refused)
-          # instead of timing out on the unreachable .251 default.
+          # instead of timing out on an unreachable LAN default.
           OLLAMA_LAN_URL: http://localhost:11434
           OLLAMA_LOCAL_URL: http://localhost:11434
         run: |

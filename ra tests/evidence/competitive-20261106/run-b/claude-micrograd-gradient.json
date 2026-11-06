@@ -1,0 +1,14 @@
+{
+ "scenario": "claude-micrograd-gradient",
+ "tool": "claude",
+ "task": "micrograd-gradient",
+ "budget_s": 300,
+ "success": false,
+ "check_error": "nonzero exit",
+ "new_files": [],
+ "dirty_paths": 0,
+ "exit": 1,
+ "seconds": 11.19,
+ "output_tail": "API Error: 400 Sua assinatura venceu ou foi encerrada e o acesso \u00e0 API est\u00e1 pausado. Renove a assinatura na p\u00e1gina de planos do painel para voltar a usar. (request id: 202611060547336314132568268d9d6qdpMYDIX)\nClaude Code doesn't recognize the model \"glm-5.3-flash\", so it assumes a context window of 200k tokens. Update Claude Code, or see https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id to set the window.\n[claude-code:unrecognized_model] {\"model\":\"glm-5.3-flash\",\"query_source\":\"sdk\"}\n",
+ "timeout": false
+}

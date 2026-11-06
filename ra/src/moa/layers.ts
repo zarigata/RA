@@ -81,7 +81,7 @@ export interface LayerPlan {
 export function resolveLayerPlan(config: RaConfig, options: LayeredMoaOptions = {}): LayerPlan {
   const preset = options.team ? config.teams?.[options.team] : undefined;
   if (options.team && !preset) throw new Error(`Unknown team preset: ${options.team} (configure it under teams: in ra.json)`);
-  const defaultModels = [...new Set([config.small_model ?? "ollama-lan/gpt-oss:20b", config.model].filter(Boolean))];
+  const defaultModels = [...new Set([config.small_model ?? "ollama-lan/qwen3.8:latest", config.model].filter(Boolean))];
   return {
     models: options.models ?? preset?.models ?? config.moa?.models ?? defaultModels,
     role: options.role ?? preset?.role ?? "general",

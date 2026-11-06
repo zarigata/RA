@@ -19,7 +19,7 @@ import { dirname, join } from "node:path";
 
 const base: Pick<RaConfig, "model" | "small_model" | "routing" | "budget"> = {
   model: "ollama-cloud/glm-5.2",
-  small_model: "ollama-lan/gpt-oss:20b",
+  small_model: "ollama-lan/qwen3.8:latest",
 };
 
 describe("routing modes", () => {
@@ -31,28 +31,28 @@ describe("routing modes", () => {
 
   test("local-first and balanced trust the tier decision", () => {
     for (const mode of ["local-first", "balanced"] as const) {
-      expect(applyRoutingMode("ollama-lan/gpt-oss:20b", "code", { ...base, routing: { mode } })).toBe("ollama-lan/gpt-oss:20b");
+      expect(applyRoutingMode("ollama-lan/qwen3.8:latest", "code", { ...base, routing: { mode } })).toBe("ollama-lan/qwen3.8:latest");
       expect(applyRoutingMode("ollama-cloud/glm-5.2", "meta", { ...base, routing: { mode } })).toBe("ollama-cloud/glm-5.2");
     }
   });
 
   test("quality-first sends everything but meta to the cloud lane", () => {
     const cfg = { ...base, routing: { mode: "quality-first" as const } };
-    expect(applyRoutingMode("ollama-lan/gpt-oss:20b", "code", cfg)).toBe("ollama-cloud/glm-5.2");
-    expect(applyRoutingMode("ollama-lan/gpt-oss:20b", "heavy", cfg)).toBe("ollama-cloud/glm-5.2");
-    expect(applyRoutingMode("ollama-cloud/glm-5.2", "meta", cfg)).toBe("ollama-lan/gpt-oss:20b");
+    expect(applyRoutingMode("ollama-lan/qwen3.8:latest", "code", cfg)).toBe("ollama-cloud/glm-5.2");
+    expect(applyRoutingMode("ollama-lan/qwen3.8:latest", "heavy", cfg)).toBe("ollama-cloud/glm-5.2");
+    expect(applyRoutingMode("ollama-cloud/glm-5.2", "meta", cfg)).toBe("ollama-lan/qwen3.8:latest");
   });
 
   test("economy pins every tier to the local lane", () => {
     const cfg = { ...base, routing: { mode: "economy" as const } };
-    expect(applyRoutingMode("ollama-cloud/glm-5.2", "code", cfg)).toBe("ollama-lan/gpt-oss:20b");
-    expect(applyRoutingMode("ollama-cloud/glm-5.2", "heavy", cfg)).toBe("ollama-lan/gpt-oss:20b");
+    expect(applyRoutingMode("ollama-cloud/glm-5.2", "code", cfg)).toBe("ollama-lan/qwen3.8:latest");
+    expect(applyRoutingMode("ollama-cloud/glm-5.2", "heavy", cfg)).toBe("ollama-lan/qwen3.8:latest");
   });
 
   test("cloud model detection", () => {
     expect(isCloudModelId("ollama-cloud/glm-5.2")).toBe(true);
     expect(isCloudModelId("cloud/x")).toBe(true);
-    expect(isCloudModelId("ollama-lan/gpt-oss:20b")).toBe(false);
+    expect(isCloudModelId("ollama-lan/qwen3.8:latest")).toBe(false);
     expect(isCloudModelId("zai/glm-4.6")).toBe(false);
   });
 });
@@ -65,25 +65,25 @@ describe("budget guard", () => {
   test("downshift replaces cloud with the local lane past the cap", () => {
     const cfg = { ...base, budget: { session_usd: 1 } };
     expect(downshiftForBudget("ollama-cloud/glm-5.2", cfg, 0.5)).toBeNull();
-    expect(downshiftForBudget("ollama-cloud/glm-5.2", cfg, 1.2)).toBe("ollama-lan/gpt-oss:20b");
-    expect(downshiftForBudget("ollama-lan/gpt-oss:20b", cfg, 5)).toBeNull(); // local never downshifts
+    expect(downshiftForBudget("ollama-cloud/glm-5.2", cfg, 1.2)).toBe("ollama-lan/qwen3.8:latest");
+    expect(downshiftForBudget("ollama-lan/qwen3.8:latest", cfg, 5)).toBeNull(); // local never downshifts
   });
 });
 
 describe("cross-kind escalation", () => {
   test("balanced mode appends cloud to a local primary", () => {
-    const chain = escalationChain("ollama-lan/gpt-oss:20b", { ...base, routing: { mode: "balanced" } }, 0);
+    const chain = escalationChain("ollama-lan/qwen3.8:latest", { ...base, routing: { mode: "balanced" } }, 0);
     expect(chain).toEqual(["ollama-cloud/glm-5.2"]);
   });
 
   test("local-first keeps the strict same-kind contract", () => {
-    expect(escalationChain("ollama-lan/gpt-oss:20b", base, 0)).toEqual([]);
+    expect(escalationChain("ollama-lan/qwen3.8:latest", base, 0)).toEqual([]);
     expect(escalationChain("ollama-cloud/glm-5.2", base, 0)).toEqual([]);
   });
 
   test("budget breach appends local to a cloud primary in any mode", () => {
     const chain = escalationChain("ollama-cloud/glm-5.2", { ...base, budget: { session_usd: 0.5 } }, 2);
-    expect(chain).toEqual(["ollama-lan/gpt-oss:20b"]);
+    expect(chain).toEqual(["ollama-lan/qwen3.8:latest"]);
   });
 });
 

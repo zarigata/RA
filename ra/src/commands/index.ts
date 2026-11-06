@@ -177,9 +177,11 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       c.session.simpleMode = arg !== "off";
       c.reply(c.session.simpleMode ? "Simple mode ON — use /plan then /code" : "Pro mode ON");
       return true;
-    case "roles":
-      c.reply(`${formatAssignments(resolveAll(c.config))}\nRA prefer small@251 → big@cloud`);
+    case "roles": {
+      const { preferLine } = await import("../../../anubis/src/tui.ts");
+      c.reply(`${formatAssignments(resolveAll(c.config))}\n${preferLine()}`);
       return true;
+    }
     case "cost": {
       const { loadLastRun, formatLaneLine, formatIntentLine, formatPreferLine } = await import("../../../anubis/src/last-run.ts");
       const last = loadLastRun();

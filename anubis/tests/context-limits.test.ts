@@ -28,11 +28,11 @@ import type { RaConfig } from "../src/config.ts";
 
 const config: RaConfig = {
   model: "ollama-cloud/glm-5.2",
-  small_model: "ollama-lan/gpt-oss:20b",
+  small_model: "ollama-lan/qwen3.8:latest",
   agent: {},
   provider: {
     "ollama-cloud": { options: { baseURL: "https://ollama.com/v1" }, models: { "glm-5.2": {} } },
-    "ollama-lan": { options: { baseURL: "http://192.168.1.251:11434/v1" }, models: { "gpt-oss:20b": { context: 65536 } } },
+    "ollama-lan": { options: { baseURL: "http://192.0.2.50:11434/v1" }, models: { "qwen3.8:latest": { context: 65536 } } },
     google: { options: { baseURL: "https://generativelanguage.googleapis.com/v1beta" }, models: { "gemini-3-pro": {} } },
   },
 };
@@ -55,14 +55,14 @@ describe("static context table", () => {
 
 describe("modelMaxContext resolution order", () => {
   test("config override (provider model entry) beats the table", () => {
-    const info = modelMaxContext("ollama-lan/gpt-oss:20b", config);
-    expect(info).toEqual({ windowTokens: 65536, source: "config" }); // not the 128k table value
+    const info = modelMaxContext("ollama-lan/qwen3.8:latest", config);
+    expect(info).toEqual({ windowTokens: 65536, source: "config" }); // not the 256k table value
   });
 
   test("model_overrides win for bare and prefixed ids", () => {
-    const cfg: RaConfig = { ...config, context: { model_overrides: { "gpt-oss:20b": 4096 } } };
-    expect(modelMaxContext("ollama-lan/gpt-oss:20b", cfg).windowTokens).toBe(4096);
-    expect(modelMaxContext("gpt-oss:20b", cfg).source).toBe("config");
+    const cfg: RaConfig = { ...config, context: { model_overrides: { "qwen3.8:latest": 4096 } } };
+    expect(modelMaxContext("ollama-lan/qwen3.8:latest", cfg).windowTokens).toBe(4096);
+    expect(modelMaxContext("qwen3.8:latest", cfg).source).toBe("config");
   });
 
   test("table entries apply without config; unknowns default conservatively by kind", () => {

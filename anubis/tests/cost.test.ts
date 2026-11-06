@@ -99,9 +99,9 @@ describe("session usage", () => {
 describe("usage tagging", () => {
   test("tagModel prefixes bare ids", async () => {
     const { tagModel, isFree } = await import("../src/cost.ts");
-    expect(tagModel("gpt-oss:20b", false)).toBe("ollama-lan/gpt-oss:20b");
+    expect(tagModel("qwen3.8:latest", false)).toBe("ollama-lan/qwen3.8:latest");
     expect(tagModel("glm-5.2", true)).toBe("ollama-cloud/glm-5.2");
-    expect(isFree(tagModel("gpt-oss:20b", false))).toBe(true);
+    expect(isFree(tagModel("qwen3.8:latest", false))).toBe(true);
     expect(isFree(tagModel("glm-5.2", true))).toBe(false);
   });
 });

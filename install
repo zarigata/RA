@@ -1,11 +1,37 @@
 #!/usr/bin/env bash
-# RA install — puts `ra` on PATH
+# RA install — puts `ra` on PATH and configures endpoints on first run
 set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")" && pwd)"
 ANUBIS_HOME="$SRC/anubis"
 DEST="${RA_INSTALL_DIR:-$HOME/.local/bin}"
 RA_GLOBAL="$HOME/.ra"
+
+usage() {
+  cat <<'EOF'
+Usage: ./install [--lan-url URL] [--local-url URL] [--api-key KEY] [--non-interactive]
+
+  --lan-url URL       Ollama LAN server (written to anubis/.env as OLLAMA_LAN_URL)
+  --local-url URL     Ollama localhost fallback (OLLAMA_LOCAL_URL)
+  --api-key KEY       Ollama Cloud API key (OLLAMA_API_KEY)
+  --non-interactive   Skip prompts; write .env from flags/env only (may be empty)
+
+Non-interactive defaults also come from env vars:
+  RA_LAN_URL, RA_LOCAL_URL, OLLAMA_API_KEY
+EOF
+}
+
+LAN_URL_FLAG=""; LOCAL_URL_FLAG=""; API_KEY_FLAG=""; NON_INTERACTIVE=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --lan-url) LAN_URL_FLAG="${2:-}"; shift 2 ;;
+    --local-url) LOCAL_URL_FLAG="${2:-}"; shift 2 ;;
+    --api-key) API_KEY_FLAG="${2:-}"; shift 2 ;;
+    --non-interactive) NON_INTERACTIVE=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "install: unknown option: $1" >&2; usage >&2; exit 1 ;;
+  esac
+done
 
 if ! command -v bun >/dev/null 2>&1; then
   echo "bun required: curl -fsSL https://bun.sh/install | bash" >&2
@@ -17,9 +43,55 @@ ln -sf "$ANUBIS_HOME/bin/ra" "$DEST/ra"
 ln -sf "$ANUBIS_HOME/bin/anubis" "$DEST/anubis"
 chmod +x "$ANUBIS_HOME/bin/ra" "$ANUBIS_HOME/bin/anubis"
 
-if [[ -f "$ANUBIS_HOME/.env.example" && ! -f "$ANUBIS_HOME/.env" ]]; then
-  cp "$ANUBIS_HOME/.env.example" "$ANUBIS_HOME/.env"
-  echo "Created $ANUBIS_HOME/.env — add API keys if using cloud models"
+probe_lan() {
+  # Probe <url>/api/tags with a 3s budget; print first few model names if up.
+  local url="$1" body
+  if ! body="$(curl -fsS --max-time 3 "${url%/}/api/tags" 2>/dev/null)"; then
+    echo "warn: LAN server unreachable — set OLLAMA_LAN_URL later in anubis/.env" >&2
+    return 1
+  fi
+  local models
+  models="$(printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(", ".join(m.get("name","?") for m in d.get("models", [])[:4]))' 2>/dev/null || true)"
+  echo "  LAN server reachable: ${url}  (${models:-models listed})" >&2
+  return 0
+}
+
+if [[ ! -f "$ANUBIS_HOME/.env" ]]; then
+  LAN_URL="${LAN_URL_FLAG:-${RA_LAN_URL:-}}"
+  LOCAL_URL="${LOCAL_URL_FLAG:-${RA_LOCAL_URL:-}}"
+  API_KEY="${API_KEY_FLAG:-${OLLAMA_API_KEY:-}}"
+
+  if [[ "$NON_INTERACTIVE" -eq 0 ]]; then
+    echo "First run: configure RA endpoints (anubis/.env)"
+    if [[ -z "$LAN_URL" ]]; then
+      printf 'Ollama LAN URL (e.g. http://192.168.1.50:11434, empty to skip): '
+      read -r LAN_URL || LAN_URL=""
+    fi
+    if [[ -z "$LOCAL_URL" ]]; then
+      printf 'Ollama local URL (default http://localhost:11434): '
+      read -r LOCAL_URL || LOCAL_URL=""
+    fi
+    if [[ -z "$API_KEY" ]]; then
+      printf 'Ollama Cloud API key (empty to skip): '
+      read -r API_KEY || API_KEY=""
+    fi
+  fi
+  [[ -z "$LOCAL_URL" ]] && LOCAL_URL="${RA_LOCAL_URL:-http://localhost:11434}"
+
+  ENV_LINES=()
+  [[ -n "$LAN_URL" ]] && { probe_lan "$LAN_URL" || true; ENV_LINES+=("OLLAMA_LAN_URL=${LAN_URL}"); }
+  [[ -n "$LOCAL_URL" ]] && ENV_LINES+=("OLLAMA_LOCAL_URL=${LOCAL_URL}")
+  [[ -n "$API_KEY" ]] && ENV_LINES+=("OLLAMA_API_KEY=${API_KEY}")
+
+  if [[ ${#ENV_LINES[@]} -gt 0 ]]; then
+    printf '%s\n' "${ENV_LINES[@]}" > "$ANUBIS_HOME/.env"
+    echo "Created $ANUBIS_HOME/.env"
+  else
+    # No values at all: seed an empty .env from the documented template so
+    # `ra env`/`ra doctor` have something to point at.
+    cp "$ANUBIS_HOME/.env.example" "$ANUBIS_HOME/.env" 2>/dev/null || touch "$ANUBIS_HOME/.env"
+    echo "Created $ANUBIS_HOME/.env (no endpoints set — add OLLAMA_LAN_URL / OLLAMA_API_KEY later)"
+  fi
 fi
 
 echo "RA installed → $DEST/ra"
@@ -28,8 +100,8 @@ echo "Global: $RA_GLOBAL"
 echo ""
 echo "  ra                 # interactive TUI"
 echo "  ra demo            # one-shot RA TUI full-dev"
-echo "  ra selfcheck       # splash + .251/qwen ping (no LLM)"
-echo "  ra doctor          # .251 qwen + cloud"
+echo "  ra selfcheck       # splash + LAN/localhost ping (no LLM)"
+echo "  ra doctor          # LAN + cloud health check"
 echo "  ./test.sh          # full bash gate"
 echo ""
 

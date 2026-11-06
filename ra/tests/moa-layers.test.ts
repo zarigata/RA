@@ -20,7 +20,7 @@ import { join } from "node:path";
 
 const config: RaConfig = {
   model: "ollama-cloud/glm-5.2",
-  small_model: "ollama-lan/gpt-oss:20b",
+  small_model: "ollama-lan/qwen3.8:latest",
   agent: {},
   moa: { roles: ["thoth", "ptah", "maat", "sekhmet"], parallel: true, layers: 2 },
   teams: {
@@ -31,7 +31,7 @@ const config: RaConfig = {
 describe("layer plan resolution", () => {
   test("defaults: cross-model fan-out over small+BIG lanes, 2 layers", () => {
     const plan = resolveLayerPlan(config);
-    expect(plan.models).toEqual(["ollama-lan/gpt-oss:20b", "ollama-cloud/glm-5.2"]);
+    expect(plan.models).toEqual(["ollama-lan/qwen3.8:latest", "ollama-cloud/glm-5.2"]);
     expect(plan.layers).toBe(2);
     expect(plan.role).toBe("general");
     expect(plan.critics).toEqual(["maat", "sekhmet"]);
@@ -80,7 +80,7 @@ describe("agreement matrix", () => {
 
 describe("cost estimate + budget guard", () => {
   test("free-only fan-out estimates $0", () => {
-    const plan = resolveLayerPlan(config, { models: ["ollama-lan/gpt-oss:20b", "ollama/gemma:latest"] });
+    const plan = resolveLayerPlan(config, { models: ["ollama-lan/qwen3.8:latest", "ollama/gemma:latest"] });
     expect(estimateMoaCost(plan, "task")).toBe(0);
   });
 

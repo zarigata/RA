@@ -7,33 +7,19 @@
     "mac-weak": {
       "description": "Small on LAN Ollama; BIG on Ollama Cloud (glm-5.2). Set OLLAMA_LAN_URL in .env to your LAN server.",
       "tier_models": {
-        "meta": "ollama/gemma:latest",
-        "light": "ollama/gemma:latest",
         "heavy": "ollama-cloud/glm-5.2",
         "code": "ollama-cloud/glm-5.2"
       },
       "agent": {
-        "thoth": {
-          "model": "ollama/gemma:latest"
-        },
+        "thoth": {},
         "ptah": {
           "model": "ollama-cloud/glm-5.2"
         },
-        "maat": {
-          "model": "ollama/gemma:latest"
-        },
-        "sekhmet": {
-          "model": "ollama/gemma:latest"
-        },
-        "isis": {
-          "model": "ollama/gemma:latest"
-        },
-        "seshat": {
-          "model": "ollama/gemma:latest"
-        },
-        "horus": {
-          "model": "ollama/gemma:latest"
-        }
+        "maat": {},
+        "sekhmet": {},
+        "isis": {},
+        "seshat": {},
+        "horus": {}
       }
     }
   },
@@ -130,27 +116,15 @@
     "papyrus"
   ],
   "agent": {
-    "thoth": {
-      "model": "ollama/gemma:latest"
-    },
+    "thoth": {},
     "ptah": {
       "model": "ollama-cloud/glm-5.2"
     },
-    "maat": {
-      "model": "ollama/gemma:latest"
-    },
-    "sekhmet": {
-      "model": "ollama/gemma:latest"
-    },
-    "isis": {
-      "model": "ollama/gemma:latest"
-    },
-    "seshat": {
-      "model": "ollama/gemma:latest"
-    },
-    "horus": {
-      "model": "ollama/gemma:latest"
-    }
+    "maat": {},
+    "sekhmet": {},
+    "isis": {},
+    "seshat": {},
+    "horus": {}
   },
   "moa": {
     "roles": [

@@ -161,7 +161,9 @@ export function truncateVisible(s: string, width: number): string {
   while (i < s.length) {
     const m = /^\x1b\[[0-9;?]*[a-zA-Z]/.exec(s.slice(i));
     if (m) { out += m[0]; i += m[0].length; continue; }
-    if (visible >= width - 1) { out += "…"; break; }
+    // The ellipsis REPLACES the code point at the cut, so the result never
+    // exceeds the width budget (width-1 content + 1 ellipsis = width).
+    if (visible >= width - 1) { out = out.replace(/ $/, "") + "…"; break; }
     const cp = String.fromCodePoint(s.codePointAt(i)!);
     out += cp;
     visible++;

@@ -11,7 +11,7 @@ describe("resolveModelFallbacks", () => {
 
   test("local primary never receives cloud candidates", () => {
     const chain = resolveModelFallbacks("ollama-lan/gpt-oss:20b", { default: ["ollama-cloud/gpt-oss:120b", "ollama/gemma:latest"] });
-    expect(chain).toEqual(["gemma:latest"]);
+    expect(chain).toEqual(["ollama/gemma:latest"]);
   });
 
   test("per-model config wins over default chain", () => {
@@ -19,17 +19,17 @@ describe("resolveModelFallbacks", () => {
       default: ["ollama-cloud/gpt-oss:120b"],
       models: { "ollama-cloud/deepseek-v4-pro:0813": ["ollama-cloud/kimi-k2.7-code", "ollama-cloud/gpt-oss:120b"] },
     };
-    expect(resolveModelFallbacks("ollama-cloud/deepseek-v4-pro:0813", cfg)).toEqual(["kimi-k2.7-code", "gpt-oss:120b"]);
+    expect(resolveModelFallbacks("ollama-cloud/deepseek-v4-pro:0813", cfg)).toEqual(["ollama-cloud/kimi-k2.7-code", "ollama-cloud/gpt-oss:120b"]);
   });
 
   test("bare model key matches prefixed configuration", () => {
     const cfg: ModelFallbacks = { models: { "deepseek-v4-pro:0813": ["ollama-cloud/gpt-oss:120b"] } };
-    expect(resolveModelFallbacks("ollama-cloud/deepseek-v4-pro:0813", cfg)).toEqual(["gpt-oss:120b"]);
+    expect(resolveModelFallbacks("ollama-cloud/deepseek-v4-pro:0813", cfg)).toEqual(["ollama-cloud/gpt-oss:120b"]);
   });
 
   test("primary is removed and duplicates are dropped", () => {
     const cfg: ModelFallbacks = { models: { "ollama-cloud/m": ["ollama-cloud/m", "ollama-cloud/a", "ollama-cloud/a"] } };
-    expect(resolveModelFallbacks("ollama-cloud/m", cfg)).toEqual(["a"]);
+    expect(resolveModelFallbacks("ollama-cloud/m", cfg)).toEqual(["ollama-cloud/a"]);
   });
 
   test("prefixed entries are reduced to bare names", () => {

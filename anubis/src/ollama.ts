@@ -703,7 +703,9 @@ export function resolveModelFallbacks(configured: string, fallbacks?: ModelFallb
     const bare = bareModel(entry);
     if (bare === primary) continue;
     if (isCloudModel(entry) !== cloud) continue;
-    if (!out.includes(bare)) out.push(bare);
+    // Keep the provider prefix: a bare "deepseek-v4-flash" downstream is
+    // misclassified as a small model and lands on localhost gemma.
+    if (!out.includes(entry)) out.push(entry);
   }
   return out;
 }

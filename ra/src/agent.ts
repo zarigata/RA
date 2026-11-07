@@ -781,7 +781,14 @@ async function executeTaskAgent(
   const tierModels = (config as RaConfig & { tier_models?: Record<string, string> }).tier_models;
   // Hybrid routing (ra.76): the mode adjusts the tier decision before
   // airgap/frontmatter overrides — an agent that pins its model always wins.
-  let configured = applyRoutingMode((tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model, tier, config);
+      let configured = applyRoutingMode((tierModels ? tierModel(tier, tierModels) : undefined) ?? assignment.model, tier, config);
+      // A tier entry that is missing must NEVER fall to a hardcoded model id —
+      // it resolves to the configured small/BIG lane for that tier's kind.
+      if (tierModels && !tierModels[tier]) {
+        configured = tier === "code" || tier === "heavy"
+          ? config.model ?? configured
+          : config.small_model ?? configured;
+      }
   const airgap = isAirgapped(config, env);
   if (airgap) configured = localizeModel(configured, config.small_model ?? "ollama-lan/qwen3.8:latest");
   const meta = loadAgentMeta(role, ctx.cwd);

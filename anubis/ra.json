@@ -1,7 +1,7 @@
 {
   "$schema": "https://ra.dev/config.json",
   "model": "ollama-cloud/glm-5.2",
-  "small_model": "ollama/gemma:latest",
+  "small_model": "ollama-lan/qwen3:4b",
   "profile": "mac-weak",
   "profiles": {
     "mac-weak": {
@@ -11,15 +11,27 @@
         "code": "ollama-cloud/glm-5.2"
       },
       "agent": {
-        "thoth": {},
+        "thoth": {
+          "model": "ollama-lan/qwen3:4b"
+        },
         "ptah": {
           "model": "ollama-cloud/glm-5.2"
         },
-        "maat": {},
-        "sekhmet": {},
-        "isis": {},
-        "seshat": {},
-        "horus": {}
+        "maat": {
+          "model": "ollama-lan/qwen3:4b"
+        },
+        "sekhmet": {
+          "model": "ollama-lan/qwen3:4b"
+        },
+        "isis": {
+          "model": "ollama-lan/qwen3:4b"
+        },
+        "seshat": {
+          "model": "ollama-lan/qwen3:4b"
+        },
+        "horus": {
+          "model": "ollama-lan/qwen3:4b"
+        }
       }
     }
   },
@@ -94,7 +106,7 @@
     "local_bonus": 1,
     "max_candidates": 3,
     "models": [
-      "ollama/gemma:latest",
+      "ollama-lan/qwen3:4b",
       "ollama-cloud/glm-5.2",
       "lmstudio/*"
     ]
@@ -117,20 +129,26 @@
   ],
   "agent": {
     "thoth": {
-      "model": "ollama/gemma:latest"
+      "model": "ollama-lan/qwen3:4b"
     },
     "ptah": {
       "model": "ollama-cloud/glm-5.2"
     },
     "maat": {
-      "model": "ollama/gemma:latest"
+      "model": "ollama-lan/qwen3:4b"
     },
     "sekhmet": {
-      "model": "ollama/gemma:latest"
+      "model": "ollama-lan/qwen3:4b"
     },
-    "isis": {},
-    "seshat": {},
-    "horus": {}
+    "isis": {
+      "model": "ollama-lan/qwen3:4b"
+    },
+    "seshat": {
+      "model": "ollama-lan/qwen3:4b"
+    },
+    "horus": {
+      "model": "ollama-lan/qwen3:4b"
+    }
   },
   "moa": {
     "roles": [
@@ -187,7 +205,7 @@
     "critical_watermark": 0.9,
     "min_context_tokens": 8192,
     "server_cap": {
-      "ollama-lan": 32768,
+      "ollama-lan": 16384,
       "ollama": 8192,
       "lmstudio": 8192
     }

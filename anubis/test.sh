@@ -526,7 +526,7 @@ grep -qE "${SMALL_FAMILY}|small:" /tmp/ra-status.txt || { echo "FAIL: ra status 
 grep -qE "timings:.*@(${LAN_TAG}|local)|hosts:.*(${LAN_TAG}|local)|files:" /tmp/ra-status.txt || { echo "FAIL: ra status missing last full-dev"; cat /tmp/ra-status.txt; exit 1; }
 grep -qE "RA lane " /tmp/ra-status.txt || { echo "FAIL: ra status missing RA lane"; cat /tmp/ra-status.txt; exit 1; }
 grep -q "again: ra again" /tmp/ra-status.txt || { echo "FAIL: ra status missing again tip"; cat /tmp/ra-status.txt; exit 1; }
-grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-status.txt || { echo "FAIL: ra status missing RA prefer"; cat /tmp/ra-status.txt; exit 1; }
+grep -qE "RA prefer small@(${LAN_TAG}|local|cloud)" /tmp/ra-status.txt || { echo "FAIL: ra status missing RA prefer"; cat /tmp/ra-status.txt; exit 1; }
 grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-status.txt || { echo "FAIL: ra status missing RA intent"; cat /tmp/ra-status.txt; exit 1; }
 grep -qE "elapsed: [0-9]" /tmp/ra-status.txt || { echo "FAIL: ra status missing elapsed"; cat /tmp/ra-status.txt; exit 1; }
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then

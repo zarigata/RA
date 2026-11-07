@@ -112,7 +112,7 @@ grep -qE "quota|failover" /tmp/ra-providers.txt || { echo "FAIL: ra providers mi
 echo "✓ ra providers"
 
 echo "▶ ra unknown command"
-UNK_OUT="$(mktemp)"
+UNK_OUT="/tmp/ra-last-task.out"
 set +e
 "${RA_BIN[@]}" nosuchcmd 2>"$UNK_OUT" >/dev/null
 UNK_RC=$?
@@ -235,7 +235,7 @@ echo "▶ ra demo (RA TUI full-dev one-shot)"
 # Warm the configured small model first: the demo's first LAN call should not
 # race a cold model load against the run deadline.
 "${RA_BIN[@]}" warm >/dev/null 2>&1 || true
-DEMO_OUT="$(mktemp)"
+DEMO_OUT="/tmp/ra-last-task.out"
 set +e
 ra_retry "${RA_BIN[@]}" demo >"$DEMO_OUT" 2>&1
 DEMO_RC=$?
@@ -278,7 +278,7 @@ INIT_DIR="$(mktemp -d /tmp/ra-init-XXXX)"
 )
 test -f "$INIT_DIR/.ra/project.json"
 grep -q "$SMALL_BARE" "$INIT_DIR/.ra/project.json"
-INIT_OUT="$(mktemp)"
+INIT_OUT="/tmp/ra-last-task.out"
 (
   cd "$INIT_DIR"
   "${RA_BIN[@]}" init
@@ -288,7 +288,7 @@ grep -qE "RA prefer small@.+" "$INIT_OUT" || { echo "FAIL: ra init missing RA pr
 echo "✓ ra init"
 
 echo "▶ ra env"
-ENV_OUT="$(mktemp)"
+ENV_OUT="/tmp/ra-last-task.out"
 "${RA_BIN[@]}" env | tee "$ENV_OUT"
 grep -q "RA env" "$ENV_OUT" || { echo "FAIL: ra env missing header"; exit 1; }
 grep -q "${OLLAMA_LAN_URL%/}" "$ENV_OUT" || { echo "FAIL: ra env missing LAN URL ($OLLAMA_LAN_URL)"; exit 1; }
@@ -315,7 +315,7 @@ grep -qE "RA prefer small@(${LAN_TAG}|local|\?)" "$MODELS_CLI" || { echo "FAIL: 
 echo "✓ ra models"
 
 echo "▶ ra lanes"
-LANES_OUT="$(mktemp)"
+LANES_OUT="/tmp/ra-last-task.out"
 "${RA_BIN[@]}" lanes | tee "$LANES_OUT"
 grep -q "RA lanes" "$LANES_OUT" || { echo "FAIL: ra lanes missing header"; exit 1; }
 grep -q "${OLLAMA_LAN_URL%/}" "$LANES_OUT" || { echo "FAIL: ra lanes missing LAN URL ($OLLAMA_LAN_URL)"; exit 1; }
@@ -330,7 +330,7 @@ grep -qE "RA prefer small@(${LAN_TAG}|local)" "$LANES_TUI" || { echo "FAIL: /lan
 echo "✓ ra lanes"
 
 echo "▶ ra roles"
-ROLES_OUT="$(mktemp)"
+ROLES_OUT="/tmp/ra-last-task.out"
 "${RA_BIN[@]}" roles | tee "$ROLES_OUT"
 grep -qE "RA|/roles" "$ROLES_OUT" || { echo "FAIL: ra roles missing RA branding"; exit 1; }
 grep -qE "thoth.*${SMALL_FAMILY}" "$ROLES_OUT" || { echo "FAIL: ra roles missing thoth→${SMALL_BARE}"; cat "$ROLES_OUT"; exit 1; }
@@ -343,7 +343,7 @@ grep -qE "RA prefer small@.+" "$ROLES_TUI" || { echo "FAIL: /roles missing RA pr
 echo "✓ ra roles"
 
 echo "▶ E2E: interactive TUI smoke (RA name + /help)"
-TUI_OUT="$(mktemp)"
+TUI_OUT="/tmp/ra-last-task.out"
 set +e
 printf '/help\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$TUI_OUT"
 TUI_RC=${PIPESTATUS[0]}
@@ -353,7 +353,7 @@ grep -qE "help|/plan|/code|Welcome to RA|Command" "$TUI_OUT" || { echo "FAIL: /h
 echo "✓ interactive TUI smoke (exit ${TUI_RC:-0})"
 
 echo "▶ E2E: /models shows configured LAN models"
-MODELS_OUT="$(mktemp)"
+MODELS_OUT="/tmp/ra-last-task.out"
 printf '/models\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$MODELS_OUT" >/dev/null
 grep -q "RA models" "$MODELS_OUT" || { echo "FAIL: /models missing RA models"; cat "$MODELS_OUT"; exit 1; }
 grep -qE "${NOTABLE_RE}" "$MODELS_OUT" || { echo "FAIL: /models missing notable (${NOTABLE_RE})"; cat "$MODELS_OUT"; exit 1; }
@@ -365,7 +365,7 @@ echo "✓ /models lists small Ollama"
 # After model runs, ensure fixes recursive hello without print.
 
 echo "▶ E2E: /status + /doctor"
-STATUS_OUT="$(mktemp)"
+STATUS_OUT="/tmp/ra-last-task.out"
 printf '/status\n/doctor\n/clear\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$STATUS_OUT" >/dev/null
 grep -q "RA status" "$STATUS_OUT" || { echo "FAIL: /status missing RA status"; exit 1; }
 grep -q "cwd:" "$STATUS_OUT" || { echo "FAIL: /status missing cwd"; exit 1; }
@@ -405,7 +405,7 @@ echo "✓ TUI /quick full-dev complete (file in $WORKQ)"
 
 echo "▶ E2E: ra --task FULL DEV (RA TUI + write file)"
 WORK="$(mktemp -d /tmp/ra-fulldev-XXXX)"
-OUT="$(mktemp)"
+OUT="/tmp/ra-last-task.out"
 set +e
 (
   cd "$WORK"
@@ -430,7 +430,8 @@ t=open('$OUT').read()
 # find first done banner block roughly
 i=t.find('RA ✓ done')
 assert i>=0, 'no done box'
-chunk=t[i:i+2500]
+# The box embeds the stage summary, so it can be several KB — scan the whole box
+chunk=t[i:i+8000]
 assert 'RA lane' in chunk, chunk[:500]
 assert 'RA prefer' in chunk, chunk[:500]
 assert 'elapsed:' in chunk, chunk[:500]
@@ -486,7 +487,7 @@ fi
 
 echo "▶ TUI welcome shows last RA lane after full-dev"
 WELCOME_DIR="$(mktemp -d /tmp/ra-welcome-XXXX)"
-WELCOME_OUT="$(mktemp)"
+WELCOME_OUT="/tmp/ra-last-task.out"
 printf '/exit\n' | "${RA_BIN[@]}" --project "$WELCOME_DIR" 2>&1 | tee "$WELCOME_OUT" >/dev/null
 grep -q "Welcome to RA" "$WELCOME_OUT" || { echo "FAIL: welcome missing after full-dev"; cat "$WELCOME_OUT"; exit 1; }
 grep -qE "RA lane " "$WELCOME_OUT" || { echo "FAIL: welcome missing RA lane after full-dev"; cat "$WELCOME_OUT"; exit 1; }
@@ -566,7 +567,7 @@ grep -q "again: ra again" /tmp/ra-result.txt || { echo "FAIL: ra result missing 
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-result.txt || { echo "FAIL: ra result lane not @${LAN_TAG}"; exit 1; }
 fi
-RESULT_OUT="$(mktemp)"
+RESULT_OUT="/tmp/ra-last-task.out"
 printf '/result\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$RESULT_OUT" >/dev/null
 grep -q "RA RESULT" "$RESULT_OUT" || { echo "FAIL: /result missing RA RESULT"; cat "$RESULT_OUT"; exit 1; }
 grep -qE "RA intent (code|debug|plan|review|docs|question)" "$RESULT_OUT" || { echo "FAIL: /result missing RA intent"; cat "$RESULT_OUT"; exit 1; }
@@ -622,7 +623,7 @@ grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-timings.txt || { echo "FAI
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-timings.txt || { echo "FAIL: ra timings lane not @${LAN_TAG}"; exit 1; }
 fi
-TIMINGS_OUT="$(mktemp)"
+TIMINGS_OUT="/tmp/ra-last-task.out"
 printf '/timings\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$TIMINGS_OUT" >/dev/null
 grep -q "RA timings" "$TIMINGS_OUT" || { echo "FAIL: /timings missing RA timings"; cat "$TIMINGS_OUT"; exit 1; }
 grep -qE "RA lane " "$TIMINGS_OUT" || { echo "FAIL: /timings missing RA lane"; cat "$TIMINGS_OUT"; exit 1; }
@@ -657,7 +658,7 @@ grep -qE "elapsed: [0-9]" /tmp/ra-show.txt || { echo "FAIL: ra show missing elap
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-show.txt || { echo "FAIL: ra show lane not @${LAN_TAG}"; exit 1; }
 fi
-SHOW_OUT="$(mktemp)"
+SHOW_OUT="/tmp/ra-last-task.out"
 printf '/show\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$SHOW_OUT" >/dev/null
 grep -q "RA show" "$SHOW_OUT" || { echo "FAIL: /show missing RA show"; cat "$SHOW_OUT"; exit 1; }
 grep -qE "RA lane " "$SHOW_OUT" || { echo "FAIL: /show missing RA lane footer"; cat "$SHOW_OUT"; exit 1; }
@@ -747,7 +748,7 @@ grep -qE "elapsed: [0-9]" /tmp/ra-files.txt || { echo "FAIL: ra files missing el
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-files.txt || { echo "FAIL: ra files lane not @${LAN_TAG}"; exit 1; }
 fi
-FILES_OUT="$(mktemp)"
+FILES_OUT="/tmp/ra-last-task.out"
 printf '/files\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$FILES_OUT" >/dev/null
 grep -q "RA files" "$FILES_OUT" || { echo "FAIL: /files missing RA files"; exit 1; }
 grep -qE "hello\.py|index\.html" "$FILES_OUT" || { echo "FAIL: /files missing artifact"; cat "$FILES_OUT"; exit 1; }
@@ -756,7 +757,7 @@ grep -qE "elapsed: [0-9]" "$FILES_OUT" || { echo "FAIL: /files missing elapsed";
 echo "✓ /files"
 
 echo "▶ E2E: /ls"
-LS_OUT="$(mktemp)"
+LS_OUT="/tmp/ra-last-task.out"
 printf '/ls\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$LS_OUT" >/dev/null
 grep -q "RA ls" "$LS_OUT" || { echo "FAIL: /ls missing RA ls"; exit 1; }
 echo "✓ /ls"
@@ -772,7 +773,7 @@ if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.tx
   grep -q "thoth@${LAN_TAG}" /tmp/ra-hist.txt || { echo "FAIL: ra history missing thoth@${LAN_TAG}"; exit 1; }
   grep -q "RA prefer small@${LAN_TAG}" /tmp/ra-hist.txt || { echo "FAIL: ra history prefer not @${LAN_TAG}"; exit 1; }
 fi
-HIST_OUT="$(mktemp)"
+HIST_OUT="/tmp/ra-last-task.out"
 printf '/history\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$HIST_OUT" >/dev/null
 grep -q "RA history" "$HIST_OUT" || { echo "FAIL: /history missing"; exit 1; }
 grep -qE "thoth@(${LAN_TAG}|local)" "$HIST_OUT" || { echo "FAIL: /history missing lane tag"; cat "$HIST_OUT"; exit 1; }
@@ -800,7 +801,7 @@ grep -qi hello "$WORK2/index.html"
 echo "✓ orchestrator wrote index.html with hello"
 
 echo "▶ ra benchmark run all (must show RA TUI)"
-BENCH_OUT="$(mktemp)"
+BENCH_OUT="/tmp/ra-last-task.out"
 set +e
 ra_retry "${RA_BIN[@]}" benchmark run all >"$BENCH_OUT" 2>&1
 BENCH_RC=$?

@@ -485,6 +485,26 @@ export async function execToolBlock(
     if (d) return { done: false, note: d };
     return { done: false, note: tools.toolWrite(ctx, fence[1], fence[2].trim()) };
   }
+  // ponytail: bare-fence recovery — models that answer with a raw fenced file
+  // (no WRITE verb, no "file:" label). Only when the agent may write and a
+  // plausible filename appears in the reply; upgrade path is native tool-calls.
+  if (ctx.capabilities?.tools.has("write")) {
+    // Recovery shapes, worst-first: (a) the entire reply is a fence whose first
+    // line is the WRITE verb itself ("```python\nWRITE hello.py\n…"), and (b) a
+    // bare unlabeled fence with a plausible filename in the prose.
+    const fenceAll = content.trim().match(/(^|\n)(`{3,})[\w.-]*\n([\s\S]*?)\n?\2\s*$/);
+    const inner = fenceAll?.[3]?.trim() ?? "";
+    const innerWrite = inner.match(/^WRITE[ \t]+(\S+)\n([\s\S]*)$/i);
+    if (fenceAll && innerWrite && innerWrite[2].trim()) {
+      const d = denied("write");
+      if (!d) return { done: false, note: tools.toolWrite(ctx, innerWrite[1]!, innerWrite[2]) + `\nRA: wrote ${innerWrite[1]} (WRITE was nested inside the fence)` };
+    }
+    const name = content.match(/\b([\w.-]+\.(?:py|js|ts|tsx|jsx|sh|md|json|html|css|go|rs|java|c|cpp|rb|toml|yaml|yml))\b/);
+    if (fenceAll && name && inner.trim() && !innerWrite) {
+      const d = denied("write");
+      if (!d) return { done: false, note: tools.toolWrite(ctx, name[1]!, inner) + `\nRA: wrote ${name[1]} from an unlabeled fence — use WRITE <path> for tracked edits.` };
+    }
+  }
   if (requestedVerb) return { done: false, note: `Error: malformed ${requestedVerb.toUpperCase()} call. Follow the exact tool format, including fences or edit markers.` };
   return { done: false, note: "" };
 }

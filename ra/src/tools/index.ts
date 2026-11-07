@@ -19,11 +19,15 @@ export interface ToolContext {
 }
 
 export function safePath(cwd: string, p: string): string {
-  // Resolve the root through symlinks first (macOS /var → /private/var): the
-  // caller may pass a lexical cwd while artifact paths arrive fully resolved.
-  const root = realpathSync(resolve(cwd));
+  // Accept containment under both the lexical root and its realpath (macOS
+  // /var → /private/var): callers may pass a lexical cwd while artifact
+  // paths arrive fully resolved, or vice versa. Symlink validation below
+  // still guards against real escapes.
+  const lexicalRoot = resolve(cwd);
+  const root = realpathSync(lexicalRoot);
   const abs = resolve(root, p);
-  if (abs !== root && !abs.startsWith(root + sep)) {
+  const inside = (r: string) => abs === r || abs.startsWith(r + sep);
+  if (!inside(root) && !inside(lexicalRoot)) {
     throw new Error(`path escapes project: ${p}`);
   }
   // Validate existing ancestors too: lexical containment does not stop symlinks.

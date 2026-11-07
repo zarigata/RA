@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { OllamaClient, pickOllamaEndpoint, pickModel } from "../../src/ollama.ts";
 import { loadEnv } from "../../src/env.ts";
+import { loadRaConfig } from "../../src/config.ts";
 
 const env = loadEnv();
 let client: OllamaClient;
@@ -13,7 +14,8 @@ try {
 }
 
 function smallModel(): string {
-  return pickModel("ollama-lan/qwen3.8:latest", client.availableModels);
+  const cfg = loadRaConfig(new URL("../../", import.meta.url).pathname);
+  return pickModel(cfg.small_model ?? "ollama-lan/qwen3.8:latest", client.availableModels);
 }
 
 /** The LAN box can hitch under load — one retry, generous timeout */
@@ -37,7 +39,10 @@ describe.skipIf(!hasOllama)("Ollama local/LAN integration", () => {
     expect(client.availableModels.length).toBeGreaterThan(0);
     // Prefer the configured small model family on the LAN host when present
     const names = client.availableModels.join(" ");
-    expect(/qwen3\.8|gemma|qwen/i.test(names)).toBe(true);
+    const family = (smallModel().split("/").pop() ?? "").split(":")[0]!;
+    expect(
+      names.includes(family) || /qwen3\.8|gemma|qwen/i.test(names),
+    ).toBe(true);
   });
 
   test("chat completion returns content", async () => {

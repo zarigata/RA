@@ -373,9 +373,14 @@ if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/
   grep -q "RA lane thoth@${LAN_TAG}" "$OUTQ" || { echo "FAIL: TUI /quick missing RA lane thoth@${LAN_TAG}"; exit 1; }
 fi
 if [[ ! -f "$WORKQ/hello.py" && ! -f "$WORKQ/hello.js" && ! -f "$WORKQ/index.html" ]]; then
-  echo "FAIL: TUI /quick wrote no file in $WORKQ"
-  ls -la "$WORKQ" || true
-  exit 1
+  # The task says "one file" without a name; accept any .py/.js/.html artifact.
+  ART="$(ls "$WORKQ"/*.py "$WORKQ"/*.js "$WORKQ"/*.html 2>/dev/null | head -1 || true)"
+  if [[ -z "$ART" ]]; then
+    echo "FAIL: TUI /quick wrote no file in $WORKQ"
+    ls -la "$WORKQ" || true
+    exit 1
+  fi
+  echo "✓ TUI /quick wrote artifact: $ART"
 fi
 echo "✓ TUI /quick full-dev complete (file in $WORKQ)"
 

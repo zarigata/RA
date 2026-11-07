@@ -92,6 +92,7 @@ export function renderSplashFrame(opts: {
     const color = rgbSeq(mixColor(accent, accent2, t));
     const text = logo[i];
     const rowIndex = top + i;
+    if (rowIndex < 0 || rowIndex >= H) continue; // tiny terminals: clip, never crash
     const tileRow = lines[rowIndex];
     const plain = tileRow.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "");
     const left = Math.max(0, Math.floor((W - text.length) / 2));

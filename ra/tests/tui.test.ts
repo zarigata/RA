@@ -275,3 +275,15 @@ describe("cross-platform backend resolution", () => {
     expect(resolveBackend({ ...base, platform: "sunos" }).backend).toBe("unavailable");
   });
 });
+
+describe("splash renderer", () => {
+  test("tiny terminals clip the logo instead of crashing", async () => {
+    const { renderSplashFrame } = await import("../src/tui/splash.ts");
+    // Found by the one-liner install PTY test: H < logo height made
+    // lines[rowIndex] undefined and killed startup.
+    for (const [w, h] of [[0, 0], [1, 1], [12, 3], [20, 5], [40, 10], [80, 24]] as const) {
+      const lines = renderSplashFrame({ width: w, height: h, accent: "#c89b4b", accent2: "#734b9e", muted: "#888", version: "test" });
+      expect(lines.length).toBe(h);
+    }
+  });
+});

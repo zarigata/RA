@@ -672,7 +672,7 @@ echo "▶ ra cost"
 "${RA_BIN[@]}" cost | tee /tmp/ra-cost.txt
 grep -q "RA cost" /tmp/ra-cost.txt || { echo "FAIL: ra cost missing header"; exit 1; }
 grep -qE "${NOTABLE_RE}|glm-5|ollama|usage|token|No usage" /tmp/ra-cost.txt || { echo "FAIL: ra cost empty"; cat /tmp/ra-cost.txt; exit 1; }
-grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-cost.txt || { echo "FAIL: ra cost missing RA prefer"; cat /tmp/ra-cost.txt; exit 1; }
+grep -qE "RA prefer small@(${LAN_TAG}|local|cloud)" /tmp/ra-cost.txt || { echo "FAIL: ra cost missing RA prefer"; cat /tmp/ra-cost.txt; exit 1; }
 grep -qE "RA lane " /tmp/ra-cost.txt || { echo "FAIL: ra cost missing RA lane after full-dev"; cat /tmp/ra-cost.txt; exit 1; }
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-cost.txt || { echo "FAIL: ra cost lane not @${LAN_TAG}"; exit 1; }

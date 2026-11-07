@@ -221,5 +221,9 @@
       "ptah",
       "seshat"
     ]
+  },
+  "agent_limits": {
+    "timeout_ms": 420000,
+    "max_calls": 96
   }
 }

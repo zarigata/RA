@@ -376,7 +376,7 @@ echo "✓ /status + /clear + /doctor"
 
 echo "▶ E2E: TUI /quick FULL DEV (RA TUI + write file)"
 WORKQ="$(mktemp -d /tmp/ra-tui-quick-XXXX)"
-OUTQ="$(mktemp)"
+OUTQ="/tmp/ra-last-quick.out"
 set +e
 (
   cd "$WORKQ"

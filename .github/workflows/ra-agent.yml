@@ -24,9 +24,13 @@ jobs:
 
       - name: Extract task from comment
         id: task
+        env:
+          COMMENT: ${{ github.event.comment.body }}
         run: |
           # Strip the leading "/ra" and any trailing newlines.
-          TASK="$(echo "${{ github.event.comment.body }}" | sed 's|^/ra[[:space:]]*||')"
+          # COMMENT comes in via env (not inline expansion) — comment bodies
+          # cannot be trusted in run: scripts (injection).
+          TASK="$(printf '%s' "$COMMENT" | sed 's|^/ra[[:space:]]*||')"
           # Write to a file to avoid newline/quoting issues in the next step.
           printf '%s' "$TASK" > /tmp/ra-task.txt
           echo "task_len=${#TASK}" >> "$GITHUB_OUTPUT"

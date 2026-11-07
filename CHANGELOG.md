@@ -32,7 +32,7 @@ The biggest single release since the TUI: a 76-agent library, layered Mixture-of
 - **Hybrid local↔cloud routing (speed/quality).** Four modes via `routing.mode` or `RA_ROUTING`: `local-first` (default, unchanged), `quality-first` (everything but meta-tier to the cloud lane), `economy` (hard local-only), `balanced` (tier decides + cross-kind escalation: a failing local model may escalate to cloud, and cloud downshifts to local on budget breach). The same-kind fallback-chain contract is untouched — escalation is appended at the agent layer, never inside `fallbackChain`. New rolling latency cache (`~/.ra/latency.json`) feeds `/lane`'s new `routing:` + `latency:` lines and the degraded-local heuristic. Budget guard: `budget.session_usd` in ra.json; once crossed, cloud work downshifts to the local lane for the session with a visible notice.
 - **TUI upgrades.** `/diff [file]` renders the checkpoint→current delta as a colored, hunk-headed unified diff (`@@` headers, +/- coloring, truncation guard) with `/undo` one keystroke away; `ra diff` parity kept. Markdown tables now render as aligned box-drawn tables that scale to terminal width. Every turn appends telemetry (time-to-first-token and tok/s). Desktop notifications (OSC 9 + BEL) on task completion, pref-gated (`~/.ra/tui.json` `notify`, `RA_NO_NOTIFY` to silence). Help/palette surface the new commands (`/team`, `/board`, `/diff`).
 - **Four new tools** (same grammar, gated by the same permission engine): `SKILL name|list` — the skills runtime at last: RA reads the 22 vendored `.agents/skills/*/SKILL.md` (agentskills.io frontmatter, ancestors + `~/.ra/skills`, honoring `permission.skill`) and injects a skill's body into the conversation (PLAN.md Phase 1 item closed); `REPOMAP` — a token-budgeted repo overview ranked by git recency + symbol density (built on the existing symbols engine); `TEST [target]` — detects the runner (bun/pytest/vitest/jest direct, npm test otherwise) and executes it inside the sandbox with a parsed summary; `WEBSEARCH <query>` — Brave or Tavily keyed, airgap-aware, degrades to clear guidance without a key.
-- **Verification.** Unit suites fully green after each epic: 247 ra tests (62 new across agents-catalog, moa-layers, tui-upgrade, tools-ra76) + 191 anubis tests (12 new routing cases). New pins: catalog integrity (≥70 visible agents, unique names, category floors, hint ≤1200 tokens), layered orchestration with injected fakes (cross-model fan-out, critics-see-everything, partial-failure semantics, budget abort before running), board persistence/resume, routing modes/escalation/budget math, diff hunk headers + truncation, table alignment, skills discovery/permissions, TEST/WEBSEARCH dispatch.
+- **Verification.** Unit suites fully green after each epic: 247 unit tests (62 new across agents-catalog, moa-layers, tui-upgrade, tools-ra76) + 191 anubis tests (12 new routing cases). New pins: catalog integrity (≥70 visible agents, unique names, category floors, hint ≤1200 tokens), layered orchestration with injected fakes (cross-model fan-out, critics-see-everything, partial-failure semantics, budget abort before running), board persistence/resume, routing modes/escalation/budget math, diff hunk headers + truncation, table alignment, skills discovery/permissions, TEST/WEBSEARCH dispatch.
 
 ## 1.0.0-ra.75 — 2026-08-31
 
@@ -56,7 +56,7 @@ The biggest single release since the TUI: a 76-agent library, layered Mixture-of
 - Mouse support: SGR click/drag/wheel decoding; palette rows and footer are clickable; wheel scrolls history.
 - Themes: 8 palettes, `/theme` or palette-filtered picker, persisted to `~/.ra/tui.json` (`theme`, `mouse`, `scrollSpeed` customization keys).
 - New zero-dependency TUI cores, unit-covered (`ra/tests/tui.test.ts`, 18 cases): fuzzy matcher, SGR mouse/key decoders with bracketed paste, markdown renderer, palette engine. Pipes keep the legacy readline UI; bare `ra` without a terminal still refuses clearly (scenario 17 contract).
-- Installed-user UI acceptance: `ra tests/ui_acceptance.py` scenarios 66–73 (header/layout, fuzzy theme select, mouse theme click, mouse command click, file insert, streaming markdown, theme persistence across restart, non-TTY refusal).
+- Installed-user UI acceptance: installed-user UI acceptance scenarios 66–73 (header/layout, fuzzy theme select, mouse theme click, mouse command click, file insert, streaming markdown, theme persistence across restart, non-TTY refusal).
 
 ## 1.0.0-ra.72 — 2026-08-30
 
@@ -66,13 +66,13 @@ The biggest single release since the TUI: a 76-agent library, layered Mixture-of
 - Reject empty-content WRITE tool calls with a retryable error instead of creating 0-byte files; return graceful directory-target errors from EDIT/MULTIEDIT/OUTLINE instead of crashing the stage with EISDIR. Both bugs were exposed by the new competitive benchmark and are unit-covered.
 - Grant the sandboxed MCP stdio boundary read access to the server command's configured script/args paths, so servers living outside the project workspace load correctly.
 - Repair the internal gate: the TUI palette E2E steps had been silently dead since .69 (non-TTY refusal swallowed by `>/dev/null`); they now run under an explicit `RA_FORCE_TUI=1` gate opt-in, unit suites run from the repo root for correct sandbox workspace resolution, the LAN backtests skip unless qwen3.8 is actually serving and responsive, and the `ra demo` E2E records a labeled skip when the .251 small-model box is unreachable instead of failing opaquely. Model-timeout aborts no longer masquerade as "Turn cancelled".
-- Fix four unit tests broken by .71 guards (verify artifact `cwd`, project-memory fixtures, swarm worktree location, agent-commit contract); add `ra tests/fallback.test.ts` (9 cases) and `ra tests/fallback_acceptance.py` (4 installed-user scenarios). Unit suite fully green: 360/360.
-- Add `ra tests/competitive_acceptance.py` and record the first fixed-budget real-repo comparison against all three named competitors in `ra tests/COMPETITIVE_RESULTS.md`: RA 3/3 and fastest per task (7–12 s summed 28 s); codex 3/3 (gpt-5.6-sol, 128 s summed, rerun after quota reset); claude 3/3 (claude harness via the user's Z.AI Anthropic-compatible endpoint on GLM, 225 s summed); opencode 0/6 across two runs with the same Ollama Cloud model as RA.
+- Fix four unit tests broken by .71 guards (verify artifact `cwd`, project-memory fixtures, swarm worktree location, agent-commit contract); add `fallback.test.ts` (9 cases) and `fallback_acceptance.py` (4 installed-user scenarios). Unit suite fully green: 360/360.
+- Add the competitive acceptance driver and record the first fixed-budget real-repo comparison against all three named competitors in `COMPETITIVE_RESULTS.md`: RA 3/3 and fastest per task (7–12 s summed 28 s); codex 3/3 (gpt-5.6-sol, 128 s summed, rerun after quota reset); claude 3/3 (claude harness via the user's Z.AI Anthropic-compatible endpoint on GLM, 225 s summed); opencode 0/6 across two runs with the same Ollama Cloud model as RA.
 
 ## 1.0.0-ra.71 — 2026-08-30 (regression proof)
 
 - Rerun both installed-user suites against the sandboxed .71 build with live Ollama Cloud: coding **21/21** and teams **16/16**, each in one uninterrupted run. Native command sandboxing introduced no coding or team regression.
-- Record results and evidence under `ra tests`: `evidence/regression-71/`, `evidence/agents-70/regression-71/`, and updated `RESULTS.md` / `AGENT_RESULTS.md` / `SAFETY_RESULTS.md`.
+- Record results and evidence in the local acceptance archive: `regression-71/`, `agents-70/regression-71/`, and updated `RESULTS.md` / `AGENT_RESULTS.md` / `SAFETY_RESULTS.md`.
 
 ## 1.0.0-ra.71 — 2026-08-30
 
@@ -81,7 +81,7 @@ The biggest single release since the TUI: a 76-agent library, layered Mixture-of
 - Route shell tools, compiler diagnostics, Python verification, stdio MCP, and trusted swarm Git through the shared command boundary. Bound deadlines and clean up descendant process groups.
 - Protect credential names, Git/policy files, and the installed runtime; canonicalize file-tool paths. Deny inspection of other process metadata, including the reproduced synthetic parent-environment leak.
 - Prevent launcher startup hooks from executing before environment filtering. Preserve command termination signals in JSON results.
-- Add installed-user safety scenarios 38–60 and retain failures and reruns. See `ra tests/SAFETY_RESULTS.md` for measured results and scope; no full security certification is implied.
+- Add installed-user safety scenarios 38–60 and retain failures and reruns. See the safety acceptance archive for measured results and scope; no full security certification is implied.
 
 ## 1.0.0-ra.70 — 2026-08-30
 
@@ -89,7 +89,7 @@ The biggest single release since the TUI: a 76-agent library, layered Mixture-of
 - Preserve every participant outcome, synthesize successful proposals after partial failure, and expose actual models, shared call budgets, and cancellation state.
 - Replace shared nesting/stack ownership with asynchronous execution scopes and explicit tree parents. Pipelines and nested/team agents share operation limits.
 - Stage swarm integration in a separate worktree; preserve conflicts, reject dirty or moved targets, and require explicit apply unless `--merge` was requested.
-- Add installed macOS cloud acceptance for team success, partial failures, budget exhaustion, read-only proposals, cancellation, isolated coding, and merge conflict recovery. See `ra tests/AGENT_RESULTS.md` for measured outcomes and remaining limits.
+- Add installed macOS cloud acceptance for team success, partial failures, budget exhaustion, read-only proposals, cancellation, isolated coding, and merge conflict recovery. See `AGENT_RESULTS.md` for measured outcomes and remaining limits.
 
 ## 1.0.0-ra.69 — 2026-08-30
 
@@ -99,7 +99,7 @@ The biggest single release since the TUI: a 76-agent library, layered Mixture-of
 - Preserve nested Markdown fences and original checkpoint content; reject ambiguous edits and project-escaping symlinks.
 - Keep planning/review tools read-only, carry recent conversation context, cancel active model requests with Escape, and recover after TUI command errors.
 - Keep CLI JSON parseable alongside verification and expose actual role/model results.
-- Add 21 installed-terminal acceptance scenarios and retained evidence under `ra tests`. See its report for live-provider failures and the final result; internal test-suite success is not claimed.
+- Add 21 installed-terminal acceptance scenarios and retained evidence in the local acceptance archive. See the report for live-provider failures and the final result; internal test-suite success is not claimed.
 
 
 All notable user-facing changes to RA, grouped by version.

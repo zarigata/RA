@@ -28,7 +28,7 @@ jobs:
           # namespaces it needs. RA correctly treats that as "unavailable".
           # Functional CLI/MCP/swarm tests may run without the OS boundary only
           # after this explicit CI-only consent. Production remains fail-closed.
-          if bwrap --dev /dev --ro-bind / / -- /bin/true >/dev/null 2>&1; then
+          if bwrap --ro-bind / / --dev /dev --proc /proc -- /bin/true >/dev/null 2>&1; then
             echo "Bubblewrap probe: usable"
           else
             echo "Bubblewrap probe: blocked by hosted-runner policy; enabling explicit CI test fallback"

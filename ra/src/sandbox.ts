@@ -51,12 +51,12 @@ let bwrapProbe: { usable: boolean; netns: boolean } | undefined;
 export function bwrapProbeResult(bwrapPath: string): { usable: boolean; netns: boolean } {
   if (bwrapProbe) return bwrapProbe;
   try {
-    const base = ["--dev", "/dev", "--ro-bind", "/", "/", "/bin/true"];
+    const base = ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "/bin/true"];
     const r1 = spawnSync(bwrapPath, base, { timeout: 8000, stdio: "ignore" });
     const usable = r1.status === 0;
     let netns = false;
     if (usable) {
-      const r2 = spawnSync(bwrapPath, ["--dev", "/dev", "--ro-bind", "/", "/", "--unshare-net", "/bin/true"], { timeout: 8000, stdio: "ignore" });
+      const r2 = spawnSync(bwrapPath, ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--unshare-net", "/bin/true"], { timeout: 8000, stdio: "ignore" });
       netns = r2.status === 0;
     }
     bwrapProbe = { usable, netns };
@@ -228,9 +228,14 @@ function prepareCommand(context: CommandContext, args: string[], options: Launch
   let command = args;
   if (settings.backend === "Linux bubblewrap" && settings.bwrapPath) {
     const netIsolated = settings.network === "deny" && bwrapProbeResult(settings.bwrapPath).netns;
+    // Order matters: bind / FIRST, then create /dev and /proc on top.
+    // bwrap applies args in order — "--dev /dev" before the root bind gets
+    // shadowed by the read-only /, leaving a non-writable /dev/null (git's
+    // GIT_CONFIG_GLOBAL=/dev/null then fails with EPERM).
     const bwrap: string[] = [settings.bwrapPath,
-      "--dev", "/dev", "--proc", "/proc",
       "--ro-bind", "/", "/",
+      "--dev", "/dev",
+      "--proc", "/proc",
       "--clearenv", "--die-with-parent"];
     if (settings.mode === "workspace-write") bwrap.push("--bind", cwd, cwd);
     bwrap.push("--bind", scratch, scratch);

@@ -24,7 +24,7 @@ describe("air-gapped mode", () => {
 
   test("isLocalUrl detects local/LAN addresses", () => {
     expect(isLocalUrl("localhost:11434")).toBe(true);
-    expect(isLocalUrl("192.168.1.251")).toBe(true); // any RFC1918 quad is local
+    expect(isLocalUrl("192.168.1.42")).toBe(true); // any RFC1918 quad is local
     expect(isLocalUrl("10.0.0.1")).toBe(true);
     expect(isLocalUrl("example.com")).toBe(false);
   });

@@ -228,27 +228,22 @@ bun test --watch
 - **[SETUP.md](./docs/SETUP.md)** — detailed installation steps
 - **[PROVIDERS.md](./docs/PROVIDERS.md)** — all 75+ providers with setup snippets
 - **[ROLES.md](./docs/ROLES.md)** — role descriptions and best practices
-- **[GUIDE_MOA.md](./docs/GUIDE_MOA.md)** — MOA mode examples
-- **[GUIDE_PIPELINE.md](./docs/GUIDE_PIPELINE.md)** — pipeline mode examples
 - **[TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)** — common issues & fixes
-- **[OPERATIONAL_PLAN.md](../OPERATIONAL_PLAN.md)** — production roadmap
 
 ---
 
 ## Why Anubis?
 
-Anubis is a **fork of [opencode](https://github.com/anomalyco/opencode)** (MIT license), improved for:
-- **Your company's stack** — composed, branded, optimized for your workflow
+Anubis is RA's orchestration + provider engine, inspired by [OpenCode](https://github.com/anomalyco/opencode) (MIT), built for:
 - **Multi-agent orchestration** — MOA natively, no hacks
 - **Cost control** — free local/LAN-first, cloud as fallback
-- **Token savings** — caveman compression cuts overhead 65%
 - **Extensibility** — plugins + skills, customizable roles
 
 ---
 
 ## License
 
-MIT (fork of opencode)
+MIT (see [NOTICE](../NOTICE) for attribution)
 ```
 
 Requires `OLLAMA_API_KEY` in `.env` for integration tests. All 79 tests must pass.

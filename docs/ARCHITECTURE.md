@@ -333,7 +333,7 @@ RA/
 ├── scripts/                repository verification/release utilities
 ├── install                 local install launcher
 ├── README.md               user-facing overview
-└── PLAN.md                 current implementation roadmap
+└── ROADMAP.md              public backlog
 ```
 
 Long term, new code should move toward clear module ownership instead of duplicating behavior between `ra/` and `anubis/`. Compatibility shims should be identified as such and eventually removed when migration is complete.

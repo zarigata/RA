@@ -95,7 +95,7 @@ RA is under active development, but the core runtime is real. The current reposi
 
 **Legend:** ✅ shipped · ⚠️ shipped with limitations · 📋 planned
 
-For the running engineering truth, see [STATUS.md](STATUS.md), [ROADMAP.md](ROADMAP.md), and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For architecture and the agent catalog, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/AGENTS-CATALOG.md](docs/AGENTS-CATALOG.md).
 
 ## The idea in one sentence
 
@@ -291,7 +291,7 @@ RA_ROUTING=economy
 The current example environment supports endpoints such as:
 
 ~~~bash
-OLLAMA_LAN_URL=http://192.168.1.251:11434
+OLLAMA_LAN_URL=http://192.168.1.100:11434
 OLLAMA_LOCAL_URL=http://localhost:11434
 LM_STUDIO_URL=http://localhost:1234
 LLAMACPP_URL=http://localhost:8080
@@ -472,11 +472,9 @@ Recommended practice:
 
 The command sandbox has platform limitations and is **not** a hostile-code VM or a formal security certification.
 
-Measured safety work lives in [ra tests/SAFETY_RESULTS.md](ra%20tests/SAFETY_RESULTS.md).
-
 ## Benchmarks: evidence, not mythology
 
-The repository includes competitive and installed-user test evidence under <code>ra tests/</code>.
+The repository ships reproducible benchmark scenarios under `benchmarks/` and a verification gate (`test.sh`, `scripts/verify-release.sh`).
 
 Those results are useful for regression testing and design decisions, but they are **point-in-time measurements on specific tasks, models, hardware, and provider conditions**. They should not be read as a universal claim that RA beats every coding tool on every repository.
 
@@ -499,10 +497,8 @@ RA/
 │   └── assets/                 # README/brand visuals
 ├── benchmarks/                 # evaluation assets
 ├── scripts/                    # verification/release tooling
-├── ra tests/                   # installed-user / competitive / safety evidence
-├── STATUS.md                   # current engineering state
-├── ROADMAP.md                  # persistent backlog
-├── PLAN.md                     # implementation plan
+├── docs/                       # architecture + agent catalog
+├── ROADMAP.md                  # public backlog
 └── README.md
 ~~~
 
@@ -543,7 +539,7 @@ The major direction is:
 5. **stronger plugin contracts** — explicit filesystem/network/process/secrets capabilities;
 6. **distinctive Egyptian TUI** — time-aware dawn/day/sunset/night scenes around a serious coding workspace.
 
-Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [PLAN.md](PLAN.md) for the deeper design.
+Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the deeper design.
 
 ## Contributing
 

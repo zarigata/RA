@@ -9,6 +9,20 @@
 .ra/
 .zcode/
 
+# Internal development artifacts — not shipped (kept locally by developers)
+ra tests/
+BUILD/
+RA-v2-design-pack-v2/
+docs/archive/
+ANUBIS-SPEC.md
+EVALUATION.md
+INDEX.md
+PLAN.md
+DECISIONS.md
+BUGS.md
+BLOCKED.md
+STATUS.md
+
 # Dependencies
 **/node_modules/
 

@@ -57,6 +57,9 @@ say "Installing locked Bun dependencies"
 
 say "Running offline unit tests"
 (
+  # Anubis suite runs from anubis/; the RA runtime suite runs from the repo
+  # root — sandboxed MCP stdio fixtures resolve their workspace from the
+  # process cwd (same discipline as anubis/test.sh).
   cd anubis
   bun test \
     tests/tui.test.ts \
@@ -65,27 +68,29 @@ say "Running offline unit tests"
     tests/hello-guard.test.ts \
     tests/ollama-routing.test.ts \
     tests/cost.test.ts \
-    tests/config.test.ts \
-    ../ra/tests/runtime.test.ts \
-    ../ra/tests/benchmark-artifacts.test.ts \
-    ../ra/tests/run-command.test.ts \
-    ../ra/tests/session.test.ts \
-    ../ra/tests/permission.test.ts \
-    ../ra/tests/custom-commands.test.ts \
-    ../ra/tests/subagents.test.ts \
-    ../ra/tests/checkpoint.test.ts \
-    ../ra/tests/symbols.test.ts \
-    ../ra/tests/mcp.test.ts \
-    ../ra/tests/daemon.test.ts \
-    ../ra/tests/diagnostics.test.ts \
-    ../ra/tests/airgap.test.ts \
-    ../ra/tests/selfheal.test.ts \
-    ../ra/tests/diff.test.ts \
-    ../ra/tests/search.test.ts \
-    ../ra/tests/replay.test.ts \
-    ../ra/tests/swarm.test.ts \
-    ../ra/tests/ide.test.ts \
-    ../ra/tests/eval.test.ts
+    tests/config.test.ts
+  cd ..
+  bun test \
+    ra/tests/runtime.test.ts \
+    ra/tests/benchmark-artifacts.test.ts \
+    ra/tests/run-command.test.ts \
+    ra/tests/session.test.ts \
+    ra/tests/permission.test.ts \
+    ra/tests/custom-commands.test.ts \
+    ra/tests/subagents.test.ts \
+    ra/tests/checkpoint.test.ts \
+    ra/tests/symbols.test.ts \
+    ra/tests/mcp.test.ts \
+    ra/tests/daemon.test.ts \
+    ra/tests/diagnostics.test.ts \
+    ra/tests/airgap.test.ts \
+    ra/tests/selfheal.test.ts \
+    ra/tests/diff.test.ts \
+    ra/tests/search.test.ts \
+    ra/tests/replay.test.ts \
+    ra/tests/swarm.test.ts \
+    ra/tests/ide.test.ts \
+    ra/tests/eval.test.ts
 )
 
 say "Smoke-testing the source CLI"

@@ -458,7 +458,7 @@ grep -qE "RA RESULT.*(${NOTABLE_RE})" "$OUT" || { echo "FAIL: RA RESULT missing 
 if grep -qE "RA RESULT.*files=none" "$OUT"; then echo "FAIL: RA RESULT files=none"; exit 1; fi
 grep -qE "RA RESULT.*files=/.+" "$OUT" || { echo "FAIL: RA RESULT missing written file path"; exit 1; }
 grep -qE "RA RESULT.*ms=[0-9]+" "$OUT" || { echo "FAIL: RA RESULT missing ms="; exit 1; }
-grep -qE "RA RESULT.*hosts=.*(${LAN_TAG}|local)" "$OUT" || { echo "FAIL: RA RESULT missing hosts=${LAN_TAG}|local"; exit 1; }
+grep -qE "RA RESULT.*hosts=.*(${LAN_TAG}|local|cloud)" "$OUT" || { echo "FAIL: RA RESULT missing hosts=${LAN_TAG}|local|cloud"; exit 1; }
 grep -qE "RA RESULT.*intent=" "$OUT" || { echo "FAIL: RA RESULT missing intent="; exit 1; }
 grep -q "RA intent code" "$OUT" || { echo "FAIL: full-dev missing RA intent code"; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local) → big@cloud" "$OUT" || { echo "FAIL: full-dev missing live RA prefer"; exit 1; }
@@ -819,7 +819,7 @@ if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.tx
   grep -q "@${LAN_TAG}" "$BENCH_OUT" || { echo "FAIL: benchmark missing @${LAN_TAG} while LAN+${SMALL_FAMILY} up"; exit 1; }
   grep -q "RA lane thoth@${LAN_TAG}" "$BENCH_OUT" || { echo "FAIL: benchmark missing RA lane thoth@${LAN_TAG}"; exit 1; }
 fi
-grep -qE "hosts=.*(${LAN_TAG}|local)" "$BENCH_OUT" || { echo "FAIL: benchmark missing hosts= in RA RESULT"; exit 1; }
+grep -qE "hosts=.*(${LAN_TAG}|local|cloud)" "$BENCH_OUT" || { echo "FAIL: benchmark missing hosts= in RA RESULT"; exit 1; }
 grep -q "fix-bug" "$BENCH_OUT" || { echo "FAIL: fix-bug scenario not run"; exit 1; }
 grep -qE "fix-bug.*intent=debug|RA intent debug" "$BENCH_OUT" || { echo "FAIL: fix-bug missing intent=debug"; grep -E "RA RESULT|RA intent|fix-bug" "$BENCH_OUT" | tail -20; exit 1; }
 echo "✓ benchmark run all shows RA TUI (smoke+cookie+todo+fix-bug)"

@@ -613,7 +613,7 @@ echo "✓ ra prefer"
 echo "▶ ra timings"
 "${RA_BIN[@]}" timings | tee /tmp/ra-timings.txt
 grep -q "RA timings" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing header"; exit 1; }
-grep -qE "thoth@(${LAN_TAG}|local)" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing thoth@${LAN_TAG}|local"; cat /tmp/ra-timings.txt; exit 1; }
+grep -qE "thoth@(${LAN_TAG}|local|cloud)" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing thoth lane"; cat /tmp/ra-timings.txt; exit 1; }
 grep -qE "${NOTABLE_RE}" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing small model"; exit 1; }
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "thoth@${LAN_TAG}" /tmp/ra-timings.txt || { echo "FAIL: LAN+${SMALL_FAMILY} up but thoth not @${LAN_TAG} (got local fallback?)"; cat /tmp/ra-timings.txt; exit 1; }
@@ -622,7 +622,7 @@ if grep -q "✓ cloud" /tmp/ra-ping.txt; then
   grep -q "ptah@cloud" /tmp/ra-timings.txt || { echo "FAIL: cloud up but ptah not @cloud"; cat /tmp/ra-timings.txt; exit 1; }
 fi
 grep -qE "RA lane " /tmp/ra-timings.txt || { echo "FAIL: ra timings missing RA lane"; cat /tmp/ra-timings.txt; exit 1; }
-grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing RA prefer"; cat /tmp/ra-timings.txt; exit 1; }
+grep -qE "RA prefer small@(${LAN_TAG}|local|cloud)" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing RA prefer"; cat /tmp/ra-timings.txt; exit 1; }
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-timings.txt || { echo "FAIL: ra timings lane not @${LAN_TAG}"; exit 1; }
 fi

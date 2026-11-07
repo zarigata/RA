@@ -754,7 +754,11 @@ async function executeTaskAgent(
   // win; the budget guard keeps the last word on cost.
   let capabilityChain: string[] = [];
   if (!meta.model && config.capability_router?.enabled !== false && !airgap) {
-    const routing = await pickForJobLive(jobForRole(role, tier), config, env);
+    // Tier lanes win for cheap work (README: "cheap intelligence for volume"):
+    // meta/light tiers (planning, chat, summarizing) never escalate to cloud
+    // via the router — it only re-picks within the tier's own kind.
+    const tierPinned = tier === "meta" || tier === "light";
+    const routing = tierPinned ? null : await pickForJobLive(jobForRole(role, tier), config, env);
     if (routing) {
       configured = routing.primary.model;
       capabilityChain = routing.chain;

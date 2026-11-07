@@ -56,13 +56,14 @@ BIG_MODEL="${RA_MODEL:-$(printf '%s' "$PROFILE_MODELS" | awk '{print $2}')}"
 SMALL_BARE="${SMALL_MODEL##*/}"
 SMALL_FAMILY="${SMALL_BARE%%:*}"
 NOTABLE_RE="${SMALL_FAMILY}|gemma"
-# Which host kind the configured small model targets: ollama/ prefix = the
-# localhost fallback lane; anything else = the LAN lane.
-if [[ "${SMALL_MODEL%%/*}" == "ollama" ]]; then
-  SMALL_HOST_KIND="local"
-else
-  SMALL_HOST_KIND="lan"
-fi
+# Which host kind the configured small model targets: ollama/ = the localhost
+# fallback lane; ollama-cloud/ = the cloud lane (degraded-hardware mode);
+# anything else = the LAN lane.
+case "${SMALL_MODEL%%/*}" in
+  ollama) SMALL_HOST_KIND="local" ;;
+  ollama-cloud) SMALL_HOST_KIND="cloud" ;;
+  *) SMALL_HOST_KIND="lan" ;;
+esac
 
 echo "╔══════════════════════════════════════╗"
 echo "║  RA — Relic Agent Test Suite         ║"

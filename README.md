@@ -303,13 +303,23 @@ See [anubis/docs/PROVIDERS.md](anubis/docs/PROVIDERS.md) for provider configurat
 
 ## Quick start
 
-### Requirements
+### One-liner (macOS + Linux)
 
-- Git
-- [Bun](https://bun.sh/)
-- at least one model endpoint for live AI work
+Detects your OS and package-manager flavor, installs prerequisites (git, Bun), clones RA, and puts `ra` on your PATH:
 
-### Install
+~~~bash
+curl -fsSL https://raw.githubusercontent.com/zarigata/RA/main/install-ra.sh | bash
+~~~
+
+Then open a new shell (or `source ~/.zshrc`) and type:
+
+~~~bash
+ra
+~~~
+
+### Manual install
+
+Requirements: Git, [Bun](https://bun.sh/), and at least one model endpoint for live AI work.
 
 ~~~bash
 git clone https://github.com/zarigata/RA.git

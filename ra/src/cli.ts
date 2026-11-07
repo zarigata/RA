@@ -638,13 +638,14 @@ if (args[0] === "init") {
   const marker = join(dir, "project.json");
   if (!existsSync(marker)) {
     const { preferLine } = await import("../../anubis/src/tui.ts");
+    const initCfg = loadRaConfig(ANUBIS_HOME);
     writeFileSync(
       marker,
       JSON.stringify(
         {
           name: "RA project",
-          small: "ollama-lan/qwen3.8:latest",
-          big: "ollama-cloud/glm-5.2",
+          small: initCfg.small_model ?? "ollama-lan/qwen3.8:latest",
+          big: initCfg.model ?? "ollama-cloud/glm-5.2",
           note: `Small models on the LAN Ollama (OLLAMA_LAN_URL); localhost as fallback. ${preferLine()}`,
         },
         null,

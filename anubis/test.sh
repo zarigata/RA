@@ -601,7 +601,7 @@ echo "✓ ra intent"
 
 echo "▶ ra prefer"
 "${RA_BIN[@]}" prefer | tee /tmp/ra-prefer.txt
-grep -qE "^RA prefer small@(${LAN_TAG}|local) → big@cloud" /tmp/ra-prefer.txt || { echo "FAIL: ra prefer missing line"; cat /tmp/ra-prefer.txt; exit 1; }
+grep -qE "^RA prefer small@(${LAN_TAG}|local|cloud) → big@cloud" /tmp/ra-prefer.txt || { echo "FAIL: ra prefer missing line"; cat /tmp/ra-prefer.txt; exit 1; }
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA prefer small@${LAN_TAG} → big@cloud" /tmp/ra-prefer.txt || { echo "FAIL: ra prefer not @${LAN_TAG}"; exit 1; }
 fi

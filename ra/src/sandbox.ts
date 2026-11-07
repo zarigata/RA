@@ -239,6 +239,13 @@ function prepareCommand(context: CommandContext, args: string[], options: Launch
       "--clearenv", "--die-with-parent"];
     if (settings.mode === "workspace-write") bwrap.push("--bind", cwd, cwd);
     bwrap.push("--bind", scratch, scratch);
+    // Trusted Git orchestration may write repo metadata (.git / worktree
+    // gitdirs live outside the worktree cwd) — same grant the Seatbelt
+    // profile makes via gitMetadata().
+    if (gitWrite) {
+      const metadata = gitMetadata(cwd);
+      if (metadata) bwrap.push("--bind", metadata, metadata);
+    }
     if (netIsolated) bwrap.push("--unshare-net");
     for (const [k, v] of Object.entries(env)) bwrap.push("--setenv", k, v);
     command = [...bwrap, ...args];

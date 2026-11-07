@@ -11,7 +11,7 @@ cd "$ROOT"
 GATE_ENV_KEYS=(OLLAMA_LAN_URL OLLAMA_LOCAL_URL OLLAMA_API_KEY OLLAMA_BASE_URL)
 for _k in "${GATE_ENV_KEYS[@]}"; do
   if [[ -z "${!_k:-}" && -f "$ROOT/.env" ]]; then
-    _v="$(grep -E "^${_k}=" "$ROOT/.env" | head -1 | cut -d= -f2-)"
+    _v="$(grep -E "^${_k}=" "$ROOT/.env" | head -1 | cut -d= -f2- || true)"
     [[ -n "$_v" ]] && export "$_k=$_v"
   fi
 done

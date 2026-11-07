@@ -142,7 +142,9 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
     case "ping": {
       const { pingAll, formatPings } = await import("../../../anubis/src/ping.ts");
       loadEnv(ANUBIS_HOME);
-      c.reply(formatPings(await pingAll(process.env as Record<string, string | undefined>)));
+      let cmdCfg: import("../../../anubis/src/config.ts").RaConfig | undefined;
+      try { cmdCfg = loadRaConfig(ANUBIS_HOME); } catch { cmdCfg = undefined; }
+      c.reply(formatPings(await pingAll(process.env as Record<string, string | undefined>, cmdCfg), cmdCfg?.small_model));
       return true;
     }
     case "which": {

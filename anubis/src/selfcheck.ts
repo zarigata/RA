@@ -13,7 +13,7 @@ export async function formatSelfcheck(
   const pings = await pingAll(env, cfg);
   const parts = [
     renderSplash(),
-    formatPings(pings),
+    formatPings(pings, cfg.small_model),
     await formatRaWhich(env, cfg),
     formatLanes(cfg, env),
     await formatRaModels(cfg, env),

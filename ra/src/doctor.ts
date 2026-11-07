@@ -28,7 +28,7 @@ export async function runDoctor(): Promise<number> {
   try {
     const { pingAll, formatPings } = await import("../../anubis/src/ping.ts");
     const pings = await pingAll(process.env as Record<string, string>, config ?? undefined);
-    console.log(formatPings(pings));
+    console.log(formatPings(pings, config?.small_model));
     const lan = pings.find((p) => p.name !== "local" && p.name !== "cloud");
     const local = pings.find((p) => p.name === "local");
     // Small is reachable if EITHER the LAN box or localhost is up (fallback chain).

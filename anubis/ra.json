@@ -1,25 +1,39 @@
 {
   "$schema": "https://ra.dev/config.json",
   "model": "ollama-cloud/glm-5.2",
-  "small_model": "ollama-lan/coder390:latest",
+  "small_model": "ollama/gemma:latest",
   "profile": "mac-weak",
   "profiles": {
     "mac-weak": {
       "description": "Small on LAN Ollama; BIG on Ollama Cloud (glm-5.2). Set OLLAMA_LAN_URL in .env to your LAN server.",
       "tier_models": {
-        "meta": "ollama-lan/coder390:latest",
-        "light": "ollama-lan/coder390:latest",
+        "meta": "ollama/gemma:latest",
+        "light": "ollama/gemma:latest",
         "heavy": "ollama-cloud/glm-5.2",
         "code": "ollama-cloud/glm-5.2"
       },
       "agent": {
-        "thoth": { "model": "ollama-lan/coder390:latest" },
-        "ptah": { "model": "ollama-cloud/glm-5.2" },
-        "maat": { "model": "ollama-lan/coder390:latest" },
-        "sekhmet": { "model": "ollama-lan/coder390:latest" },
-        "isis": { "model": "ollama-lan/coder390:latest" },
-        "seshat": { "model": "ollama-lan/coder390:latest" },
-        "horus": { "model": "ollama-lan/coder390:latest" }
+        "thoth": {
+          "model": "ollama/gemma:latest"
+        },
+        "ptah": {
+          "model": "ollama-cloud/glm-5.2"
+        },
+        "maat": {
+          "model": "ollama/gemma:latest"
+        },
+        "sekhmet": {
+          "model": "ollama/gemma:latest"
+        },
+        "isis": {
+          "model": "ollama/gemma:latest"
+        },
+        "seshat": {
+          "model": "ollama/gemma:latest"
+        },
+        "horus": {
+          "model": "ollama/gemma:latest"
+        }
       }
     }
   },
@@ -32,34 +46,60 @@
         "apiKey": "{env:OLLAMA_API_KEY}"
       },
       "models": {
-        "glm-5.2": { "name": "GLM 5.2 (Cloud BIG)" },
-        "gemma4:31b": { "name": "Gemma 4 31B (Cloud)" },
-        "deepseek-v4-pro": { "name": "DeepSeek V4 Pro (Cloud)" }
+        "glm-5.2": {
+          "name": "GLM 5.2 (Cloud BIG)"
+        },
+        "gemma4:31b": {
+          "name": "Gemma 4 31B (Cloud)"
+        },
+        "deepseek-v4-pro": {
+          "name": "DeepSeek V4 Pro (Cloud)"
+        }
       }
     },
     "ollama-lan": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Ollama LAN (small/local)",
-      "options": { "baseURL": "{env:OLLAMA_LAN_URL}/v1" },
+      "options": {
+        "baseURL": "{env:OLLAMA_LAN_URL}/v1"
+      },
       "models": {
-        "qwen3.8:latest": { "name": "Qwen3.8 (LAN small)", "context": 262144 },
-        "qwen3-coder-30b-a3b-instruct-ud-q4_k_xl:latest": { "name": "Qwen3 Coder 30B A3B (LAN)", "context": 262144 },
-        "flint:latest": { "name": "Flint (LAN)", "context": 262144 },
-        "gemma4:12b": { "name": "Gemma4 12B (LAN)", "context": 131072 }
+        "qwen3.8:latest": {
+          "name": "Qwen3.8 (LAN small)",
+          "context": 262144
+        },
+        "qwen3-coder-30b-a3b-instruct-ud-q4_k_xl:latest": {
+          "name": "Qwen3 Coder 30B A3B (LAN)",
+          "context": 262144
+        },
+        "flint:latest": {
+          "name": "Flint (LAN)",
+          "context": 262144
+        },
+        "gemma4:12b": {
+          "name": "Gemma4 12B (LAN)",
+          "context": 131072
+        }
       }
     },
     "ollama": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Ollama localhost fallback",
-      "options": { "baseURL": "http://localhost:11434/v1" },
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
       "models": {
-        "gemma:latest": { "name": "Gemma (localhost)" }
+        "gemma:latest": {
+          "name": "Gemma (localhost)"
+        }
       }
     },
     "lmstudio": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "LM Studio (local :1234)",
-      "options": { "baseURL": "http://localhost:1234/v1" },
+      "options": {
+        "baseURL": "http://localhost:1234/v1"
+      },
       "models": {}
     }
   },
@@ -67,20 +107,61 @@
     "enabled": true,
     "local_bonus": 1,
     "max_candidates": 3,
-    "models": ["ollama-lan/coder390:latest", "ollama-cloud/glm-5.2", "lmstudio/*"]
+    "models": [
+      "ollama/gemma:latest",
+      "ollama-cloud/glm-5.2",
+      "lmstudio/*"
+    ]
   },
-  "permission": { "skill": { "*": "allow" } },
-  "plugin": ["horus", "vibeguard", "dcp", "cost-tracker", "notify", "moa", "router", "lan", "papyrus"],
+  "permission": {
+    "skill": {
+      "*": "allow"
+    }
+  },
+  "plugin": [
+    "horus",
+    "vibeguard",
+    "dcp",
+    "cost-tracker",
+    "notify",
+    "moa",
+    "router",
+    "lan",
+    "papyrus"
+  ],
   "agent": {
-    "thoth": { "model": "ollama-lan/coder390:latest" },
-    "ptah": { "model": "ollama-cloud/glm-5.2" },
-    "maat": { "model": "ollama-lan/coder390:latest" },
-    "sekhmet": { "model": "ollama-lan/coder390:latest" },
-    "isis": { "model": "ollama-lan/coder390:latest" },
-    "seshat": { "model": "ollama-lan/coder390:latest" },
-    "horus": { "model": "ollama-lan/coder390:latest" }
+    "thoth": {
+      "model": "ollama/gemma:latest"
+    },
+    "ptah": {
+      "model": "ollama-cloud/glm-5.2"
+    },
+    "maat": {
+      "model": "ollama/gemma:latest"
+    },
+    "sekhmet": {
+      "model": "ollama/gemma:latest"
+    },
+    "isis": {
+      "model": "ollama/gemma:latest"
+    },
+    "seshat": {
+      "model": "ollama/gemma:latest"
+    },
+    "horus": {
+      "model": "ollama/gemma:latest"
+    }
   },
-  "moa": { "roles": ["thoth", "ptah", "maat", "sekhmet"], "parallel": true, "layers": 2 },
+  "moa": {
+    "roles": [
+      "thoth",
+      "ptah",
+      "maat",
+      "sekhmet"
+    ],
+    "parallel": true,
+    "layers": 2
+  },
   "teams": {
     "research-pack": {
       "description": "Broad read-only research: three models propose, maat+sekhmet critique",
@@ -90,30 +171,55 @@
     "security-sweep": {
       "description": "Security-focused mixture: two models propose, security-reviewer + maat critique",
       "role": "general",
-      "critics": ["security-reviewer", "maat"],
+      "critics": [
+        "security-reviewer",
+        "maat"
+      ],
       "layers": 2
     },
     "refactor-squad": {
       "description": "Refactor proposals with adversarial review: two models propose, sekhmet + code-reviewer critique",
       "role": "refactorer",
-      "critics": ["sekhmet", "code-reviewer"],
+      "critics": [
+        "sekhmet",
+        "code-reviewer"
+      ],
       "layers": 2
     },
     "ship-it": {
       "description": "High-stakes implementation review: two models propose, maat + sekhmet + code-reviewer critique",
       "role": "general",
-      "critics": ["maat", "sekhmet", "code-reviewer"],
+      "critics": [
+        "maat",
+        "sekhmet",
+        "code-reviewer"
+      ],
       "layers": 2
     }
   },
-  "routing": { "mode": "local-first" },
+  "routing": {
+    "mode": "local-first"
+  },
   "context": {
     "adaptive": true,
     "resume_limit": 3,
     "low_watermark": 0.7,
     "critical_watermark": 0.9,
     "min_context_tokens": 8192,
-    "server_cap": { "ollama-lan": 32768, "ollama": 32768, "lmstudio": 32768 }
+    "server_cap": {
+      "ollama-lan": 32768,
+      "ollama": 32768,
+      "lmstudio": 32768
+    }
   },
-  "pipeline": { "stages": ["thoth", "ptah", "maat", "sekhmet", "ptah", "seshat"] }
+  "pipeline": {
+    "stages": [
+      "thoth",
+      "ptah",
+      "maat",
+      "sekhmet",
+      "ptah",
+      "seshat"
+    ]
+  }
 }

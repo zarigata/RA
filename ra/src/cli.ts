@@ -577,7 +577,7 @@ if (args[0] === "ping") {
   loadEnv(ANUBIS_HOME);
   let pingCfg: import("../../anubis/src/config.ts").RaConfig | undefined;
   try { pingCfg = loadRaConfig(ANUBIS_HOME); } catch { pingCfg = undefined; }
-  console.log(formatPings(await pingAll(process.env as Record<string, string | undefined>, pingCfg)));
+  console.log(formatPings(await pingAll(process.env as Record<string, string | undefined>, pingCfg), pingCfg?.small_model));
   process.exit(0);
 }
 

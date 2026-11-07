@@ -630,6 +630,7 @@ export async function pickClientForModel(
       continue; // configured gemma but this host has none — keep probing
     }
     const model = pickModel(configured, client.availableModels);
+    if (!client.availableModels.includes(model)) continue; // configured model not on this host — keep probing
     return { client, model };
   }
   // Last resort: local OpenAI-compatible servers (LM Studio, llama.cpp).
@@ -654,7 +655,9 @@ export function pickModel(
     const match = available.find((m) => m === fb || m.startsWith(fb.split(":")[0]));
     if (match) return match;
   }
-  return available[0] ?? bare;
+  // ponytail: no arbitrary available[0] — return the configured name and let
+  // the caller fail honestly / walk its explicit fallback chain.
+  return bare;
 }
 
 /**
@@ -797,8 +800,10 @@ export async function warmOllama(
   preferredModel?: string,
   keepAlive = "30m",
 ): Promise<{ model: string; ms: number; loaded: boolean }> {
-  const client = await pickOllamaEndpoint(env);
-  const model = pickModel(preferredModel ?? "ollama-lan/qwen3.8:latest", client.availableModels);
+  const configured = preferredModel ?? "ollama-lan/qwen3.8:latest";
+  const picked = await pickClientForModel(configured, env);
+  const client = picked.client;
+  const model = picked.model;
   const base = client.baseURL.replace(/\/v1$/, "");
   const ka = keepAliveMs(keepAlive);
   const t0 = Date.now();

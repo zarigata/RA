@@ -101,7 +101,7 @@ function lanTagOf(url: string): string {
   return host || "lan";
 }
 
-export function formatPings(pings: PingResult[]): string {
+export function formatPings(pings: PingResult[], configuredSmall?: string): string {
   const lines = ["RA ping"];
   for (const p of pings) {
     if (p.ok) {
@@ -114,9 +114,15 @@ export function formatPings(pings: PingResult[]): string {
   const lan = pings.find((p) => p.name !== "local" && p.name !== "cloud");
   const local = pings.find((p) => p.name === "local");
   const cloud = pings.find((p) => p.name === "cloud");
-  const hasSmall = !!lan?.notable?.length;
-  const small =
-    lan?.ok && (hasSmall || !local?.ok) ? `small@${lan.name}` : local?.ok ? "small@local" : lan?.ok ? `small@${lan.name}` : "small@down";
+  // If the configured small is a localhost-family model (e.g. ollama/gemma),
+  // the small lane lives on @local when that host is up.
+  const wantsLocal = /gemma|qwen2/i.test(configuredSmall?.split("/").pop() ?? "");
+  let small: string;
+  if (wantsLocal) small = local?.ok ? "small@local" : "small@down";
+  else if (lan?.ok && lan.notable?.length) small = `small@${lan.name}`;
+  else if (local?.ok) small = "small@local";
+  else if (lan?.ok) small = `small@${lan.name}`;
+  else small = "small@down";
   const big = cloud?.ok ? "big@cloud" : "big@down";
   lines.push(`RA prefer ${small} → ${big}`);
   return lines.join("\n");

@@ -216,6 +216,9 @@ grep -q "RA which" "$SC_TUI" || { echo "FAIL: /selfcheck missing RA which"; exit
 echo "✓ ra selfcheck"
 
 echo "▶ ra demo (RA TUI full-dev one-shot)"
+# Warm the configured small model first: the demo's first LAN call should not
+# race a cold model load against the run deadline.
+"${RA_BIN[@]}" warm >/dev/null 2>&1 || true
 DEMO_OUT="$(mktemp)"
 set +e
 ra_retry "${RA_BIN[@]}" demo >"$DEMO_OUT" 2>&1

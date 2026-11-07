@@ -5,7 +5,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
-# Small/"local" = OLLAMA_LAN_URL (LAN box); BIG = Ollama Cloud via .env
+# Small/"local" = OLLAMA_LAN_URL (LAN box); BIG = Ollama Cloud via .env.
+# The runtime reads anubis/.env, but this script exports before bun runs, so
+# mirror it: .env supplies values the caller did not explicitly export.
+GATE_ENV_KEYS=(OLLAMA_LAN_URL OLLAMA_LOCAL_URL OLLAMA_API_KEY OLLAMA_BASE_URL)
+for _k in "${GATE_ENV_KEYS[@]}"; do
+  if [[ -z "${!_k:-}" && -f "$ROOT/.env" ]]; then
+    _v="$(grep -E "^${_k}=" "$ROOT/.env" | head -1 | cut -d= -f2-)"
+    [[ -n "$_v" ]] && export "$_k=$_v"
+  fi
+done
 export OLLAMA_LAN_URL="${OLLAMA_LAN_URL:-http://localhost:11434}"
 # The gate drives the TUI through pipes; RA refuses non-TTY interactive mode by
 # default (scenario 17), so opt in explicitly for this process tree only.

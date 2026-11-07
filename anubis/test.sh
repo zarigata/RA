@@ -657,7 +657,7 @@ if grep -q "hello.py" /tmp/ra-show.txt; then
   grep -q "__main__" /tmp/ra-show.txt || { echo "FAIL: hello.py show missing __main__ entrypoint"; cat /tmp/ra-show.txt; exit 1; }
 fi
 grep -qE "RA lane " /tmp/ra-show.txt || { echo "FAIL: ra show missing RA lane footer"; cat /tmp/ra-show.txt; exit 1; }
-grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-show.txt || { echo "FAIL: ra show missing RA prefer footer"; cat /tmp/ra-show.txt; exit 1; }
+grep -qE "RA prefer small@(${LAN_TAG}|local|cloud)" /tmp/ra-show.txt || { echo "FAIL: ra show missing RA prefer footer"; cat /tmp/ra-show.txt; exit 1; }
 grep -qE "elapsed: [0-9]" /tmp/ra-show.txt || { echo "FAIL: ra show missing elapsed"; cat /tmp/ra-show.txt; exit 1; }
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-show.txt || { echo "FAIL: ra show lane not @${LAN_TAG}"; exit 1; }

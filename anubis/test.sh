@@ -640,13 +640,13 @@ grep -q "RA RESULT" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing RA R
 grep -qE "thoth@(${LAN_TAG}|local)|lane:.*thoth@" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing lane timings"; cat /tmp/ra-summary.txt; exit 1; }
 grep -qE "RA lane " /tmp/ra-summary.txt || { echo "FAIL: ra summary missing RA lane"; exit 1; }
 grep -q "again: ra again" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing again tip"; cat /tmp/ra-summary.txt; exit 1; }
-grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing RA prefer"; cat /tmp/ra-summary.txt; exit 1; }
+grep -qE "RA prefer small@(${LAN_TAG}|local|cloud)" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing RA prefer"; cat /tmp/ra-summary.txt; exit 1; }
 grep -qE "elapsed: [0-9]" /tmp/ra-summary.txt || { echo "FAIL: ra summary missing elapsed"; cat /tmp/ra-summary.txt; exit 1; }
 SUM_TUI="$(mktemp)"
 printf '/summary\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$SUM_TUI" >/dev/null
 grep -q "RA summary" "$SUM_TUI" || { echo "FAIL: /summary missing RA summary"; cat "$SUM_TUI"; exit 1; }
 grep -q "again: ra again" "$SUM_TUI" || { echo "FAIL: /summary missing again tip"; cat "$SUM_TUI"; exit 1; }
-grep -qE "RA prefer small@(${LAN_TAG}|local)" "$SUM_TUI" || { echo "FAIL: /summary missing RA prefer"; cat "$SUM_TUI"; exit 1; }
+grep -qE "RA prefer small@(${LAN_TAG}|local|cloud)" "$SUM_TUI" || { echo "FAIL: /summary missing RA prefer"; cat "$SUM_TUI"; exit 1; }
 echo "✓ ra summary"
 
 echo "▶ ra show + TUI /show"

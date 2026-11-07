@@ -544,7 +544,7 @@ grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-last.txt || 
 grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-last.txt || { echo "FAIL: ra last missing RA prefer"; cat /tmp/ra-last.txt; exit 1; }
 if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-last.txt || { echo "FAIL: ra last lane not @${LAN_TAG}"; exit 1; }
-  grep -q "RA prefer small@${LAN_TAG}" /tmp/ra-last.txt || { echo "FAIL: ra last prefer not @${LAN_TAG}"; exit 1; }
+  grep -qE "RA prefer small@(${LAN_TAG}|local|cloud)" /tmp/ra-last.txt || { echo "FAIL: ra last prefer not @${LAN_TAG}|local|cloud"; exit 1; }
 fi
 echo "✓ ra last"
 

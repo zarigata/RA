@@ -56,6 +56,13 @@ BIG_MODEL="${RA_MODEL:-$(printf '%s' "$PROFILE_MODELS" | awk '{print $2}')}"
 SMALL_BARE="${SMALL_MODEL##*/}"
 SMALL_FAMILY="${SMALL_BARE%%:*}"
 NOTABLE_RE="${SMALL_FAMILY}|gemma"
+# Which host kind the configured small model targets: ollama/ prefix = the
+# localhost fallback lane; anything else = the LAN lane.
+if [[ "${SMALL_MODEL%%/*}" == "ollama" ]]; then
+  SMALL_HOST_KIND="local"
+else
+  SMALL_HOST_KIND="lan"
+fi
 
 echo "╔══════════════════════════════════════╗"
 echo "║  RA — Relic Agent Test Suite         ║"
@@ -100,7 +107,7 @@ echo "✓ ra team list"
 echo "▶ ra providers (Provider Mosaic, ra.77)"
 "${RA_BIN[@]}" providers | tee /tmp/ra-providers.txt
 grep -q "RA providers — capability router" /tmp/ra-providers.txt || { echo "FAIL: ra providers missing header"; cat /tmp/ra-providers.txt; exit 1; }
-grep -q "ollama-lan/$SMALL_BARE" /tmp/ra-providers.txt || { echo "FAIL: ra providers missing lan lane ($SMALL_BARE)"; exit 1; }
+grep -qE "ollama-lan/$SMALL_BARE|ollama/$SMALL_BARE" /tmp/ra-providers.txt || { echo "FAIL: ra providers missing lan lane ($SMALL_BARE)"; exit 1; }
 grep -qE "quota|failover" /tmp/ra-providers.txt || { echo "FAIL: ra providers missing quota/failover note"; exit 1; }
 echo "✓ ra providers"
 
@@ -182,7 +189,7 @@ grep -q "RA ping" /tmp/ra-ping.txt || { echo "FAIL: ra ping missing header"; exi
 grep -qE "✓ ${LAN_TAG}|✓ local" /tmp/ra-ping.txt || { echo "FAIL: ra ping — neither LAN (${LAN_TAG}) nor localhost up"; exit 1; }
 grep -qE "${NOTABLE_RE}" /tmp/ra-ping.txt || { echo "FAIL: ra ping missing notable models (${NOTABLE_RE})"; cat /tmp/ra-ping.txt; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local) → big@(cloud|down)" /tmp/ra-ping.txt || { echo "FAIL: ra ping missing RA prefer"; cat /tmp/ra-ping.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA prefer small@${LAN_TAG}" /tmp/ra-ping.txt || { echo "FAIL: ra ping should prefer small@${LAN_TAG}"; exit 1; }
 fi
 echo "✓ ra ping"
@@ -192,7 +199,7 @@ echo "▶ ra which"
 grep -q "RA which" /tmp/ra-which.txt || { echo "FAIL: ra which missing header"; exit 1; }
 grep -qE "small → @(${LAN_TAG}|local)" /tmp/ra-which.txt || { echo "FAIL: ra which missing small host"; cat /tmp/ra-which.txt; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-which.txt || { echo "FAIL: ra which missing RA prefer"; cat /tmp/ra-which.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "small → @${LAN_TAG}" /tmp/ra-which.txt || { echo "FAIL: ra which should prefer @${LAN_TAG}"; cat /tmp/ra-which.txt; exit 1; }
   grep -q "RA prefer small@${LAN_TAG}" /tmp/ra-which.txt || { echo "FAIL: ra which prefer not @${LAN_TAG}"; exit 1; }
   grep -qE "${SMALL_FAMILY}" /tmp/ra-which.txt || { echo "FAIL: ra which missing ${SMALL_FAMILY} on @${LAN_TAG}"; exit 1; }
@@ -213,7 +220,7 @@ grep -qE "✓ ${LAN_TAG}|✓ local" /tmp/ra-selfcheck.txt || { echo "FAIL: selfc
 grep -q "RA which" /tmp/ra-selfcheck.txt || { echo "FAIL: selfcheck missing RA which"; exit 1; }
 grep -qE "${NOTABLE_RE}" /tmp/ra-selfcheck.txt || { echo "FAIL: selfcheck missing notable models (${NOTABLE_RE})"; exit 1; }
 grep -q "RA selfcheck OK" /tmp/ra-selfcheck.txt || { echo "FAIL: selfcheck not OK"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "small @${LAN_TAG}" /tmp/ra-selfcheck.txt || { echo "FAIL: selfcheck should prefer small @${LAN_TAG}"; cat /tmp/ra-selfcheck.txt; exit 1; }
   grep -q "small → @${LAN_TAG}" /tmp/ra-selfcheck.txt || { echo "FAIL: selfcheck which should prefer @${LAN_TAG}"; exit 1; }
 fi
@@ -245,7 +252,7 @@ grep -q "RA TUI" "$DEMO_OUT" || { echo "FAIL: ra demo missing RA TUI"; exit 1; }
 grep -qE "RA ✓ done|dev cycle complete" "$DEMO_OUT" || { echo "FAIL: ra demo missing done"; exit 1; }
 grep -qE "${NOTABLE_RE}" "$DEMO_OUT" || { echo "FAIL: ra demo missing small model (${NOTABLE_RE})"; exit 1; }
 grep -qE "@${LAN_TAG}|@local" "$DEMO_OUT" || { echo "FAIL: ra demo missing host tag"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "@${LAN_TAG}" "$DEMO_OUT" || { echo "FAIL: ra demo missing @${LAN_TAG} while LAN+${SMALL_FAMILY} up"; exit 1; }
 fi
 grep -q "RA RESULT" "$DEMO_OUT" || { echo "FAIL: ra demo missing RA RESULT"; exit 1; }
@@ -257,7 +264,7 @@ grep -qE "RA RESULT.*intent=code" "$DEMO_OUT" || { echo "FAIL: ra demo missing i
 grep -q "RA intent code" "$DEMO_OUT" || { echo "FAIL: ra demo missing RA intent code"; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local) → big@cloud" "$DEMO_OUT" || { echo "FAIL: ra demo missing live RA prefer"; exit 1; }
 grep -q "again: ra again --quick --verify" "$DEMO_OUT" || { echo "FAIL: ra demo missing again tip"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" "$DEMO_OUT" || { echo "FAIL: ra demo lane not @${LAN_TAG}"; exit 1; }
   grep -q "RA prefer small@${LAN_TAG} → big@cloud" "$DEMO_OUT" || { echo "FAIL: ra demo prefer not @${LAN_TAG}"; exit 1; }
 fi
@@ -300,7 +307,7 @@ MODELS_CLI="$(mktemp)"
 grep -q "RA models" "$MODELS_CLI" || { echo "FAIL: ra models missing header"; exit 1; }
 grep -qE "small @(${LAN_TAG}|local)" "$MODELS_CLI" || { echo "FAIL: ra models missing small @${LAN_TAG}|local"; cat "$MODELS_CLI"; exit 1; }
 grep -qE "${NOTABLE_RE}" "$MODELS_CLI" || { echo "FAIL: ra models missing notable (${NOTABLE_RE})"; cat "$MODELS_CLI"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "small @${LAN_TAG}" "$MODELS_CLI" || { echo "FAIL: LAN+${SMALL_FAMILY} up but ra models not small @${LAN_TAG}"; cat "$MODELS_CLI"; exit 1; }
   grep -q "RA prefer small@${LAN_TAG}" "$MODELS_CLI" || { echo "FAIL: ra models prefer not @${LAN_TAG}"; cat "$MODELS_CLI"; exit 1; }
 fi
@@ -315,11 +322,11 @@ grep -q "${OLLAMA_LAN_URL%/}" "$LANES_OUT" || { echo "FAIL: ra lanes missing LAN
 grep -qE "${SMALL_FAMILY}" "$LANES_OUT" || { echo "FAIL: ra lanes missing small model (${SMALL_FAMILY})"; exit 1; }
 grep -qE "fallback.*@local|@local" "$LANES_OUT" || { echo "FAIL: ra lanes missing local fallback"; exit 1; }
 grep -qE "glm-5|@cloud" "$LANES_OUT" || { echo "FAIL: ra lanes missing BIG/cloud"; exit 1; }
-grep -q "RA prefer small@${LAN_TAG}" "$LANES_OUT" || { echo "FAIL: ra lanes missing RA prefer"; cat "$LANES_OUT"; exit 1; }
+grep -qE "RA prefer small@(${LAN_TAG}|local)" "$LANES_OUT" || { echo "FAIL: ra lanes missing RA prefer"; cat "$LANES_OUT"; exit 1; }
 LANES_TUI="$(mktemp)"
 printf '/lanes\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$LANES_TUI" >/dev/null
 grep -q "RA lanes" "$LANES_TUI" || { echo "FAIL: /lanes missing RA lanes"; cat "$LANES_TUI"; exit 1; }
-grep -q "RA prefer small@${LAN_TAG}" "$LANES_TUI" || { echo "FAIL: /lanes missing RA prefer"; cat "$LANES_TUI"; exit 1; }
+grep -qE "RA prefer small@(${LAN_TAG}|local)" "$LANES_TUI" || { echo "FAIL: /lanes missing RA prefer"; cat "$LANES_TUI"; exit 1; }
 echo "✓ ra lanes"
 
 echo "▶ ra roles"
@@ -380,7 +387,7 @@ grep -q "RA TUI" "$OUTQ" || { echo "FAIL: TUI /quick missing RA TUI splash"; exi
 grep -qE "RA ✓ done|dev cycle complete" "$OUTQ" || { echo "FAIL: TUI /quick missing done"; exit 1; }
 grep -qE "${NOTABLE_RE}" "$OUTQ" || { echo "FAIL: TUI /quick expected small model (${NOTABLE_RE})"; exit 1; }
 grep -qE "glm-5\.2|${SMALL_FAMILY}" "$OUTQ" || { echo "FAIL: TUI /quick expected code model"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "@${LAN_TAG}" "$OUTQ" || { echo "FAIL: TUI /quick missing @${LAN_TAG} while LAN+${SMALL_FAMILY} up"; exit 1; }
   grep -q "RA lane thoth@${LAN_TAG}" "$OUTQ" || { echo "FAIL: TUI /quick missing RA lane thoth@${LAN_TAG}"; exit 1; }
 fi
@@ -435,7 +442,7 @@ grep -q "small/LAN" "$OUT" || { echo "FAIL: expected small/LAN lane tag in TUI";
 grep -qE "BIG/cloud|glm-5" "$OUT" || { echo "FAIL: expected BIG/cloud lane in TUI"; exit 1; }
 grep -qE "@${LAN_TAG}|@local" "$OUT" || { echo "FAIL: expected @${LAN_TAG} or @local host tag"; exit 1; }
 grep -q "@cloud" "$OUT" || { echo "FAIL: expected @cloud host tag"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "@${LAN_TAG}" "$OUT" || { echo "FAIL: LAN+${SMALL_FAMILY} up but full-dev TUI missing @${LAN_TAG}"; exit 1; }
   grep -qE "RA RESULT.*hosts=.*${LAN_TAG}" "$OUT" || { echo "FAIL: LAN up but RA RESULT hosts missing ${LAN_TAG}"; exit 1; }
   grep -qE "RA lane thoth@${LAN_TAG} → " "$OUT" || { echo "FAIL: full-dev missing RA lane thoth@${LAN_TAG}"; exit 1; }
@@ -453,7 +460,7 @@ grep -qE "RA RESULT.*hosts=.*(${LAN_TAG}|local)" "$OUT" || { echo "FAIL: RA RESU
 grep -qE "RA RESULT.*intent=" "$OUT" || { echo "FAIL: RA RESULT missing intent="; exit 1; }
 grep -q "RA intent code" "$OUT" || { echo "FAIL: full-dev missing RA intent code"; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local) → big@cloud" "$OUT" || { echo "FAIL: full-dev missing live RA prefer"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA prefer small@${LAN_TAG} → big@cloud" "$OUT" || { echo "FAIL: full-dev prefer not @${LAN_TAG}"; exit 1; }
 fi
 grep -q "again: ra again --quick --verify" "$OUT" || { echo "FAIL: full-dev missing again tip"; exit 1; }
@@ -486,7 +493,7 @@ grep -qE "RA lane " "$WELCOME_OUT" || { echo "FAIL: welcome missing RA lane afte
 grep -qE "RA intent (code|debug|plan|review|docs|question)" "$WELCOME_OUT" || { echo "FAIL: welcome missing RA intent"; cat "$WELCOME_OUT"; exit 1; }
 grep -q "/verify" "$WELCOME_OUT" || { echo "FAIL: welcome missing /verify tip"; cat "$WELCOME_OUT"; exit 1; }
 grep -qE "elapsed: [0-9]" "$WELCOME_OUT" || { echo "FAIL: welcome missing elapsed"; cat "$WELCOME_OUT"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" "$WELCOME_OUT" || { echo "FAIL: welcome lane not @${LAN_TAG}"; exit 1; }
 fi
 echo "✓ TUI welcome last lane"
@@ -500,7 +507,7 @@ grep -qE "RA lane " /tmp/ra-verify.txt || { echo "FAIL: ra verify missing RA lan
 grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-verify.txt || { echo "FAIL: ra verify missing RA intent"; cat /tmp/ra-verify.txt; exit 1; }
 grep -qE "elapsed: [0-9]" /tmp/ra-verify.txt || { echo "FAIL: ra verify missing elapsed"; cat /tmp/ra-verify.txt; exit 1; }
 grep -q "again: ra again" /tmp/ra-verify.txt || { echo "FAIL: ra verify missing again tip"; cat /tmp/ra-verify.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-verify.txt || { echo "FAIL: ra verify lane not @${LAN_TAG}"; exit 1; }
 fi
 VERIFY_TUI="$(mktemp)"
@@ -520,7 +527,7 @@ grep -q "again: ra again" /tmp/ra-status.txt || { echo "FAIL: ra status missing 
 grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-status.txt || { echo "FAIL: ra status missing RA prefer"; cat /tmp/ra-status.txt; exit 1; }
 grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-status.txt || { echo "FAIL: ra status missing RA intent"; cat /tmp/ra-status.txt; exit 1; }
 grep -qE "elapsed: [0-9]" /tmp/ra-status.txt || { echo "FAIL: ra status missing elapsed"; cat /tmp/ra-status.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-status.txt || { echo "FAIL: ra status lane not @${LAN_TAG}"; exit 1; }
 fi
 echo "✓ ra status"
@@ -533,7 +540,7 @@ grep -qE "timings:.*@(${LAN_TAG}|local|cloud)" /tmp/ra-last.txt || { echo "FAIL:
 grep -qE "RA lane " /tmp/ra-last.txt || { echo "FAIL: ra last missing RA lane"; cat /tmp/ra-last.txt; exit 1; }
 grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-last.txt || { echo "FAIL: ra last missing RA intent"; cat /tmp/ra-last.txt; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-last.txt || { echo "FAIL: ra last missing RA prefer"; cat /tmp/ra-last.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-last.txt || { echo "FAIL: ra last lane not @${LAN_TAG}"; exit 1; }
   grep -q "RA prefer small@${LAN_TAG}" /tmp/ra-last.txt || { echo "FAIL: ra last prefer not @${LAN_TAG}"; exit 1; }
 fi
@@ -556,7 +563,7 @@ grep -qE "hosts=.*(${LAN_TAG}|local)" /tmp/ra-result.txt || { echo "FAIL: ra res
 grep -qE "RA lane .+@" /tmp/ra-result.txt || { echo "FAIL: ra result missing RA lane"; cat /tmp/ra-result.txt; exit 1; }
 grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-result.txt || { echo "FAIL: ra result missing RA intent"; cat /tmp/ra-result.txt; exit 1; }
 grep -q "again: ra again" /tmp/ra-result.txt || { echo "FAIL: ra result missing again tip"; cat /tmp/ra-result.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-result.txt || { echo "FAIL: ra result lane not @${LAN_TAG}"; exit 1; }
 fi
 RESULT_OUT="$(mktemp)"
@@ -569,7 +576,7 @@ echo "✓ ra result"
 echo "▶ ra lane"
 "${RA_BIN[@]}" lane | tee /tmp/ra-lane.txt
 grep -qE "^RA lane " /tmp/ra-lane.txt || { echo "FAIL: ra lane missing header"; cat /tmp/ra-lane.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-lane.txt || { echo "FAIL: ra lane not @${LAN_TAG}"; exit 1; }
 fi
 if grep -q "✓ cloud" /tmp/ra-ping.txt; then
@@ -591,7 +598,7 @@ echo "✓ ra intent"
 echo "▶ ra prefer"
 "${RA_BIN[@]}" prefer | tee /tmp/ra-prefer.txt
 grep -qE "^RA prefer small@(${LAN_TAG}|local) → big@cloud" /tmp/ra-prefer.txt || { echo "FAIL: ra prefer missing line"; cat /tmp/ra-prefer.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA prefer small@${LAN_TAG} → big@cloud" /tmp/ra-prefer.txt || { echo "FAIL: ra prefer not @${LAN_TAG}"; exit 1; }
 fi
 PREF_TUI="$(mktemp)"
@@ -604,7 +611,7 @@ echo "▶ ra timings"
 grep -q "RA timings" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing header"; exit 1; }
 grep -qE "thoth@(${LAN_TAG}|local)" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing thoth@${LAN_TAG}|local"; cat /tmp/ra-timings.txt; exit 1; }
 grep -qE "${NOTABLE_RE}" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing small model"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "thoth@${LAN_TAG}" /tmp/ra-timings.txt || { echo "FAIL: LAN+${SMALL_FAMILY} up but thoth not @${LAN_TAG} (got local fallback?)"; cat /tmp/ra-timings.txt; exit 1; }
 fi
 if grep -q "✓ cloud" /tmp/ra-ping.txt; then
@@ -612,7 +619,7 @@ if grep -q "✓ cloud" /tmp/ra-ping.txt; then
 fi
 grep -qE "RA lane " /tmp/ra-timings.txt || { echo "FAIL: ra timings missing RA lane"; cat /tmp/ra-timings.txt; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-timings.txt || { echo "FAIL: ra timings missing RA prefer"; cat /tmp/ra-timings.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-timings.txt || { echo "FAIL: ra timings lane not @${LAN_TAG}"; exit 1; }
 fi
 TIMINGS_OUT="$(mktemp)"
@@ -647,7 +654,7 @@ fi
 grep -qE "RA lane " /tmp/ra-show.txt || { echo "FAIL: ra show missing RA lane footer"; cat /tmp/ra-show.txt; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-show.txt || { echo "FAIL: ra show missing RA prefer footer"; cat /tmp/ra-show.txt; exit 1; }
 grep -qE "elapsed: [0-9]" /tmp/ra-show.txt || { echo "FAIL: ra show missing elapsed"; cat /tmp/ra-show.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-show.txt || { echo "FAIL: ra show lane not @${LAN_TAG}"; exit 1; }
 fi
 SHOW_OUT="$(mktemp)"
@@ -662,7 +669,7 @@ grep -q "RA cost" /tmp/ra-cost.txt || { echo "FAIL: ra cost missing header"; exi
 grep -qE "${NOTABLE_RE}|glm-5|ollama|usage|token|No usage" /tmp/ra-cost.txt || { echo "FAIL: ra cost empty"; cat /tmp/ra-cost.txt; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-cost.txt || { echo "FAIL: ra cost missing RA prefer"; cat /tmp/ra-cost.txt; exit 1; }
 grep -qE "RA lane " /tmp/ra-cost.txt || { echo "FAIL: ra cost missing RA lane after full-dev"; cat /tmp/ra-cost.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-cost.txt || { echo "FAIL: ra cost lane not @${LAN_TAG}"; exit 1; }
 fi
 COST_TUI="$(mktemp)"
@@ -677,7 +684,7 @@ grep -q "last-cwd:" /tmp/ra-home-after.txt || { echo "FAIL: ra home missing last
 grep -qE "last-cwd: /.+" /tmp/ra-home-after.txt || { echo "FAIL: ra home last-cwd empty after full-dev"; cat /tmp/ra-home-after.txt; exit 1; }
 grep -qE "RA lane " /tmp/ra-home-after.txt || { echo "FAIL: ra home missing RA lane after full-dev"; cat /tmp/ra-home-after.txt; exit 1; }
 grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-home-after.txt || { echo "FAIL: ra home missing RA intent"; cat /tmp/ra-home-after.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-home-after.txt || { echo "FAIL: ra home lane not @${LAN_TAG}"; exit 1; }
 fi
 HOME_TUI="$(mktemp)"
@@ -693,7 +700,7 @@ grep -qE "RA lane " /tmp/ra-doctor-after.txt || { echo "FAIL: doctor after full-
 grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-doctor-after.txt || { echo "FAIL: doctor after full-dev missing RA intent"; cat /tmp/ra-doctor-after.txt; exit 1; }
 grep -q "again: ra again" /tmp/ra-doctor-after.txt || { echo "FAIL: doctor after full-dev missing again tip"; cat /tmp/ra-doctor-after.txt; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-doctor-after.txt || { echo "FAIL: doctor after full-dev missing RA prefer"; cat /tmp/ra-doctor-after.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-doctor-after.txt || { echo "FAIL: doctor lane not @${LAN_TAG}"; exit 1; }
   grep -q "RA prefer small@${LAN_TAG}" /tmp/ra-doctor-after.txt || { echo "FAIL: doctor prefer not @${LAN_TAG}"; exit 1; }
   grep -qE "Small Ollama \(@${LAN_TAG}" /tmp/ra-doctor-after.txt || { echo "FAIL: doctor after full-dev not @${LAN_TAG}"; exit 1; }
@@ -705,7 +712,7 @@ echo "▶ ra selfcheck after full-dev (lane from last run)"
 grep -q "RA selfcheck OK" /tmp/ra-selfcheck-after.txt || { echo "FAIL: selfcheck after full-dev not OK"; exit 1; }
 grep -qE "RA lane " /tmp/ra-selfcheck-after.txt || { echo "FAIL: selfcheck after full-dev missing RA lane"; cat /tmp/ra-selfcheck-after.txt; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-selfcheck-after.txt || { echo "FAIL: selfcheck after full-dev missing prefer"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-selfcheck-after.txt || { echo "FAIL: selfcheck lane not @${LAN_TAG}"; exit 1; }
 fi
 echo "✓ ra selfcheck after full-dev"
@@ -717,7 +724,7 @@ grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-again.txt ||
 grep -qE "RA RESULT|Files:|wrote|hello\.py|index\.html" /tmp/ra-again.txt || { echo "FAIL: ra again missing artifact signal"; cat /tmp/ra-again.txt; exit 1; }
 grep -qE "RA lane " /tmp/ra-again.txt || { echo "FAIL: ra again missing RA lane"; cat /tmp/ra-again.txt; exit 1; }
 grep -q "RA again verify" /tmp/ra-again.txt || { echo "FAIL: ra again missing verify block"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-again.txt || { echo "FAIL: ra again lane not @${LAN_TAG}"; exit 1; }
 fi
 AGAIN_TUI="$(mktemp)"
@@ -725,7 +732,7 @@ printf '/again\n/exit\n' | "${RA_BIN[@]}" 2>&1 | tee "$AGAIN_TUI" >/dev/null
 grep -q "RA again" "$AGAIN_TUI" || { echo "FAIL: /again missing RA again"; cat "$AGAIN_TUI"; exit 1; }
 grep -qE "RA intent (code|debug|plan|review|docs|question)" "$AGAIN_TUI" || { echo "FAIL: /again missing RA intent"; cat "$AGAIN_TUI"; exit 1; }
 grep -qE "RA full-dev|Files:" "$AGAIN_TUI" || { echo "FAIL: /again missing full-dev"; cat "$AGAIN_TUI"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" "$AGAIN_TUI" || { echo "FAIL: /again lane not @${LAN_TAG}"; cat "$AGAIN_TUI"; exit 1; }
 fi
 echo "✓ ra again"
@@ -737,7 +744,7 @@ grep -qE "hello\.py|index\.html" /tmp/ra-files.txt || { echo "FAIL: ra files mis
 grep -qE "RA lane " /tmp/ra-files.txt || { echo "FAIL: ra files missing RA lane"; cat /tmp/ra-files.txt; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local)" /tmp/ra-files.txt || { echo "FAIL: ra files missing RA prefer"; cat /tmp/ra-files.txt; exit 1; }
 grep -qE "elapsed: [0-9]" /tmp/ra-files.txt || { echo "FAIL: ra files missing elapsed"; cat /tmp/ra-files.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "RA lane thoth@${LAN_TAG}" /tmp/ra-files.txt || { echo "FAIL: ra files lane not @${LAN_TAG}"; exit 1; }
 fi
 FILES_OUT="$(mktemp)"
@@ -761,7 +768,7 @@ grep -qE "hello\.py|index\.html|thoth" /tmp/ra-hist.txt || { echo "FAIL: ra hist
 grep -qE "\{(code|debug|plan|review|docs|question)\}" /tmp/ra-hist.txt || { echo "FAIL: ra history missing {intent}"; cat /tmp/ra-hist.txt; exit 1; }
 grep -qE "thoth@(${LAN_TAG}|local)" /tmp/ra-hist.txt || { echo "FAIL: ra history missing thoth@${LAN_TAG}|local lane tag"; cat /tmp/ra-hist.txt; exit 1; }
 grep -qE "^RA lane |^RA prefer " /tmp/ra-hist.txt || { echo "FAIL: ra history missing latest lane/prefer header"; cat /tmp/ra-hist.txt; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "thoth@${LAN_TAG}" /tmp/ra-hist.txt || { echo "FAIL: ra history missing thoth@${LAN_TAG}"; exit 1; }
   grep -q "RA prefer small@${LAN_TAG}" /tmp/ra-hist.txt || { echo "FAIL: ra history prefer not @${LAN_TAG}"; exit 1; }
 fi
@@ -773,7 +780,7 @@ grep -qE "RA prefer small@(${LAN_TAG}|local)" "$HIST_OUT" || { echo "FAIL: /hist
 "${RA_BIN[@]}" history --json | tee /tmp/ra-hist-json.txt >/dev/null
 python3 -c "import json; d=json.load(open('/tmp/ra-hist-json.txt')); assert isinstance(d,list) and len(d)>=1 and d[0].get('filesWritten') is not None" \
   || { echo "FAIL: history --json invalid"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   python3 -c "import json; d=json.load(open('/tmp/ra-hist-json.txt')); assert any('${LAN_TAG}' in (r.get('hosts') or []) for r in d[:5]), d[:2]" \
     || { echo "FAIL: history --json missing hosts ${LAN_TAG} after LAN full-devs"; exit 1; }
 fi
@@ -801,12 +808,12 @@ set -e
 [[ "$BENCH_RC" -eq 0 ]] || { echo "FAIL: benchmark run all exit $BENCH_RC"; exit "$BENCH_RC"; }
 grep -q "RA TUI" "$BENCH_OUT" || { echo "FAIL: benchmark missing RA TUI"; exit 1; }
 grep -q "RA benchmark" "$BENCH_OUT" || { echo "FAIL: benchmark missing RA benchmark banner"; exit 1; }
-grep -q "RA prefer small@${LAN_TAG}" "$BENCH_OUT" || { echo "FAIL: benchmark missing RA prefer"; exit 1; }
+grep -qE "RA prefer small@(${LAN_TAG}|local)" "$BENCH_OUT" || { echo "FAIL: benchmark missing RA prefer"; exit 1; }
 grep -q "RA benchmark OK" "$BENCH_OUT" || { echo "FAIL: benchmark missing RA benchmark OK"; exit 1; }
 grep -qE "RA pipeline|stage:" "$BENCH_OUT" || { echo "FAIL: benchmark missing pipeline TUI"; exit 1; }
 grep -qE "${NOTABLE_RE}" "$BENCH_OUT" || { echo "FAIL: benchmark missing small model"; exit 1; }
 grep -qE "@${LAN_TAG}|@local" "$BENCH_OUT" || { echo "FAIL: benchmark missing host tag"; exit 1; }
-if grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
+if [[ "$SMALL_HOST_KIND" == "lan" ]] && grep -q "✓ ${LAN_TAG}" /tmp/ra-ping.txt && grep -qE "${SMALL_FAMILY}" /tmp/ra-ping.txt; then
   grep -q "@${LAN_TAG}" "$BENCH_OUT" || { echo "FAIL: benchmark missing @${LAN_TAG} while LAN+${SMALL_FAMILY} up"; exit 1; }
   grep -q "RA lane thoth@${LAN_TAG}" "$BENCH_OUT" || { echo "FAIL: benchmark missing RA lane thoth@${LAN_TAG}"; exit 1; }
 fi

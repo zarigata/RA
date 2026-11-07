@@ -116,12 +116,18 @@
     "papyrus"
   ],
   "agent": {
-    "thoth": {},
+    "thoth": {
+      "model": "ollama/gemma:latest"
+    },
     "ptah": {
       "model": "ollama-cloud/glm-5.2"
     },
-    "maat": {},
-    "sekhmet": {},
+    "maat": {
+      "model": "ollama/gemma:latest"
+    },
+    "sekhmet": {
+      "model": "ollama/gemma:latest"
+    },
     "isis": {},
     "seshat": {},
     "horus": {}

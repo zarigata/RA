@@ -306,6 +306,32 @@ export function loadProjectMemory(cwd: string): string {
   return "";
 }
 
+/**
+ * Split a reply that batches multiple tool calls into individual blocks.
+ * A block starts at a line-initial tool verb (WRITE/EDIT/BASH/...) and runs
+ * until the next one (or DONE). Fences inside a block are preserved verbatim,
+ * so a WRITE body containing "BASH" text is never split. Replies with a
+ * single verb (the normal case) return [content] unchanged.
+ */
+export function splitToolBlocks(content: string): string[] {
+  const verb = /^(WRITE|EDIT|MULTIEDIT|READ|OUTLINE|DIAGNOSE|GLOB|GREP|BASH|WEBFETCH|WEBSEARCH|TODO|TASK|MCP|SKILL|REPOMAP|TEST)\b/m;
+  const lines = content.split("\n");
+  const starts: number[] = [];
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*```/.test(lines[i]!)) inFence = !inFence;
+    if (!inFence && verb.test(lines[i]!)) starts.push(i);
+  }
+  if (starts.length <= 1) return [content];
+  const blocks: string[] = [];
+  for (let b = 0; b < starts.length; b++) {
+    const end = b + 1 < starts.length ? starts[b + 1]! : lines.length;
+    blocks.push(lines.slice(starts[b]!, end).join("\n"));
+  }
+  // Prose before the first verb is planning text, not a tool call — drop it.
+  return blocks;
+}
+
 export async function execToolBlock(
   ctx: ToolContext,
   content: string,
@@ -318,6 +344,20 @@ export async function execToolBlock(
   ctx.signal?.throwIfAborted();
   checkRun();
   content = normalizeToolText(content);
+  // Models sometimes batch several tool calls in one reply despite the
+  // "one at a time" grammar. Execute every well-formed block sequentially,
+  // stopping at DONE or the first error; results are joined for the next turn.
+  const blocks = splitToolBlocks(content);
+  if (blocks.length > 1) {
+    const notes: string[] = [];
+    for (const block of blocks) {
+      const r = await execToolBlock(ctx, block, config, agentPerms, spawn, bashPatterns, mcpCall);
+      if (r.done) return { done: true, note: r.note };
+      if (r.note.startsWith("Error:") || r.note.startsWith("RA permission denied")) return r;
+      if (r.note) notes.push(r.note);
+    }
+    return { done: false, note: notes.join("\n---\n") };
+  }
   if (/^UNSUPPORTED_TOOL|<tool_calls>/i.test(content.trim())) return { done: false, note: "Error: unsupported tool call. Use the exact tool grammar from the system prompt." };
   const requestedVerb = content.trim().match(/^(WRITE|EDIT|MULTIEDIT|READ|OUTLINE|DIAGNOSE|GLOB|GREP|BASH|WEBFETCH|WEBSEARCH|TODO|TASK|MCP|SKILL|REPOMAP|TEST)\b/i)?.[1]?.toLowerCase();
   if (requestedVerb) {

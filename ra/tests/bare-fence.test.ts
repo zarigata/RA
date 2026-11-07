@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { execToolBlock } from "../src/agent.ts";
+import { execToolBlock, splitToolBlocks } from "../src/agent.ts";
 import { resolveCapabilities } from "../src/permission.ts";
 import type { RaConfig } from "../../anubis/src/config.ts";
 import { mkdtempSync, readFileSync } from "node:fs";
@@ -38,5 +38,29 @@ describe("bare-fence recovery", () => {
     const content = "```python\nprint('x')\n```";
     const r = await execToolBlock(ctx(dir), content, undefined, null, undefined, [], undefined);
     expect(r.note).not.toContain("wrote");
+  });
+
+  test("batched tool calls all execute in order", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "bare-fence-"));
+    const batched = [
+      "WRITE hello.py",
+      "```",
+      "def hello():",
+      "    print('hello')",
+      "```",
+      "READ hello.py",
+    ].join("\n");
+    const r = await execToolBlock(ctx(dir), batched, undefined, null, undefined, [], undefined);
+    expect(r.note).toContain("hello.py");
+    expect(r.note).toContain("def hello():"); // READ result joined too
+    expect(readFileSync(join(dir, "hello.py"), "utf8")).toContain("def hello():");
+  });
+
+  test("splitToolBlocks keeps fenced bodies intact", () => {
+    const content = 'WRITE a.py\n```\nBASH is not a verb here\n```\nBASH echo hi';
+    const blocks = splitToolBlocks(content);
+    expect(blocks.length).toBe(2);
+    expect(blocks[0]).toContain("BASH is not a verb here");
+    expect(blocks[1]!.trim()).toBe("BASH echo hi");
   });
 });

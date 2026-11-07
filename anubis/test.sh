@@ -361,7 +361,7 @@ OUTQ="$(mktemp)"
 set +e
 (
   cd "$WORKQ"
-  printf '/quick write a hello world function in one file\n/exit\n' | ra_retry "${RA_BIN[@]}"
+  printf '/quick write a hello world function in one file, with a print call so running it prints hello\n/exit\n' | ra_retry "${RA_BIN[@]}"
 ) >"$OUTQ" 2>&1
 set -e
 grep -q "RA TUI" "$OUTQ" || { echo "FAIL: TUI /quick missing RA TUI splash"; exit 1; }
@@ -385,7 +385,7 @@ OUT="$(mktemp)"
 set +e
 (
   cd "$WORK"
-  ra_retry "${RA_BIN[@]}" --task "write a hello world function in one file" --quick --verify
+  ra_retry "${RA_BIN[@]}" --task "write a hello world function in one file, with a print call so running it prints hello" --quick --verify
 ) >"$OUT" 2>&1
 RC=$?
 set -e

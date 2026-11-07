@@ -561,7 +561,7 @@ echo "▶ ra result"
 "${RA_BIN[@]}" result | tee /tmp/ra-result.txt
 grep -q "RA RESULT" /tmp/ra-result.txt || { echo "FAIL: ra result missing RA RESULT"; exit 1; }
 grep -qE "cwd=/" /tmp/ra-result.txt || { echo "FAIL: ra result missing cwd="; cat /tmp/ra-result.txt; exit 1; }
-grep -qE "hosts=.*(${LAN_TAG}|local)" /tmp/ra-result.txt || { echo "FAIL: ra result missing hosts"; exit 1; }
+grep -qE "hosts=.*(${LAN_TAG}|local|cloud)" /tmp/ra-result.txt || { echo "FAIL: ra result missing hosts"; exit 1; }
 grep -qE "RA lane .+@" /tmp/ra-result.txt || { echo "FAIL: ra result missing RA lane"; cat /tmp/ra-result.txt; exit 1; }
 grep -qE "RA intent (code|debug|plan|review|docs|question)" /tmp/ra-result.txt || { echo "FAIL: ra result missing RA intent"; cat /tmp/ra-result.txt; exit 1; }
 grep -q "again: ra again" /tmp/ra-result.txt || { echo "FAIL: ra result missing again tip"; cat /tmp/ra-result.txt; exit 1; }

@@ -208,8 +208,8 @@
     "min_context_tokens": 8192,
     "server_cap": {
       "ollama-lan": 32768,
-      "ollama": 32768,
-      "lmstudio": 32768
+      "ollama": 8192,
+      "lmstudio": 8192
     }
   },
   "pipeline": {

@@ -33,7 +33,7 @@ LAN_TAG="$(lan_host_tag)"
 ra_retry() {
   local attempt out rc
   out="$(mktemp)"
-  for attempt in 1 2; do
+  for attempt in 1 2 3; do
     set +e; "$@" >"$out" 2>&1; rc=$?; set -e
     if [[ "$rc" -eq 0 ]]; then cat "$out"; rm -f "$out"; return 0; fi
     echo "  (attempt $attempt failed rc=$rc — provider stall? retrying once)" >&2

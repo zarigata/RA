@@ -69,8 +69,9 @@ say "running ./install (non-interactive; configure endpoints later with: ra doct
 "$DEST_DIR/install" --non-interactive
 
 # ---- PATH persistence ------------------------------------------------------
-add_path() { # add_path <shell-file> <export-line>
-  [[ -f "$1" ]] && ! grep -qs "$2" "$1" && printf '\n%s\n' "$2" >> "$1"
+add_path() { # add_path <shell-file> <export-line> — no-op when file absent
+  [[ -f "$1" ]] || return 0
+  grep -qs "$2" "$1" || printf '\n%s\n' "$2" >> "$1"
 }
 BIN_DIR="${RA_INSTALL_DIR:-$HOME/.local/bin}"
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then

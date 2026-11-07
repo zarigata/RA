@@ -107,7 +107,7 @@ echo "✓ ra team list"
 echo "▶ ra providers (Provider Mosaic, ra.77)"
 "${RA_BIN[@]}" providers | tee /tmp/ra-providers.txt
 grep -q "RA providers — capability router" /tmp/ra-providers.txt || { echo "FAIL: ra providers missing header"; cat /tmp/ra-providers.txt; exit 1; }
-grep -qE "ollama-lan/$SMALL_BARE|ollama/$SMALL_BARE" /tmp/ra-providers.txt || { echo "FAIL: ra providers missing lan lane ($SMALL_BARE)"; exit 1; }
+grep -qE "(ollama-lan|ollama|ollama-cloud)/$SMALL_BARE" /tmp/ra-providers.txt || { echo "FAIL: ra providers missing small lane ($SMALL_BARE)"; exit 1; }
 grep -qE "quota|failover" /tmp/ra-providers.txt || { echo "FAIL: ra providers missing quota/failover note"; exit 1; }
 echo "✓ ra providers"
 

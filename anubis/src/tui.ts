@@ -54,7 +54,9 @@ export function renderStageProgress(
   const lane =
     /glm-|cloud/i.test(model) || model.startsWith("ollama-cloud/")
       ? "BIG/cloud"
-      : "small/LAN";
+      : /^ollama\//.test(model)
+        ? "small/local"
+        : "small/LAN";
   const host = opts?.host ? ` @${opts.host}` : "";
   const took = opts?.ms != null ? `  took ${opts.ms}ms` : "";
   const body = [

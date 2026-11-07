@@ -438,7 +438,7 @@ assert 'files:' in chunk, chunk[:500]
 " || { echo "FAIL: done box missing lane/prefer/elapsed/files"; exit 1; }
 grep -qE "${NOTABLE_RE}" "$OUT" || { echo "FAIL: expected small model (${NOTABLE_RE})"; exit 1; }
 grep -qE "glm-5\.2|${SMALL_FAMILY}" "$OUT" || { echo "FAIL: expected code model"; exit 1; }
-grep -q "small/LAN" "$OUT" || { echo "FAIL: expected small/LAN lane tag in TUI"; exit 1; }
+grep -qE "small/(LAN|local)" "$OUT" || { echo "FAIL: expected small lane tag in TUI"; exit 1; }
 grep -qE "BIG/cloud|glm-5" "$OUT" || { echo "FAIL: expected BIG/cloud lane in TUI"; exit 1; }
 grep -qE "@${LAN_TAG}|@local" "$OUT" || { echo "FAIL: expected @${LAN_TAG} or @local host tag"; exit 1; }
 grep -q "@cloud" "$OUT" || { echo "FAIL: expected @cloud host tag"; exit 1; }

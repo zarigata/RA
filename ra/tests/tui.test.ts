@@ -191,6 +191,107 @@ describe("responsive TUI chrome", () => {
     expect(workspaceLabel({ cwd: "~/RA", branch: "main", theme: "pharaonic", glyphs })).toContain("⑂ main");
   });
 
+  test("header carries lane/cost/context at wide widths", () => {
+    const glyphs = getTuiGlyphs(false);
+    const wide = buildHeader({
+      width: 120, app: "RA", version: "1.0.0-ra.78", profile: "default",
+      smallModel: "ollama-lan/qwen3:4b", bigModel: "ollama-cloud/glm-5.2",
+      lane: "small@lan → big@cloud", costUsd: 0.042, contextPct: 42, glyphs,
+    });
+    expect(wide).toContain("small qwen3:4b");
+    expect(wide).toContain("big glm-5.2");
+    expect(wide).toContain("small@lan → big@cloud");
+    expect(wide).toContain("$0.04");
+    expect(wide).toContain("ctx 42%");
+  });
+
+  test("header: setupNeeded replaces the lane with the ra setup call-to-action", () => {
+    const uni = buildHeader({
+      width: 120, app: "RA", version: "1", profile: "default",
+      smallModel: undefined, bigModel: undefined, lane: "small@lan", setupNeeded: true, glyphs: getTuiGlyphs(false),
+    });
+    expect(uni).toContain("▲ no model — run ra setup");
+    expect(uni).not.toContain("small@lan");
+    const ascii = buildHeader({
+      width: 120, app: "RA", version: "1", profile: "default",
+      smallModel: undefined, bigModel: undefined, lane: "small@lan", setupNeeded: true, glyphs: getTuiGlyphs(true),
+    });
+    // ASCII mode: warning comes from the ASCII glyph set, never the Unicode ▲
+    expect(ascii).toContain("! no model");
+    expect(ascii).not.toContain("▲");
+  });
+
+  test("header drops cost/context when absent and keeps medium widths lane-free on crowding", () => {
+    const glyphs = getTuiGlyphs(false);
+    const wide = buildHeader({ width: 120, app: "RA", version: "1", profile: "default", smallModel: "a/qwen3:4b", bigModel: "b/glm-5.2", glyphs });
+    expect(wide).not.toContain("$");
+    expect(wide).not.toContain("ctx");
+    const mid = buildHeader({ width: 80, app: "RA", version: "1.0.0-ra.78", profile: "default", smallModel: "ollama-lan/qwen3:4b", bigModel: "ollama-cloud/glm-5.2", lane: "small@lan → big@cloud", glyphs });
+    expect(mid).toContain("S:qwen3:4b");
+    expect(mid).toContain("small@lan");
+  });
+
+  test("header never exceeds the terminal width", () => {
+    const glyphs = getTuiGlyphs(false);
+    for (const width of [60, 80, 120]) {
+      const h = buildHeader({
+        width, app: "RA", version: "1.0.0-ra.78", profile: "default",
+        smallModel: "ollama-lan/qwen3-coder-30b-a3b-instruct", bigModel: "ollama-cloud/deepseek-v4-pro",
+        lane: "small@192.168.1.50 · big@cloud", costUsd: 12.345, contextPct: 97, busy: true, status: "orchestrating", glyphs,
+      });
+      expect(visibleWidth(h)).toBeLessThanOrEqual(width);
+    }
+  });
+
+  test("header shows a single status glyph on narrow terminals", () => {
+    const glyphs = getTuiGlyphs(false);
+    const setupNeeded = buildHeader({ width: 60, app: "RA", version: "1", profile: "default", setupNeeded: true, glyphs });
+    expect(setupNeeded).toContain("▲");
+    expect(setupNeeded).not.toContain("S:");
+    const busy = buildHeader({ width: 60, app: "RA", version: "1", profile: "default", busy: true, status: "working", glyphs });
+    expect(busy).toContain("◉ working");
+  });
+
+  test("status line truncates to width and carries lane", () => {
+    const { buildStatusLine } = require("../src/tui/chrome.ts");
+    const glyphs = getTuiGlyphs(false);
+    const line = buildStatusLine({ width: 60, cwd: "~/very/long/path/to/some/project", branch: "feat/cli-style-setup", theme: "pharaonic", lane: "small@lan → big@cloud", glyphs });
+    expect(visibleWidth(line)).toBeLessThanOrEqual(60);
+    const roomy = buildStatusLine({ width: 100, cwd: "~/RA", branch: "main", theme: "pharaonic", lane: "small@lan → big@cloud", glyphs });
+    expect(roomy).toContain("⑂ main");
+    expect(roomy).toContain("small@lan → big@cloud");
+    const ascii = buildStatusLine({ width: 100, cwd: "~/RA", branch: "main", theme: "pharaonic", lane: "small@lan", glyphs: getTuiGlyphs(true) });
+    expect(ascii).toContain("git main");
+    expect(ascii).not.toMatch(/[^\x00-\x7F]/);
+  });
+
+  test("spinnerFrame cycles Unicode braille and portable ASCII", () => {
+    const { spinnerFrame } = require("../src/tui/chrome.ts");
+    expect(spinnerFrame(0)).toBe("⠋");
+    expect(spinnerFrame(1)).toBe("⠙");
+    expect(spinnerFrame(10)).toBe("⠋"); // wraps
+    expect(spinnerFrame(0, true)).toBe("|");
+    expect(spinnerFrame(1, true)).toBe("/");
+    expect(spinnerFrame(2, true)).toBe("-");
+    expect(spinnerFrame(3, true)).toBe("\\");
+    expect(spinnerFrame(-1, true)).toBe("\\"); // negative frames wrap safely
+    for (let i = 0; i < 8; i++) expect(["|", "/", "-", "\\"].includes(spinnerFrame(i, true))).toBe(true);
+  });
+
+  test("status prefixes are consistent per mode", () => {
+    const { statusPrefix } = require("../src/tui/chrome.ts");
+    expect(statusPrefix("ok").glyph).toBe("✓");
+    expect(statusPrefix("warn").glyph).toBe("▲");
+    expect(statusPrefix("error").glyph).toBe("✗");
+    expect(statusPrefix("info").glyph).toBe("·");
+    expect(statusPrefix("busy").glyph).toBe("◉");
+    expect(statusPrefix("ok", true).glyph).toBe("+");
+    expect(statusPrefix("error", true).glyph).toBe("x");
+    expect(statusPrefix("warn", true).glyph).toBe("!");
+    expect(statusPrefix("busy", true).glyph).toBe("*");
+    expect(statusPrefix("info", true).glyph).toBe("-");
+  });
+
   test("ASCII splash avoids Unicode brand art", () => {
     const { renderSplashFrame, ASCII_LOGO } = require("../src/tui/splash.ts");
     const lines = renderSplashFrame({ width: 60, height: 20, accent: "#fbbf24", accent2: "#22c55e", muted: "#888888", version: "1", ascii: true });
@@ -210,6 +311,34 @@ describe("splash art", () => {
     for (const row of LOGO) expect(joined).toContain(row.trim().slice(0, 6));
     expect(joined).toContain("R E L I C");
     expect(joined).toContain("press any key");
+  });
+
+  test("lane line renders under the version, next command hidden on narrow terminals", () => {
+    const { renderSplashFrame } = require("../src/tui/splash.ts");
+    const wide = renderSplashFrame({ width: 80, height: 24, accent: "#fbbf24", accent2: "#22c55e", muted: "#888888", version: "1", lane: "small@lan → big@cloud", nextCommand: "ra again --quick --verify" });
+    expect(wide.join("\n")).toContain("small@lan → big@cloud");
+    expect(wide.join("\n")).toContain("ra again --quick --verify");
+    const narrow = renderSplashFrame({ width: 60, height: 24, accent: "#fbbf24", accent2: "#22c55e", muted: "#888888", version: "1", lane: "small@lan → big@cloud", nextCommand: "ra again --quick --verify" });
+    expect(narrow.join("\n")).toContain("small@lan → big@cloud");
+    expect(narrow.join("\n")).not.toContain("ra again");
+  });
+
+  test("setup call-to-action appears when no lane exists", () => {
+    const { renderSplashFrame } = require("../src/tui/splash.ts");
+    const lines = renderSplashFrame({ width: 80, height: 24, accent: "#fbbf24", accent2: "#22c55e", muted: "#888888", version: "1", setupNeeded: true, nextCommand: "ra setup" });
+    const joined = lines.join("\n");
+    expect(joined).toContain("no model yet — run ra setup after this screen");
+    expect(joined).toContain("ra setup");
+  });
+
+  test("ASCII splash keeps the lane line but never the Unicode logo/tiles", () => {
+    const { renderSplashFrame } = require("../src/tui/splash.ts");
+    const lines = renderSplashFrame({ width: 80, height: 24, accent: "#fbbf24", accent2: "#22c55e", muted: "#888888", version: "1", ascii: true, lane: "small@local", nextCommand: "ra setup" });
+    const joined = lines.join("\n");
+    expect(joined).toContain("small@local");
+    expect(joined).toContain("ra setup");
+    expect(joined).not.toContain("████");
+    expect(joined).not.toContain("░");
   });
 
   test("OSC color reply parsing and luminance", () => {
@@ -245,12 +374,28 @@ describe("menu overlays", () => {
 
   test("onboarding wizard has clickable theme and action steps", () => {
     const { renderOnboardingOverlay } = require("../src/tui/overlays.ts");
-    const step0 = renderOnboardingOverlay({ screenW: 90, screenH: 30, style: st, step: 0, themes: [{ id: "obsidian", name: "Obsidian" }, { id: "nord", name: "Nord" }], selectedTheme: 0, version: "1" });
+    const step0 = renderOnboardingOverlay({ screenW: 90, screenH: 30, style: st, step: 1, themes: [{ id: "obsidian", name: "Obsidian" }, { id: "nord", name: "Nord" }], selectedTheme: 0, version: "1" });
     expect(step0.themeHit.size).toBe(2);
-    expect(step0.lines.join("\n")).toContain("pick a look");
-    const step1 = renderOnboardingOverlay({ screenW: 90, screenH: 30, style: st, step: 1, themes: [], selectedTheme: 0, version: "1" });
+    expect(step0.lines.join("\n")).toContain("Step 2/3 — pick a look");
+    const step1 = renderOnboardingOverlay({ screenW: 90, screenH: 30, style: st, step: 2, themes: [], selectedTheme: 0, version: "1" });
     expect(step1.actionHit.size).toBe(3);
-    expect(step1.lines.join("\n")).toContain("what do you want to do first");
+    expect(step1.lines.join("\n")).toContain("Step 3/3 — what do you want to do first");
+  });
+
+  test("setup overlay renders scanning, ask-lan and picking states with hitboxes", () => {
+    const { renderSetupOverlay } = require("../src/tui/overlays.ts");
+    const scanning = renderSetupOverlay({ screenW: 90, screenH: 30, style: st, phase: "scanning-local", scanLines: ["  ⠋ localhost:11434 Ollama …"], found: [], selected: 0, version: "1" });
+    const scanJoined = scanning.lines.join("\n");
+    expect(scanJoined).toContain("Step 1/3");
+    expect(scanJoined).toContain("localhost:11434");
+    const askLan = renderSetupOverlay({ screenW: 90, screenH: 30, style: st, phase: "ask-lan", found: [], selected: 0, version: "1" });
+    expect(askLan.hit.get([...askLan.hit.keys()].sort((a, b) => a - b)[0])).toBe("lan:yes");
+    expect(askLan.lines.join("\n")).toContain("Scan my local network");
+    const pick = renderSetupOverlay({ screenW: 90, screenH: 30, style: st, phase: "pick", found: [{ host: "127.0.0.1", port: 11434, name: "Ollama", models: ["qwen3:4b"], ms: 8 }], small: "ollama-lan/qwen3:4b", selected: 0, version: "1" });
+    const pickJoined = pick.lines.join("\n");
+    expect(pickJoined).toContain("small  ollama-lan/qwen3:4b");
+    expect(pickJoined).toContain("big    unset (local-only)");
+    expect([...pick.hit.values()]).toContain("finish");
   });
 });
 

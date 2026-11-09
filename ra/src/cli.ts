@@ -107,9 +107,11 @@ Usage:
   ra models                  Probe the configured models on LAN + cloud BIG
   ra cost [--session]        Usage / cost report (per-session with --session)
   ra init                    Mark cwd as RA project
+  ra setup [--rescan] [--no-lan] [--json]  First-run model setup: find local AI servers (Ollama / LM Studio / llama.cpp), pick small + big
+  ra setup --check           Non-interactive localhost check; exit 0 if a small model is reachable
   ra demo                    One-shot RA TUI full-dev (hello.py) + verify
   ra sandbox status|exec     Inspect or use the command sandbox
-  ra doctor                  Health check
+  ra doctor [--fix]          Health check (--fix repairs a stale model config)
   ra selfcheck               Splash + ping + lanes + models (no LLM)
   ra benchmark init|smoke|run <name|all>
   ra --remote <URL>          Connect TUI to a running daemon (or set RA_REMOTE env)
@@ -245,8 +247,21 @@ if (["agents", "moa", "team", "swarm", "sandbox"].includes(args[0])) {
   }
 }
 
+if (args[0] === "setup") {
+  const { runSetup } = await import("./setup.ts");
+  const flags = {
+    rescan: args.includes("--rescan"),
+    noLan: args.includes("--no-lan"),
+    lan: args.includes("--lan"),
+    json: args.includes("--json"),
+    check: args.includes("--check"),
+  };
+  const { code } = await runSetup(flags);
+  process.exit(code);
+}
+
 if (args[0] === "doctor") {
-  process.exit(await runDoctor());
+  process.exit(await runDoctor(args.includes("--fix")));
 }
 
 if (args[0] === "selfcheck") {

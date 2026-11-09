@@ -329,8 +329,11 @@ cd RA
 export PATH="$HOME/.local/bin:$PATH"
 
 ra --version
+ra setup
 ra doctor
 ~~~
+
+`ra setup` finds your local AI servers (Ollama, LM Studio, llama.cpp — localhost first, LAN opt-in), lets you pick a small (detector) and big (fixer) model, ping-tests them, and saves the lanes to your config. Re-run it any time with `ra setup --rescan`.
 
 Launch the interactive workspace:
 

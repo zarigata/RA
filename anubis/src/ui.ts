@@ -148,6 +148,20 @@ export const HIEROGLYPHS = {
   ANUBIS: "𓃡",     // Orquestrador
 };
 
+/** Shared status vocabulary: same meaning = same colour on every surface. */
+export type StatusKind = "ok" | "warn" | "error" | "info" | "busy";
+
+/** Map a status meaning to its palette colour (pure — header, splash, setup and doctor all use this). */
+export function statusColor(palette: ColorPalette, kind: StatusKind): string {
+  switch (kind) {
+    case "ok": return palette.success;
+    case "warn": return palette.warning;
+    case "error": return palette.error;
+    case "busy": return palette.accent;
+    default: return palette.muted; // info
+  }
+}
+
 export function getPalette(name: string): ColorPalette {
   return PALETTES[name.toLowerCase()] ?? PALETTES["pharaonic"];
 }

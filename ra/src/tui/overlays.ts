@@ -130,12 +130,12 @@ export interface OnboardFrame {
   actionHit: Map<number, string>;
 }
 
-/** First-run wizard: step 0 = pick a look, step 1 = pick a first move. */
+/** First-run wizard: 0 = model setup, 1 = pick a look, 2 = pick a first move. */
 export function renderOnboardingOverlay(opts: {
   screenW: number;
   screenH: number;
   style: MenuStyle;
-  step: 0 | 1;
+  step: 0 | 1 | 2;
   themes: Array<{ id: string; name: string }>;
   selectedTheme: number;
   version: string;
@@ -154,9 +154,9 @@ export function renderOnboardingOverlay(opts: {
   lines.push(fit(W, " ".repeat(x0) + pad(st.strong(`  Welcome to RA (${opts.version})`))));
   lines.push(fit(W, " ".repeat(x0) + pad(st.muted("  the swiss-army terminal agent — for first-timers and pros"))));
 
-  if (opts.step === 0) {
+  if (opts.step === 1) {
     lines.push(fit(W, " ".repeat(x0) + pad("")));
-    lines.push(fit(W, " ".repeat(x0) + pad("  Step 1/2 — pick a look (↑↓ + enter, or click):")));
+    lines.push(fit(W, " ".repeat(x0) + pad("  Step 2/3 — pick a look (↑↓ + enter, or click):")));
     opts.themes.slice(0, 8).forEach((t, i) => {
       const selected = i === opts.selectedTheme;
       const marker = selected ? st.accent("▌") : " ";
@@ -166,9 +166,9 @@ export function renderOnboardingOverlay(opts: {
     });
     lines.push(fit(W, " ".repeat(x0) + pad("")));
     lines.push(fit(W, " ".repeat(x0) + pad(st.muted("  enter confirms · you can change it any time with /theme"))));
-  } else {
+  } else if (opts.step === 2) {
     lines.push(fit(W, " ".repeat(x0) + pad("")));
-    lines.push(fit(W, " ".repeat(x0) + pad("  Step 2/2 — what do you want to do first? (click or ↑↓ + enter)")));
+    lines.push(fit(W, " ".repeat(x0) + pad("  Step 3/3 — what do you want to do first? (click or ↑↓ + enter)")));
     const actions: Array<[string, string, string]> = [
       ["Build something", "/quick ", "describe an app — RA plans, codes and verifies it"],
       ["Get opinions", "/moa ", "several agents review a problem and synthesize"],
@@ -185,4 +185,93 @@ export function renderOnboardingOverlay(opts: {
   lines.push(fit(W, " ".repeat(x0) + st.accent(`╰${"─".repeat(boxW - 2)}╯`)));
   while (lines.length < H - 1) lines.push("");
   return { lines, themeHit, actionHit };
+}
+
+export type SetupPhase =
+  | "idle"
+  | "scanning-local"
+  | "ask-lan"
+  | "scanning-lan"
+  | "ask-cloud"
+  | "pick"
+  | "testing"
+  | "saving"
+  | "done"
+  | "skipped";
+
+export interface SetupFrame {
+  lines: string[];
+  /** screen y → "small:<model>" | "big:<model>" | "lan:yes" | "lan:no" | "cloud:<id>" */
+  hit: Map<number, string>;
+}
+
+/**
+ * Step 1/3 of the first-run wizard: the live model-setup panel.
+ * Pure renderer — state in, lines + hitboxes out; no network, no writes.
+ */
+export function renderSetupOverlay(opts: {
+  screenW: number;
+  screenH: number;
+  style: MenuStyle;
+  phase: SetupPhase;
+  /** One line per target/result, already formatted by the caller (live scan log). */
+  scanLines?: string[];
+  found: Array<{ host: string; port: number; name: string; models: string[]; ms: number }>;
+  small?: string;
+  big?: string;
+  selected: number;
+  version: string;
+}): SetupFrame {
+  const W = opts.screenW, H = opts.screenH;
+  const st = opts.style;
+  const lines: string[] = [];
+  const hit = new Map<number, string>();
+  const boxW = Math.min(W - 4, 72);
+  const x0 = Math.max(2, Math.floor((W - boxW) / 2));
+  const pad = (s: string) => st.accent("│") + fit(boxW - 2, s) + st.accent("│");
+
+  lines.push("");
+  lines.push(fit(W, " ".repeat(x0) + st.accent(`╭${"─".repeat(boxW - 2)}╮`)));
+  lines.push(fit(W, " ".repeat(x0) + pad(st.strong(`  Welcome to RA (${opts.version})`))));
+  lines.push(fit(W, " ".repeat(x0) + pad(st.strong("  Step 1/3 — find your models"))));
+  lines.push(fit(W, " ".repeat(x0) + pad("")));
+  // live scan log (or the phase line when nothing has printed yet)
+  const scanLines = (opts.scanLines ?? []).slice(-6);
+  if (scanLines.length === 0 && (opts.phase === "scanning-local" || opts.phase === "scanning-lan")) {
+    scanLines.push(st.muted("  scanning…"));
+  }
+  for (const s of scanLines) lines.push(fit(W, " ".repeat(x0) + pad(truncateVisible(s, boxW - 6))));
+  if (opts.phase === "ask-lan") {
+    lines.push(fit(W, " ".repeat(x0) + pad("")));
+    lines.push(fit(W, " ".repeat(x0) + pad("  Scan my local network for AI servers?")));
+    lines.push(fit(W, " ".repeat(x0) + pad(`  ${st.accent("▌")}Yes — scan this /24 for Ollama / LM Studio / llama.cpp`)));
+    hit.set(lines.length, "lan:yes");
+    lines.push(fit(W, " ".repeat(x0) + pad("   No — localhost only")));
+    hit.set(lines.length, "lan:no");
+  }
+  if (opts.phase === "ask-cloud") {
+    lines.push(fit(W, " ".repeat(x0) + pad("")));
+    lines.push(fit(W, " ".repeat(x0) + pad(st.muted("  No local server found. Use a cloud provider?"))));
+    lines.push(fit(W, " ".repeat(x0) + pad(`  ${st.accent("▌")}Skip for now — local-only / later (ra setup)`)));
+    hit.set(lines.length, "cloud:skip");
+  }
+  if (opts.phase === "pick" || opts.phase === "testing" || opts.phase === "saving" || opts.phase === "done") {
+    lines.push(fit(W, " ".repeat(x0) + pad("")));
+    lines.push(fit(W, " ".repeat(x0) + pad(st.muted("  Pick your lanes — small detects, big fixes:"))));
+    const opts_ = [
+      opts.small ? `small  ${opts.small}` : "small  (none found)",
+      opts.big ? `big    ${opts.big}` : "big    unset (local-only)",
+      "Finish — test + save",
+    ];
+    for (let i = 0; i < opts_.length; i++) {
+      const marker = i === opts.selected ? st.accent("▌") : " ";
+      lines.push(fit(W, " ".repeat(x0) + pad(`  ${marker}${i === opts.selected ? st.strong(opts_[i]!) : opts_[i]}`)));
+      hit.set(lines.length, i === 0 ? `small:${opts.small ?? ""}` : i === 1 ? `big:${opts.big ?? ""}` : "finish");
+    }
+  }
+  lines.push(fit(W, " ".repeat(x0) + pad("")));
+  lines.push(fit(W, " ".repeat(x0) + pad(st.muted("  s skip · esc skip setup · ↑↓ + enter selects"))));
+  lines.push(fit(W, " ".repeat(x0) + st.accent(`╰${"─".repeat(boxW - 2)}╯`)));
+  while (lines.length < H - 1) lines.push("");
+  return { lines, hit };
 }

@@ -1,6 +1,9 @@
 // tui/chrome.ts — terminal chrome primitives for RA.
 // Pure helpers keep glyph selection and responsive labels testable outside a TTY.
 
+import { truncateVisible } from "./markdown.ts";
+import type { StatusKind } from "../../../anubis/src/ui.ts";
+
 export interface TuiGlyphs {
   brand: string;
   user: string;
@@ -68,16 +71,75 @@ export function buildHeader(opts: {
   busy?: boolean;
   status?: string;
   glyphs: TuiGlyphs;
+  /** Lane summary, e.g. "small@lan · big@cloud". */
+  lane?: string;
+  /** Session cost in USD; omitted when unavailable. */
+  costUsd?: number;
+  /** Context pressure 0–100 from the agent token ledger (runs only). */
+  contextPct?: number;
+  /** True when no usable model lane exists yet (warns "run ra setup"). */
+  setupNeeded?: boolean;
 }): string {
   const { width, app, version, profile, glyphs } = opts;
   const state = opts.busy ? ` ${glyphs.busy} ${opts.status || "working"}` : "";
   if (width < 68) {
-    return ` ${glyphs.brand} ${app} ${version} · ${profile}${state}`;
+    // Brand + version + profile only, plus a single status glyph.
+    const flag = opts.setupNeeded && !opts.busy ? ` ${glyphs.warning}` : "";
+    return ` ${glyphs.brand} ${app} ${version} · ${profile}${flag}${state}`;
   }
+  const lane = opts.setupNeeded
+    ? `${glyphs.warning} no model — run ra setup`
+    : opts.lane;
   if (width < 108) {
-    return ` ${glyphs.brand} ${app} ${version} · ${profile} · S:${shortModel(opts.smallModel, 16)} · B:${shortModel(opts.bigModel, 16)}${state}`;
+    const head = ` ${glyphs.brand} ${app} ${version} · ${profile} · S:${shortModel(opts.smallModel, 16)} · B:${shortModel(opts.bigModel, 16)}`;
+    const laneSeg = lane ? ` · ${truncateVisible(lane, 24)}` : "";
+    return truncateVisible(`${head}${laneSeg}${state}`, width);
   }
-  return ` ${glyphs.brand} ${app} ${version}  ·  ${profile}  ·  small ${shortModel(opts.smallModel)}  ·  big ${shortModel(opts.bigModel)}${state}`;
+  const parts = [`small ${shortModel(opts.smallModel)}`, `big ${shortModel(opts.bigModel)}`];
+  if (lane) parts.push(truncateVisible(lane, 40));
+  if (opts.costUsd != null && Number.isFinite(opts.costUsd)) parts.push(`$${opts.costUsd.toFixed(2)}`);
+  if (opts.contextPct != null && Number.isFinite(opts.contextPct)) parts.push(`ctx ${Math.round(opts.contextPct)}%`);
+  return truncateVisible(` ${glyphs.brand} ${app} ${version}  ·  ${profile}  ·  ${parts.join("  ·  ")}${state}`, width);
+}
+
+/** Thin muted line under the header: cwd · ⑂ branch · theme · lane (pure). */
+export function buildStatusLine(opts: {
+  width: number;
+  cwd: string;
+  branch?: string;
+  theme: string;
+  lane?: string;
+  costUsd?: number;
+  glyphs: TuiGlyphs;
+}): string {
+  const git = opts.branch ? ` · ${opts.glyphs.branch} ${opts.branch}` : "";
+  const lane = opts.lane ? ` · ${opts.lane}` : "";
+  const cost = opts.costUsd != null && Number.isFinite(opts.costUsd) ? ` · $${opts.costUsd.toFixed(4)}` : "";
+  const sep = opts.glyphs === ASCII_GLYPHS ? "-" : "·";
+  return " " + truncateVisible(`${opts.cwd}${git} ${sep} ${opts.theme}${lane}${cost}`.replace(/ · /g, ` ${sep} `), Math.max(0, opts.width - 2));
+}
+
+const ASCII_SPINNER = ["|", "/", "-", "\\"];
+
+/** One spinner frame; ASCII mode cycles the portable set (pure). */
+export function spinnerFrame(frame: number, ascii = false): string {
+  const set = ascii ? ASCII_SPINNER : ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  const i = ((frame % set.length) + set.length) % set.length;
+  return set[i];
+}
+
+/** Standardised message prefixes: same meaning = same glyph + StatusKind colour. */
+export function statusPrefix(kind: StatusKind, ascii = false): { glyph: string; kind: StatusKind } {
+  const g = ascii
+    ? { ok: "+", warn: ASCII_GLYPHS.warning, error: "x", info: ASCII_GLYPHS.info, busy: ASCII_GLYPHS.busy }[kind]
+    : { ok: "✓", warn: "▲", error: "✗", info: "·", busy: "◉" }[kind];
+  return { glyph: g, kind };
+}
+
+/** Prefix a message with its status glyph, applying the palette colour via `color` (pure). */
+export function prefixLine(text: string, color: (s: string) => string, kind: StatusKind, ascii = false): string {
+  const { glyph } = statusPrefix(kind, ascii);
+  return `${color(glyph)} ${text}`;
 }
 
 export function buildInputLabel(opts: {

@@ -1,6 +1,8 @@
 // tui/splash.ts — startup splash: big gradient ASCII logo over a tiled dim
 // background pattern, plus terminal recoloring helpers (pure, testable).
 
+import { truncateVisible } from "./markdown.ts";
+
 export const LOGO: string[] = [
   "██████╗  █████╗ ",
   "██╔══██╗██╔══██╗",
@@ -59,6 +61,12 @@ export function renderSplashFrame(opts: {
   muted: string;
   version: string;
   ascii?: boolean;
+  /** Lane summary when a model choice exists, e.g. "small@lan → big@cloud". */
+  lane?: string;
+  /** First-run hint: shown instead of `lane` when no model is configured. */
+  setupNeeded?: boolean;
+  /** Most useful next command line (omitted on narrow terminals). */
+  nextCommand?: string;
 }): string[] {
   const { width: W, height: H, accent, accent2, muted } = opts;
   const logo = opts.ascii ? ASCII_LOGO : LOGO;
@@ -104,6 +112,12 @@ export function renderSplashFrame(opts: {
   composite(top + logo.length + 1, tagText, (s) => `\x1b[1m${hexFg(muted)}${s}\x1b[0m`);
   const verText = `v${opts.version}  ·  press any key to begin`;
   composite(top + logo.length + 2, verText, (s) => `\x1b[2m${hexFg(muted)}${s}\x1b[0m`);
+  // Lane / setup hint + next command: two centred muted lines under the version.
+  const laneText = opts.lane ?? (opts.setupNeeded ? "no model yet — run ra setup after this screen" : undefined);
+  if (laneText) composite(top + logo.length + 3, truncateVisible(laneText, W), (s) => `\x1b[2m${hexFg(muted)}${s}\x1b[0m`);
+  if (opts.nextCommand && W >= 68) {
+    composite(top + logo.length + 4, truncateVisible(opts.nextCommand, W), (s) => `\x1b[2m${hexFg(muted)}${s}\x1b[0m`);
+  }
   return lines;
 }
 

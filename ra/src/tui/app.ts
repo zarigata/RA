@@ -32,8 +32,8 @@ import { renderMarkdown, visibleWidth, truncateVisible } from "./markdown.ts";
 import { decodeKeys, type Key } from "./keys.ts";
 import { MOUSE_ENTER, MOUSE_EXIT, ALT_ENTER, ALT_EXIT, PASTE_ENTER, PASTE_EXIT, SYNC_BEGIN, SYNC_END, CURSOR_HIDE, CURSOR_SHOW, fg as hexFg, bg as hexBg } from "./mouse.ts";
 import { renderSplashFrame, parseOscColorReply, luminance, OSC_TITLE, OSC_QUERY_BG } from "./splash.ts";
-import { renderMenuOverlay, renderShortcutsOverlay, renderOnboardingOverlay, type MenuEntry } from "./overlays.ts";
-import { buildHeader, buildInputLabel, footerHints, getTuiGlyphs, useAsciiGlyphs, workspaceLabel } from "./chrome.ts";
+import { renderMenuOverlay, renderShortcutsOverlay, renderOnboardingOverlay, renderSetupOverlay, type MenuEntry, type SetupPhase } from "./overlays.ts";
+import { buildHeader, buildStatusLine, buildInputLabel, footerHints, getTuiGlyphs, useAsciiGlyphs, spinnerFrame, workspaceLabel } from "./chrome.ts";
 import { visibleCatalog } from "../agents/catalog.ts";
 
 export type { TuiOptions };
@@ -127,6 +127,31 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     bar: (s: string) => `${hexBg(palette.accent)}${hexFg(palette.background)}${s}\x1b[0m`,
     chip: (s: string) => `\x1b[2m${hexFg(palette.muted)}${s}\x1b[0m`,
     user: (s: string) => `\x1b[1m${hexFg(palette.accent)}${s}\x1b[0m`,
+    err: (s: string) => `${hexFg(palette.error)}${s}\x1b[0m`,
+  };
+
+  // ---------- lane / setup state (S3, §4.2) ----------
+  /** Lane summary like "small@local → big@cloud"; null when no small lane. */
+  const laneOf = (): { lane?: string; setupNeeded: boolean } => {
+    const small = config.small_model;
+    if (!small) return { setupNeeded: true };
+    const smallTag = small.startsWith("ollama-cloud") ? "cloud" : /^(ollama|lmstudio|llamacpp)\//.test(small) ? "local" : "lan";
+    const big = config.model;
+    const bigTag = big?.startsWith("ollama-cloud") ? "cloud" : big ? "lan" : "—";
+    return { lane: `small@${smallTag} → big@${bigTag}`, setupNeeded: false };
+  };
+  /** Session cost from the usage ledger (read-only). */
+  const sessionCostUsd = (): number | undefined => {
+    try {
+      const report = buildReport(loadUsage());
+      if (!report.length) return undefined;
+      return report.reduce((s, r) => s + r.cost, 0);
+    } catch { return undefined; }
+  };
+  /** Context pressure % from the last agent run's ledger (read-only). */
+  let lastContextPct: number | undefined;
+  const noteContextStats = (ctxStats: { windowTokens: number; usedTokens: number } | undefined) => {
+    lastContextPct = ctxStats && ctxStats.windowTokens > 0 ? Math.min(100, Math.round((ctxStats.usedTokens / ctxStats.windowTokens) * 100)) : undefined;
   };
 
   // ---------- state ----------
@@ -151,9 +176,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     | null
     | { kind: "menu"; x: number; y: number; title: string; entries: MenuEntry[]; selected: number }
     | { kind: "shortcuts" }
-    | { kind: "onboard"; step: 0 | 1; selected: number } = null;
+    | { kind: "setup"; phase: SetupPhase; selected: number; scanLines: string[]; found: import("../../../anubis/src/setup.ts").SetupFound[]; small?: string; big?: string; rescan?: boolean }
+    | { kind: "onboard"; step: 0 | 1 | 2; selected: number } = null;
   let menuHitbox = new Map<number, number>();
   let onboardHit = { theme: new Map<number, string>(), action: new Map<number, string>() };
+  let setupHit = new Map<number, string>();
   let tipIndex = 0;
   const ctx = {
     cwd: opts.cwd,
@@ -244,6 +271,13 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     detail: `${p.name} · accent ${p.accent}`,
     action: { type: "theme" as const, theme: p.name.toLowerCase() },
   }));
+  /** §4.4: the setup: group leads the palette when no model lane exists. */
+  const setupEntries = (): PaletteEntry[] => [
+    { label: "setup: run model setup", category: "command", detail: "find local AI servers and pick small/big", action: { type: "setup" as const, mode: "run" } },
+    { label: "setup: rescan local servers", category: "command", detail: "forget the saved choice and scan again", action: { type: "setup" as const, mode: "rescan" } },
+    { label: "setup: change small model", category: "command", detail: "pick a different detector model", action: { type: "setup" as const, mode: "rescan" } },
+    { label: "setup: change big model", category: "command", detail: "pick a different fixer model", action: { type: "setup" as const, mode: "rescan" } },
+  ];
   const modelEntries = (): PaletteEntry[] => {
     const models = [...new Set([config.model, config.small_model, ...modelCatalog].filter(Boolean))] as string[];
     return models.flatMap((m) => [
@@ -262,6 +296,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     } catch { return []; }
   };
   const allEntries = (): PaletteEntry[] => [
+    ...(laneOf().setupNeeded ? setupEntries() : []),
     ...commandEntries(),
     ...agentEntries(),
     ...themeEntries(),
@@ -340,6 +375,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     const out: string[] = [];
 
     const cwdShort = opts.cwd.replace(/^\/Users\/[^/]+/, "~");
+    const { lane, setupNeeded } = laneOf();
     const header = buildHeader({
       width: W,
       app: APP_NAME,
@@ -349,9 +385,14 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       bigModel: config.model,
       busy,
       status: statusText || "busy",
+      lane,
+      costUsd: sessionCostUsd(),
+      contextPct: busy ? lastContextPct : undefined,
+      setupNeeded,
       glyphs,
     });
     out.push(sty.bar(fit(W, header)));
+    out.push(sty.muted(fit(W, buildStatusLine({ width: W, cwd: cwdShort, branch: branch(), theme: themeId.current, lane: setupNeeded ? undefined : lane, costUsd: sessionCostUsd(), glyphs }))));
 
     if (paletteOpen) {
       const title = ` search everything — commands · agents · files · models · sessions · themes `;
@@ -387,12 +428,13 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     }
 
     const label = buildInputLabel({ app: APP_NAME, busy, status: statusText, spinner: SPINNER[spinnerFrame % SPINNER.length], glyphs });
+    const labelShown = !busy && laneOf().setupNeeded ? `${label.trimEnd().slice(0, -1)} · ${glyphs.warning} no model ` : label;
     const cursorAt = Math.min(editor.cursor, editor.text.length);
     const before = editor.text.slice(0, cursorAt);
     const at = editor.text.slice(cursorAt, cursorAt + 1) || " ";
     const after = editor.text.slice(cursorAt + 1);
     const inputLine = `${sty.accent(before)}${hexBg(palette.accent)}${hexFg(palette.background)}${at}\x1b[0m${sty.accent(after)}`;
-    out.push(sty.accent(`╭${label}${"─".repeat(Math.max(0, W - visibleWidth(label) - 2))}╮`));
+    out.push(sty.accent(`╭${labelShown}${"─".repeat(Math.max(0, W - visibleWidth(labelShown) - 2))}╮`));
     out.push(sty.accent("│") + fit(W - 2, inputLine) + sty.accent("│"));
     out.push(sty.accent(`╰${"─".repeat(Math.max(0, W - 2))}╯`));
 
@@ -431,6 +473,21 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         version: RA_VERSION,
       });
       onboardHit = { theme: frame.themeHit, action: frame.actionHit };
+      out.length = 0;
+      out.push(...frame.lines);
+    } else if (modal?.kind === "setup") {
+      const frame = renderSetupOverlay({
+        screenW: W, screenH: H,
+        style: { accent: sty.accent, strong: sty.strong, muted: sty.muted, bar: sty.bar },
+        phase: modal.phase,
+        scanLines: modal.scanLines,
+        found: modal.found,
+        small: modal.small,
+        big: modal.big,
+        selected: modal.selected,
+        version: RA_VERSION,
+      });
+      setupHit = frame.hit;
       out.length = 0;
       out.push(...frame.lines);
     }
@@ -498,6 +555,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (type === "command") { void submit(String(a.command)); return; }
     if (type === "insert") { editor.text = insertAtCursor(String(a.text)); editor.cursor += String(a.text).length; scheduleRender(); return; }
     if (type === "theme") { setTheme(String(a.theme), true); push("info", `theme → ${String(a.theme)} (saved)`); scheduleRender(); return; }
+    if (type === "setup") { void openSetupWizard(a.mode === "rescan"); return; }
     if (type === "model") {
       if (a.slot === "small") config.small_model = String(a.model); else config.model = String(a.model);
       push("info", `${String(a.slot)} model → ${String(a.model)} (this session)`);
@@ -562,6 +620,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (input === "/exit" || input === "exit" || input === "/quit") { quit(); return; }
     if (input === "/palette") { openPalette(""); return; }
     if (input === "/themes" || input === "/theme") { openPalette("theme:"); return; }
+    if (input === "/setup") { void openSetupWizard(input.includes("rescan")); return; }
     if (input === "/shortcuts" || input === "?") { modal = { kind: "shortcuts" }; scheduleRender(); return; }
     push("user", input);
     render();
@@ -577,6 +636,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         scheduleRender();
         const result = await runTaskAgent(role, agentM[2].trim() || `Introduce yourself as the ${role} agent in one short paragraph.`, config, { cwd: opts.cwd, filesWritten: [] }, loadEnv(ANUBIS_HOME));
         streamedThisTurn = "";
+        noteContextStats(result.context);
         reply(result.output);
       } else if (input.startsWith("/")) {
         const handled = await dispatchCommand(input, { config, session, plugins, ctx, reply });
@@ -662,6 +722,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   const spinnerTimer = setInterval(() => {
     if (!busy) return;
     spinnerFrame++;
+    spinnerFrame_++;
     render();
   }, 140);
 
@@ -714,16 +775,21 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           return;
         }
         if (modal?.kind === "shortcuts") { modal = null; scheduleRender(); return; }
+        if (modal?.kind === "setup") {
+          const hit = setupHit.get(ev.y);
+          if (hit !== undefined) { resolveSetupHit(hit); return; }
+          return;
+        }
         if (modal?.kind === "onboard") {
           const themeHit = onboardHit.theme.get(ev.y);
-          if (themeHit !== undefined && modal.step === 0) {
+          if (themeHit !== undefined && modal.step === 1) {
             setTheme(themeHit, true);
-            modal = { kind: "onboard", step: 1, selected: 0 };
+            modal = { kind: "onboard", step: 2, selected: 0 };
             scheduleRender();
             return;
           }
           const actionPrefix = onboardHit.action.get(ev.y);
-          if (actionPrefix !== undefined && modal.step === 1) {
+          if (actionPrefix !== undefined && modal.step === 2) {
             finishOnboarding();
             if (actionPrefix) void submit(actionPrefix + "make a tiny colorful index.html that prints hello from RA");
             return;
@@ -782,9 +848,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
             scheduleRender();
             return;
           }
+          if (modal.kind === "setup") { skipSetup("skipped"); return; }
           if (modal.kind === "onboard") finishOnboarding(); else modal = null;
           scheduleRender(); return;
         }
+        if (modal?.kind === "setup") { skipSetup("skipped"); return; }
         if (paletteOpen) { closePalette(); return; }
         if (busy) {
           const aborted = abortActiveTurn();
@@ -804,11 +872,17 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           if (entry) activateMenuEntry(entry);
           return;
         }
+        if (modal?.kind === "setup") {
+          const keys = [...setupHit.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+          const hit = keys[modal.selected];
+          if (hit !== undefined) resolveSetupHit(hit);
+          return;
+        }
         if (modal?.kind === "onboard") {
-          if (modal.step === 0) {
+          if (modal.step === 1) {
             const themes = listPalettes().map((p) => p.name.toLowerCase());
             setTheme(themes[modal.selected] ?? themeId.current, true);
-            modal = { kind: "onboard", step: 1, selected: 0 };
+            modal = { kind: "onboard", step: 2, selected: 0 };
           } else {
             const prefixes = ["/quick ", "/moa ", ""];
             const prefix = prefixes[modal.selected] ?? "";
@@ -849,6 +923,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           render();
           return;
         }
+        if (modal?.kind === "setup") { const n = setupHit.size || 3; modal.selected = (modal.selected - 1 + n) % n; render(); return; }
         if (modal?.kind === "onboard") { modal.selected = Math.max(0, modal.selected - 1); render(); return; }
         if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); if (paletteSelected < paletteScroll) paletteScroll = paletteSelected; livePreview(); render(); return; }
         scrollOffset += 3; render(); return;
@@ -859,8 +934,9 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           render();
           return;
         }
+        if (modal?.kind === "setup") { const n = setupHit.size || 3; modal.selected = (modal.selected + 1) % n; render(); return; }
         if (modal?.kind === "onboard") {
-          const max = modal.step === 0 ? Math.min(8, listPalettes().length) : 3;
+          const max = modal.step === 1 ? Math.min(8, listPalettes().length) : 3;
           modal.selected = Math.min(max - 1, modal.selected + 1);
           render();
           return;
@@ -900,6 +976,10 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       case "text":
         if (k.text === "?" && !editor.text && !paletteOpen && !modal) { modal = { kind: "shortcuts" }; scheduleRender(); return; }
         if (modal) {
+          if (modal.kind === "setup") {
+            if (k.text === "s") { skipSetup("skipped"); return; }
+            return; // typing does nothing in the setup panel
+          }
           if (modal.kind === "onboard" && k.text === "/") {
             // The user is asking for the palette — skip the wizard entirely.
             finishOnboarding();
@@ -944,6 +1024,144 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     scheduleRender();
   };
 
+  // ---------- setup wizard (U8, §5.4) ----------
+  /** Start the setup modal: Phase 0 (localhost) runs automatically on entry. */
+  const openSetupWizard = async (rescan: boolean) => {
+    modal = { kind: "setup", phase: "scanning-local", selected: 0, scanLines: [], found: [], rescan };
+    scheduleRender();
+    const mark = (ok: boolean) => useAsciiGlyphs(process.env) ? (ok ? "+" : "x") : ok ? "✓" : "✗";
+    const throttle = <T,>(fn: () => void): ((v: T) => void) => {
+      let last = 0;
+      return (v: T) => {
+        const now = Date.now();
+        if (now - last < 200 && v !== undefined) return;
+        last = now;
+        fn();
+      };
+    };
+    const pushScan = (line: string) => {
+      if (modal?.kind !== "setup") return;
+      modal.scanLines = [...modal.scanLines.slice(-5), line];
+    };
+    try {
+      const setupMod = await import("../../../anubis/src/setup.ts");
+      const { scanLocalTargets, scanLanTargets, deriveSubnet, pickDefaults, saveSetupChoice } = setupMod;
+      type SetupFound = import("../../../anubis/src/setup.ts").SetupFound;
+      const env = loadEnv(ANUBIS_HOME);
+      // Phase 0 — localhost, always
+      const { targets, found } = await scanLocalTargets(env);
+      for (const t of targets) {
+        const hit = found.find((f) => f.host === t.host && f.port === t.port);
+        pushScan(`  ${mark(!!hit)} ${t.host}:${t.port} ${hit ? `${hit.name} · ${hit.models.length} models · ${hit.ms}ms` : t.label + " · not running"}`);
+      }
+      scheduleRender();
+      let all: SetupFound[] = found;
+      if (modal?.kind !== "setup") return; // user escaped during the scan
+      // Phase 1 — LAN is an explicit choice, defaulting Yes when localhost found nothing
+      if (found.length === 0) {
+        modal.phase = "ask-lan";
+        modal.selected = 0;
+        scheduleRender();
+        const answer = await waitSetupChoice(); // "lan:yes" | "lan:no" | null (esc)
+        if (answer === "lan:yes") {
+          modal.phase = "scanning-lan";
+          scheduleRender();
+          const subnet = deriveSubnet();
+          if (subnet) {
+            const onProgress = throttle(() => {
+              if (modal?.kind === "setup") { pushScan(`  ${spinnerFrame(spinnerFrame_, useAsciiGlyphs(process.env))} scanning ${subnet} … (${all.length} found so far)`); scheduleRender(); }
+            });
+            const lan = await scanLanTargets(subnet, (line) => onProgress(line));
+            all = [...all, ...lan.found];
+          } else pushScan("  No local network interface found — LAN scan skipped.");
+        }
+      }
+      if (modal?.kind !== "setup") return;
+      if (all.length === 0) {
+        // Phase 2 — cloud/manual offered, never assumed; wizard-only (headless users run ra setup).
+        modal.phase = "ask-cloud";
+        scheduleRender();
+        await waitSetupChoice();
+        skipSetup("no local server found — cloud config available via `ra setup` in a terminal");
+        return;
+      }
+      // Pick list — defaults from §5.5, ping before save
+      const pick = pickDefaults(all, {});
+      modal.found = all;
+      modal.small = pick.small;
+      modal.big = pick.big;
+      modal.phase = "pick";
+      modal.selected = 0;
+      scheduleRender();
+      const done = await waitSetupChoice(); // "finish" | null (esc/s skip)
+      if (modal?.kind !== "setup" || done !== "finish") { skipSetup("skipped — nothing saved"); return; }
+      modal.phase = "testing";
+      scheduleRender();
+      const { pingUrl } = await import("../../../anubis/src/ping.ts");
+      if (modal.small) {
+        // ping the host the chosen small model actually lives on
+        const bare = modal.small.split("/").pop() ?? "";
+        const host = all.find((f) => f.models.includes(bare) || f.models.some((m) => bare.startsWith(m.split(":")[0]!)));
+        const ping = await pingUrl("small", `http://${host?.host ?? "127.0.0.1"}:${host?.port ?? 11434}`, 3000);
+        if (!ping.ok) {
+          pushScan(`  ${mark(false)} small host unreachable — pick another model or skip`);
+          modal.phase = "pick";
+          scheduleRender();
+          return;
+        }
+      }
+      modal.phase = "saving";
+      scheduleRender();
+      const saved = saveSetupChoice({ root: ANUBIS_HOME, found: all, small: modal.small, big: modal.big });
+      const fresh = loadRaConfig(ANUBIS_HOME);
+      config.small_model = fresh.small_model;
+      config.model = fresh.model;
+      modal.phase = "done";
+      pushScan(`  ${mark(true)} saved → ${saved.configPath}`);
+      scheduleRender();
+      setTimeout(() => { if (modal?.kind === "setup") advancePastSetup(); }, 600);
+    } catch (e) {
+      pushScan(`  ${mark(false)} setup error: ${String(e).slice(0, 120)}`);
+      scheduleRender();
+    }
+  };
+  /** spinnerFrame counter alias (the TUI's own spinner timer ticks this). */
+  let spinnerFrame_ = 0;
+  /** Resolve once the user clicks/enters a hitbox row (setup modal). */
+  const waitSetupChoice = (): Promise<string | null> => new Promise((resolve) => { setupResolve = resolve; });
+  let setupResolve: ((v: string | null) => void) | null = null;
+  /** esc / s in the setup modal: skip everything, continue onboarding. */
+  const skipSetup = (note: string) => {
+    if (modal?.kind === "setup" && modal.phase !== "done") {
+      push("info", `setup ${note}`);
+    }
+    advancePastSetup();
+  };
+  /** Setup ended (saved or skipped) → advance to the theme step, or close when re-opened mid-session. */
+  const advancePastSetup = () => {
+    const wasFirstRun = !onboarded;
+    if (setupResolve) { setupResolve(null); setupResolve = null; }
+    if (wasFirstRun) {
+      modal = { kind: "onboard", step: 1, selected: Math.max(0, listPalettes().findIndex((p) => p.name.toLowerCase() === themeId.current)) };
+    } else {
+      modal = null;
+    }
+    scheduleRender();
+  };
+  /** A hitbox row was chosen: resolve the pending waitSetupChoice, or act on it. */
+  const resolveSetupHit = (hit: string) => {
+    if (modal?.kind !== "setup") return;
+    if (hit.startsWith("lan:") || hit === "cloud:skip" || hit === "finish") {
+      const r = setupResolve;
+      setupResolve = null;
+      r?.(hit);
+      return;
+    }
+    // small:/big: rows just highlight the current default (one-shot wizard;
+    // cycling through every model would need the full pick UI — ra setup has it).
+    scheduleRender();
+  };
+
   const activateRow = (idx: number) => {
     const row = paletteRows[idx];
     if (!row) return;
@@ -957,6 +1175,13 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
 
   // splash: gradient logo over a tiled background, any key skips
   const drawSplash = () => {
+    const { lane, setupNeeded } = laneOf();
+    let nextCommand: string | undefined;
+    try {
+      const { loadLastRun } = require("../../../anubis/src/last-run.ts") as typeof import("../../../anubis/src/last-run.ts");
+      if (loadLastRun()?.task) nextCommand = "ra again --quick --verify";
+    } catch { /* no last-run */ }
+    if (!nextCommand) nextCommand = "ra setup";
     const lines = renderSplashFrame({
       width: screenWidth,
       height: screenHeight,
@@ -965,6 +1190,9 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       muted: palette.muted,
       version: RA_VERSION,
       ascii: useAsciiGlyphs(process.env),
+      lane: setupNeeded ? undefined : lane,
+      setupNeeded,
+      nextCommand,
     });
     process.stdout.write(SYNC_BEGIN + "\x1b[H" + lines.map((l) => fit(screenWidth, l ?? "") + "\x1b[K").join("\n") + SYNC_END);
   };
@@ -983,7 +1211,9 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       if (skipped === null) drawSplash(); // one final paint before the app takes over
       render();
       if (!onboarded) {
-        modal = { kind: "onboard", step: 0, selected: Math.max(0, listPalettes().findIndex((p) => p.name.toLowerCase() === themeId.current)) };
+        // §5.4: setup is step 1/3 of the wizard; it advances to the theme step.
+        if (laneOf().setupNeeded) void openSetupWizard(false);
+        else modal = { kind: "onboard", step: 1, selected: Math.max(0, listPalettes().findIndex((p) => p.name.toLowerCase() === themeId.current)) };
         render();
       }
     })();
@@ -991,7 +1221,8 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     wireKeys();
     render();
     if (!onboarded) {
-      modal = { kind: "onboard", step: 0, selected: Math.max(0, listPalettes().findIndex((p) => p.name.toLowerCase() === themeId.current)) };
+      if (laneOf().setupNeeded) void openSetupWizard(false);
+      else modal = { kind: "onboard", step: 1, selected: Math.max(0, listPalettes().findIndex((p) => p.name.toLowerCase() === themeId.current)) };
       render();
     }
   }

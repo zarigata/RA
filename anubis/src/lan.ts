@@ -58,6 +58,55 @@ export async function scanSubnet(
   return found;
 }
 
+/** ponytail: scanSubnet is all-at-once (762 concurrent fetches, no progress,
+ *  no cancellation) — fine for the lan plugin batch flow, not for UI use.
+ *  UIs must call scanSubnetBounded below. */
+export interface ScanProgress {
+  probed: number; total: number; found: number; elapsedMs: number;
+  currentHost: string;
+}
+
+/** Bounded, progress-reporting /24 scan: batches of `concurrency` hosts × LAN_PORTS. */
+export async function scanSubnetBounded(
+  cidr: string,
+  opts: {
+    concurrency?: number;      // default 32
+    timeoutMs?: number;        // default 300 — same as scanHost
+    onProgress?: (p: ScanProgress) => void;
+    signal?: AbortSignal;      // Esc / Ctrl+C — a cancelled scan is a partial result
+    scanFn?: typeof scanHost;
+  } = {},
+): Promise<DiscoveredHost[]> {
+  const hosts = expandSubnet(cidr);
+  if (!hosts.length) throw new Error(`invalid CIDR: ${cidr}`);
+  const concurrency = Math.max(1, opts.concurrency ?? 32);
+  const scan = opts.scanFn ?? scanHost;
+  const found: DiscoveredHost[] = [];
+  const t0 = Date.now();
+  let probed = 0;
+  const total = hosts.length;
+  const report = (currentHost: string) => {
+    opts.onProgress?.({ probed, total, found: found.length, elapsedMs: Date.now() - t0, currentHost });
+  };
+  for (let i = 0; i < hosts.length; i += concurrency) {
+    if (opts.signal?.aborted) break;
+    const batch = hosts.slice(i, i + concurrency);
+    await Promise.all(
+      batch.map(async (host) => {
+        for (const def of LAN_PORTS) {
+          if (opts.signal?.aborted) break;
+          const models = await scan(host, def.port);
+          if (models && models.length > 0) found.push({ host, ...def, models });
+        }
+        probed++;
+        report(host);
+      }),
+    );
+  }
+  report(hosts[hosts.length - 1] ?? "");
+  return found;
+}
+
 export function expandSubnet(cidr: string): string[] {
   // supports /24 only for simplicity; returns host list
   const m = cidr.match(/^(\d+)\.(\d+)\.(\d+)\.0\/(\d+)$/);

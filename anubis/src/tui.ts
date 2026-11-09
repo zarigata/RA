@@ -25,9 +25,12 @@ export function lanTagFromEnv(env: Record<string, string | undefined> = process.
   return hostTag(env.OLLAMA_LAN_URL ?? "http://localhost:11434", "local");
 }
 
-/** One-line prefer policy; host tag derived from OLLAMA_LAN_URL. */
+/** One-line prefer policy; host tag derived from OLLAMA_LAN_URL.
+ *  ASCII mode (RA_ASCII / TERM=dumb) stays plain-ASCII for dumb terminals. */
 export function preferLine(env: Record<string, string | undefined> = process.env): string {
-  return `RA prefer small@${lanTagFromEnv(env)} → big@cloud  (localhost fallback)`;
+  const ascii = env.RA_ASCII === "1" || env.RA_ASCII === "true" || env.TERM === "dumb";
+  const arrow = ascii ? "->" : "→";
+  return `RA prefer small@${lanTagFromEnv(env)} ${arrow} big@cloud  (localhost fallback)`;
 }
 
 export function renderSplash(themeOverride?: string): string {

@@ -2,9 +2,11 @@ import { describe, expect, test } from "bun:test";
 import {
   expandSubnet,
   scanHost,
+  scanSubnetBounded,
   buildLanConfig,
   formatDiscovery,
   type DiscoveredHost,
+  type ScanProgress,
 } from "../src/lan.ts";
 
 describe("lan subnet expansion", () => {
@@ -54,5 +56,64 @@ describe("lan config builder", () => {
   });
   test("formatDiscovery empty", () => {
     expect(formatDiscovery([])).toContain("No LAN");
+  });
+});
+
+describe("scanSubnetBounded", () => {
+  /** Fake scanner: instant, .50 hosts have Ollama models, others return null. */
+  const fakeScan = async (host: string, port: number): Promise<string[] | null> => {
+    if (port !== 11434) return null;
+    return host.endsWith(".50") || host.endsWith(".51") ? ["qwen3:4b"] : null;
+  };
+
+  test("returns found hosts in first-found order with progress callbacks", async () => {
+    const progress: ScanProgress[] = [];
+    const found = await scanSubnetBounded("192.168.1.0/24", {
+      concurrency: 32,
+      scanFn: fakeScan,
+      onProgress: (p) => progress.push({ ...p }),
+    });
+    expect(found.map((h) => h.host)).toEqual(["192.168.1.50", "192.168.1.51"]);
+    expect(found[0]).toMatchObject({ port: 11434, provider: "ollama-lan", name: "Ollama", models: ["qwen3:4b"] });
+    // progress reaches the full /24 and reports found counts
+    const last = progress[progress.length - 1]!;
+    expect(last.total).toBe(254);
+    expect(last.probed).toBe(254);
+    expect(last.found).toBe(2);
+    expect(progress.length).toBeGreaterThanOrEqual(254 / 32);
+  });
+
+  test("respects the concurrency limit (max in-flight probes)", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const scan = async (host: string, port: number): Promise<string[] | null> => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return host.endsWith(".50") && port === 11434 ? ["gemma"] : null;
+    };
+    const found = await scanSubnetBounded("192.168.1.0/24", { concurrency: 8, scanFn: scan });
+    expect(maxInFlight).toBeLessThanOrEqual(8);
+    expect(found).toHaveLength(1);
+  });
+
+  test("AbortSignal cancels at the next batch and keeps partial results", async () => {
+    const controller = new AbortController();
+    let calls = 0;
+    const scan = async (host: string, port: number): Promise<string[]> => {
+      calls++;
+      if (host === "192.168.1.1" && port === 11434) controller.abort();
+      await new Promise((r) => setTimeout(r, 2));
+      return host.endsWith(".50") && port === 11434 ? ["gemma"] : null;
+    };
+    const found = await scanSubnetBounded("192.168.1.0/24", { concurrency: 4, scanFn: scan, signal: controller.signal });
+    expect(calls).toBeLessThan(254 * 3);
+    // .50 lives in a later batch than the first — a cancelled scan may be partial (0 or 1)
+    expect(found.length).toBeLessThanOrEqual(1);
+  });
+
+  test("invalid CIDR throws", async () => {
+    await expect(scanSubnetBounded("garbage")).rejects.toThrow(/CIDR/);
   });
 });

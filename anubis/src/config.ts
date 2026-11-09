@@ -1,7 +1,7 @@
 // src/config.ts — load ra.json with anubis.json fallback + profile merge
 
-import { readFileSync, existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
+import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import type { RouterConfig } from "./router.ts";
 import type { ContextPolicyConfig } from "./context-limits.ts";
@@ -90,6 +90,33 @@ export function loadRaConfig(root = RA_HOME): RaConfig {
     if (p.tier_models) (cfg as RaConfig & { tier_models?: Record<string, string> }).tier_models = p.tier_models;
   }
   return applyEnvOverrides(cfg);
+}
+
+/**
+ * Save ra.json atomically (tmp + rename), resolving the destination exactly
+ * like loadRaConfig. Throws — and writes nothing — if any provider options
+ * carry a non-`{env:VAR}`-template apiKey: plaintext keys never hit disk here.
+ */
+export function saveRaConfig(cfg: RaConfig, root = RA_HOME): string {
+  const raPath = process.env.RA_CONFIG ?? join(root, "ra.json");
+  const legacyPath = join(root, "anubis.json");
+  // Same rule as loadRaConfig, but a fresh machine (neither file exists)
+  // starts on the modern ra.json path — legacy only when it is the real file.
+  const path = (process.env.RA_CONFIG || existsSync(raPath) || !existsSync(legacyPath)) ? raPath : legacyPath;
+
+  const providers = cfg.provider as Record<string, { options?: { apiKey?: string } }> | undefined;
+  for (const [name, def] of Object.entries(providers ?? {})) {
+    const key = def?.options?.apiKey;
+    if (key && !/^\{env:[A-Z0-9_]+\}$/.test(key)) {
+      throw new Error(`refusing to save: provider "${name}" has a plaintext apiKey — use a {env:VAR} template`);
+    }
+  }
+
+  mkdirSync(dirname(path), { recursive: true });
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, JSON.stringify(cfg, null, 2) + "\n", "utf-8");
+  renameSync(tmp, path);
+  return path;
 }
 
 export function sessionPath(projectCwd: string): string {

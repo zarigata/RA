@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 export const HUMANEVALPLUS_URL =
   "https://github.com/evalplus/humanevalplus_release/releases/download/v0.1.10/HumanEvalPlus-OriginFmt.jsonl.gz";
 export const MBPPPLUS_URL =
-  "https://github.com/evalplus/mbppplus_release/releases/download/v0.1.6/MbppPlus.jsonl.gz";
+  "https://github.com/evalplus/mbppplus_release/releases/download/v0.2.0/MbppPlus.jsonl.gz";
 export const POLYGLOT_REPO = "https://github.com/Aider-AI/polyglot-benchmark";
 
 /** Uniform task shape; `raw` carries the suite payload the verifier needs. */
@@ -44,7 +44,19 @@ export async function downloadCached(url: string, cacheDir: string, file: string
 
 function readJsonlGz(path: string): unknown[] {
   const raw = gunzipSync(readFileSync(path)).toString("utf-8");
-  return raw.split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const out: unknown[] = [];
+  for (const l of raw.split("\n")) {
+    if (!l.trim()) continue;
+    try {
+      out.push(JSON.parse(l));
+    } catch {
+      // ponytail: at least one MBPP+ line (Mbpp/404) embeds a bare `Infinity`
+      // — invalid strict JSON. Skip malformed lines rather than ship a
+      // tolerant parser; upgrade path = sanitize numbers on load if it grows.
+      console.error(`bench external: skipping malformed dataset line (${l.slice(0, 60)}…)`);
+    }
+  }
+  return out;
 }
 
 // --- HumanEval+ (OriginFmt: task_id, prompt, canonical_solution, entry_point,
@@ -65,21 +77,38 @@ export function parseHumanevalPlus(rawTasks: HeplusRaw[]): ExternalTask[] {
   }));
 }
 
-// --- MBPP+ (task_id, prompt, test_imports, test_list) ---
+// --- MBPP+ (v0.2.0 EvalPlus format: task_id, prompt, entry_point, assertion)
+// The `assertion` field carries the base asserts — deterministic and
+// self-contained. The plus_input grid needs evalplus's ref-execution harness
+// (canonical-solution replay); we don't ship that, noted in EXTERNAL-BENCH.md.
 
-interface MbppRaw { task_id: number; prompt: string; test_imports: string[]; test_list: string[] }
+interface MbppRaw {
+  task_id: string;
+  prompt: string;
+  entry_point?: string;
+  assertion?: string;
+  /** classic sanitized-mbpp shape (fallback source) */
+  test_imports?: string[];
+  test_list?: string[];
+}
 
 export function parseMbppPlus(rawTasks: MbppRaw[]): ExternalTask[] {
-  return rawTasks.map((t) => ({
-    suite: "mbppplus",
-    id: String(t.task_id),
-    prompt:
-      `${t.prompt} Write the complete Python solution in solution.py (define the function the asserts call, including any needed imports). ` +
-      `The solution must satisfy:\n` +
-      t.test_list.map((a) => `> ${a}`).join("\n"),
-    files: { "solution.py": "" },
-    raw: { mbpp: { test_imports: t.test_imports, test_list: t.test_list } },
-  }));
+  return rawTasks.map((t) => {
+    const asserts = t.assertion
+      ? [t.assertion]
+      : [...(t.test_imports ?? []), ...(t.test_list ?? [])];
+    const fn = t.entry_point ?? "the function the asserts call";
+    return {
+      suite: "mbppplus",
+      id: String(t.task_id),
+      prompt:
+        `${t.prompt} Write the complete Python solution in solution.py (define \`${fn}\`, including any needed imports). ` +
+        `The solution must satisfy:\n` +
+        asserts.join("\n").split("\n").map((a) => `> ${a}`).join("\n"),
+      files: { "solution.py": "" },
+      raw: { mbpp: { test_imports: [], test_list: asserts } },
+    };
+  });
 }
 
 /** Clone (sparse, python track only) or reuse the polyglot benchmark cache. */

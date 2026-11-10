@@ -10,6 +10,8 @@ import {
   estimateMoaCost,
   shouldSuggestMoa,
   runLayeredMoa,
+  parseMoaArgs,
+  withMoaTimeout,
 } from "../src/moa/layers.ts";
 import { TeamBoard, listTeamBoards, formatBoard } from "../src/teams/board.ts";
 import type { RaConfig } from "../../anubis/src/config.ts";
@@ -83,7 +85,6 @@ describe("cost estimate + budget guard", () => {
     const plan = resolveLayerPlan(config, { models: ["ollama-lan/qwen3.8:latest", "ollama/gemma:latest"] });
     expect(estimateMoaCost(plan, "task")).toBe(0);
   });
-
   test("subscription topology (ollama-cloud glm) estimates ~$0", () => {
     expect(estimateMoaCost(resolveLayerPlan(config), "redesign the auth system")).toBe(0);
   });
@@ -211,5 +212,35 @@ describe("persistent team board", () => {
   test("board names are validated", () => {
     expect(() => new TeamBoard("../escape")).toThrow();
     expect(() => new TeamBoard("")).toThrow();
+  });
+});
+
+describe("moa --timeout (D5: parse + config override)", () => {
+  test("--timeout parses alongside the existing flags", () => {
+    const flags = parseMoaArgs(["--layers", "3", "--timeout", "60", "--json", "--cwd", "/tmp/x"]);
+    expect(flags.layers).toBe("3");
+    expect(flags.timeout).toBe("60");
+    expect(() => parseMoaArgs(["--timeout"])).toThrow(/--timeout needs a value/);
+    expect(() => parseMoaArgs(["--timeout", "--json"])).toThrow(/--timeout needs a value/);
+    expect(() => parseMoaArgs(["--wat"])).toThrow(/Unexpected moa argument/);
+  });
+
+  test("flag reaches the existing agent_limits.timeout_ms override", () => {
+    const cfg = withMoaTimeout({ agent_limits: { timeout_ms: 180_000 } }, "60");
+    expect(cfg.agent_limits?.timeout_ms).toBe(60_000);
+    // preserves other limits, pure (input untouched)
+    const src = { agent_limits: { max_calls: 5 }, other: 1 };
+    const out = withMoaTimeout(src, "90");
+    expect(out.agent_limits).toEqual({ max_calls: 5, timeout_ms: 90_000 });
+    expect(src.agent_limits).toEqual({ max_calls: 5 });
+    // no flag → config unchanged by reference
+    const same = { agent_limits: { timeout_ms: 1 } };
+    expect(withMoaTimeout(same, undefined)).toBe(same);
+  });
+
+  test("invalid seconds are rejected", () => {
+    expect(() => withMoaTimeout({}, "0")).toThrow(/--timeout/);
+    expect(() => withMoaTimeout({}, "-5")).toThrow(/--timeout/);
+    expect(() => withMoaTimeout({}, "abc")).toThrow(/--timeout/);
   });
 });

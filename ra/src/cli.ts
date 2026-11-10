@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { resolve } from "node:path";
 import { ANUBIS_HOME } from "./paths.ts";
 import { startTui } from "./tui/app.ts";
 import { loadRaConfig, ensureRaDirs, applyProjectOverride, applyEnvOverrides } from "../../anubis/src/config.ts";
@@ -87,7 +88,7 @@ Usage:
   ra run "..." [--quick] [--verify] [--json] [--cwd DIR]  Headless full-dev (no TUI, for CI/scripting)
   ra agents [--json]         List the agent library (76 visible, grouped by category)
   ra agents new <name> [--user]  Scaffold a custom agent (.ra/agents or ~/.ra/agents)
-  ra moa "task" [--roles A,B] [--concurrency N] [--layers N] [--models a,b] [--budget USD] [--team NAME] [--json]  Layered mixture: cross-model proposals + critics + synthesis
+  ra moa "task" [--roles A,B] [--concurrency N] [--layers N] [--models a,b] [--budget USD] [--team NAME] [--timeout <seconds>] [--json]  Layered mixture: cross-model proposals + critics + synthesis
   ra team list|status NAME|mail NAME  Persistent team boards (~/.ra/teams)
   ra swarm help              Isolated worktree teams; explicit apply
   ra roles                   Show role assignments
@@ -128,7 +129,8 @@ Usage:
   ra plugins                 Detect plugin stores (Claude Code/OpenCode/Cursor/Cline/Roo) + import
   ra doctor [--fix]          Health check (--fix repairs a stale model config)
   ra selfcheck               Splash + ping + lanes + models (no LLM)
-  ra benchmark init|smoke|run <name|all>
+  ra warm [--model ID]       Load the small model on the LAN box (warm start)
+  ra benchmark init|smoke|run <name|all> [--cwd DIR]
   ra --remote <URL>          Connect TUI to a running daemon (or set RA_REMOTE env)
 
 Small models: LAN Ollama via OLLAMA_LAN_URL (${(() => { try { return loadRaConfig(ANUBIS_HOME).small_model ?? "localhost fallback"; } catch { return "unconfigured (run ./install)"; } })()})
@@ -226,25 +228,18 @@ if (["agents", "moa", "team", "swarm", "sandbox"].includes(args[0])) {
       throw new Error("Usage: ra team list | ra team status NAME | ra team mail NAME");
     }
     const { runMoaTeam, formatTeam } = await import("./team.ts");
-    const { runLayeredMoa, formatLayered } = await import("./moa/layers.ts");
-    if (!args[1] || args[1].startsWith("--")) throw new Error('Usage: ra moa "task" [--roles A,B] [--concurrency N] [--layers N] [--models a,b] [--budget USD] [--team NAME] [--json]');
-    const moaFlags: Record<string, string | undefined> = {};
-    for (let i = 2; i < args.length; i++) {
-      const m = args[i].match(/^--(roles|concurrency|layers|models|budget|team)$/);
-      if (m) { moaFlags[m[1]] = args[++i]; continue; }
-      if (args[i] !== "--cwd" && args[i] !== "--json") throw new Error(`Unexpected moa argument: ${args[i]}`);
-      if (args[i] === "--cwd") i++;
-    }
-    for (const [flag, value] of Object.entries(moaFlags)) {
-      if (!value || value.startsWith("--")) throw new Error(`--${flag} needs a value`);
-    }
+    const { runLayeredMoa, formatLayered, parseMoaArgs, withMoaTimeout } = await import("./moa/layers.ts");
+    if (!args[1] || args[1].startsWith("--")) throw new Error('Usage: ra moa "task" [--roles A,B] [--concurrency N] [--layers N] [--models a,b] [--budget USD] [--team NAME] [--timeout <seconds>] [--json]');
+    const moaFlags = parseMoaArgs(args.slice(2));
+    const moaConfig = withMoaTimeout(config, moaFlags.timeout);
+    if (moaFlags.timeout) console.error(`moa timeout: ${moaConfig.agent_limits?.timeout_ms! / 1000}s (default 180s)`);
     const result = moaFlags.roles
-      ? await runMoaTeam(args[1], config, { cwd }, {
+      ? await runMoaTeam(args[1], moaConfig, { cwd }, {
         roles: moaFlags.roles.split(","),
         concurrency: moaFlags.concurrency ? Number(moaFlags.concurrency) : undefined,
         onProgress: message => console.error(message),
       })
-      : await runLayeredMoa(args[1], config, { cwd }, {
+      : await runLayeredMoa(args[1], moaConfig, { cwd }, {
         layers: moaFlags.layers ? Number(moaFlags.layers) : undefined,
         models: moaFlags.models?.split(",").map((s) => s.trim()).filter(Boolean),
         budgetUsd: moaFlags.budget ? Number(moaFlags.budget) : undefined,
@@ -290,6 +285,13 @@ if (args[0] === "selfcheck") {
 
 if (args[0] === "benchmark") {
   const sub = args[1];
+  const cwdFlag = args.indexOf("--cwd");
+  if (cwdFlag >= 0) {
+    const dir = args[cwdFlag + 1];
+    if (!dir || dir.startsWith("--")) { console.error("ra benchmark: --cwd needs a directory"); process.exit(1); }
+    const { setBenchmarkRoot } = await import("./benchmark/runner.ts");
+    setBenchmarkRoot(resolve(dir));
+  }
   if (sub === "init") {
     benchmarkInit();
     process.exit(0);
@@ -327,8 +329,9 @@ if (args[0] === "warm") {
 if (args[0] === "status") {
   const { loadLastRun } = await import("../../anubis/src/last-run.ts");
   const { formatRaStatus } = await import("../../anubis/src/ra-status.ts");
-  const { formatReport, buildReport, loadUsage } = await import("../../anubis/src/cost.ts");
+  const { formatReport, buildReport, loadUsage, setPriceOverrides, priceOverridesFromConfig } = await import("../../anubis/src/cost.ts");
   const cfg = loadRaConfig(ANUBIS_HOME);
+  setPriceOverrides(priceOverridesFromConfig(cfg));
   console.log(
     formatRaStatus({
       cwd: arg("--cwd") ?? process.cwd(),
@@ -645,8 +648,9 @@ if (args[0] === "models") {
 }
 
 if (args[0] === "cost") {
-  const { formatReport, buildReport, loadUsage, sessionUsage, formatSessionUsage } = await import("../../anubis/src/cost.ts");
+  const { formatReport, buildReport, loadUsage, sessionUsage, formatSessionUsage, setPriceOverrides, priceOverridesFromConfig } = await import("../../anubis/src/cost.ts");
   const { loadLastRun, formatLaneLine, formatIntentLine, formatPreferLine } = await import("../../anubis/src/last-run.ts");
+  setPriceOverrides(priceOverridesFromConfig(loadRaConfig(ANUBIS_HOME)));
   const last = loadLastRun();
   if (args.includes("--session")) {
     console.log(`RA cost (per session)\n${formatSessionUsage(sessionUsage())}`);

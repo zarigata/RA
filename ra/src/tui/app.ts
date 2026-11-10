@@ -21,10 +21,10 @@ import { RemoteClient } from "../server/remote.ts";
 import { SubagentTree } from "./tree.ts";
 import { PluginHost } from "../plugins/host.ts";
 import { dispatchCommand, PALETTE_COMMANDS, loadCustomCommands, customCommandDirs } from "../commands/index.ts";
-import { runOrchestratorTurn, runTaskAgent, onGlobalHook, setActiveSubagentTracker, getActiveSubagentTracker, setActiveStreamRenderer, abortActiveTurn } from "../agent.ts";
+import { runOrchestratorTurn, runTaskAgent, onGlobalHook, setActiveSubagentTracker, getActiveSubagentTracker, setActiveStreamRenderer, abortActiveTurn, getLiveContextState } from "../agent.ts";
 import { activeRunCount } from "../execution.ts";
 import { expandMentions } from "../tools/index.ts";
-import { loadUsage, buildReport, formatCost } from "../../../anubis/src/cost.ts";
+import { loadUsage, buildReport, formatCost, setPriceOverrides, priceOverridesFromConfig } from "../../../anubis/src/cost.ts";
 import { startLegacyTui, type TuiOptions } from "./legacy.ts";
 import { highlightMatches } from "./fuzzy.ts";
 import { searchPalette, groupRows, collectProjectFiles, type PaletteEntry, type PaletteRow } from "./palette.ts";
@@ -33,10 +33,11 @@ import { decodeKeys, type Key } from "./keys.ts";
 import { MOUSE_ENTER, MOUSE_EXIT, ALT_ENTER, ALT_EXIT, PASTE_ENTER, PASTE_EXIT, SYNC_BEGIN, SYNC_END, CURSOR_HIDE, CURSOR_SHOW, fg as hexFg, bg as hexBg } from "./mouse.ts";
 import { renderSplashFrame, parseOscColorReply, luminance, OSC_TITLE, OSC_QUERY_BG } from "./splash.ts";
 import { renderMenuOverlay, renderShortcutsOverlay, renderOnboardingOverlay, renderSetupOverlay, type MenuEntry, type SetupPhase } from "./overlays.ts";
-import { buildHeader, buildStatusLine, buildInputLabel, footerHints, getTuiGlyphs, useAsciiGlyphs, spinnerFrame, workspaceLabel } from "./chrome.ts";
+import { buildHeader, buildStatusLine, buildInputLabel, footerHints, getTuiGlyphs, useAsciiGlyphs, spinnerFrame, workspaceLabel, contextPctFromLive } from "./chrome.ts";
 import { visibleCatalog } from "../agents/catalog.ts";
 import { buildTree, toggleDir, renderExplorer, parseWebResults, flattenTree, type TreeNode, type RightPane } from "./explorer.ts";
 import { resolveLane } from "../lane.ts";
+import { promptHistory } from "./history.ts";
 
 export type { TuiOptions };
 
@@ -76,6 +77,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   const keyTrace = process.env.RA_KEY_TRACE === "1";
   const keyLog = (m: string) => { try { writeFileSync("/tmp/ra-key-trace.log", `${Date.now()} ${m}\n`, { flag: "a" }); } catch {} };
   const config = applyEnvOverrides(applyProjectOverride(loadRaConfig(ANUBIS_HOME), opts.cwd));
+  setPriceOverrides(priceOverridesFromConfig(config));
   const remote = opts.remoteUrl ? new RemoteClient({ url: opts.remoteUrl }) : null;
   const remoteOk = remote ? await remote.health() : false;
   const session = remoteOk ? await remote.loadSession(opts.cwd) : loadSession(opts.cwd);
@@ -158,10 +160,13 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   const noteContextStats = (ctxStats: { windowTokens: number; usedTokens: number } | undefined) => {
     lastContextPct = ctxStats && ctxStats.windowTokens > 0 ? Math.min(100, Math.round((ctxStats.usedTokens / ctxStats.windowTokens) * 100)) : undefined;
   };
+  /** Live context pressure while a run is active (context ledger, read-only — no new tracking). */
+  const liveContextPct = (): number | undefined => contextPctFromLive(getLiveContextState());
 
   // ---------- state ----------
   const segments: Segment[] = [];
   const editor = { text: "", cursor: 0 };
+  const history = promptHistory();
   let scrollOffset = 0;
   let busy = false;
   let statusText = "";
@@ -514,7 +519,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       status: statusText || "busy",
       lane,
       costUsd: sessionCostUsd(),
-      contextPct: busy ? lastContextPct : undefined,
+      contextPct: busy ? (lastContextPct ?? liveContextPct()) : undefined,
       setupNeeded,
       glyphs,
     });
@@ -767,6 +772,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     const input = raw.trim();
     editor.text = ""; editor.cursor = 0; scrollOffset = 0;
     if (!input) return;
+    history.add(input);
     if (input === "/exit" || input === "exit" || input === "/quit") { quit(); return; }
     if (input === "/palette") { openPalette(""); return; }
     if (input === "/files" || input === "/explorer") { openExplorer(); return; }
@@ -1107,6 +1113,12 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (modal?.kind === "setup") { const n = setupHit.size || 3; modal.selected = (modal.selected - 1 + n) % n; render(); return; }
         if (modal?.kind === "onboard") { modal.selected = Math.max(0, modal.selected - 1); render(); return; }
         if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); if (paletteSelected < paletteScroll) paletteScroll = paletteSelected; livePreview(); render(); return; }
+        // Input line owns ↑ when there is history to recall (parity row 42);
+        // transcript scrolling stays on wheel + PgUp/PgDn.
+        if (!modal) {
+          const recalled = history.up(editor.text);
+          if (recalled !== null) { editor.text = recalled; editor.cursor = editor.text.length; render(); return; }
+        }
         scrollOffset += 3; render(); return;
       case "down":
         if (explorerOpen && !modal && !paletteOpen) { moveExplorerSelection(1); render(); return; }
@@ -1129,6 +1141,10 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           livePreview();
           render();
           return;
+        }
+        if (!modal && history.browsing()) {
+          const recalled = history.down();
+          if (recalled !== null) { editor.text = recalled; editor.cursor = editor.text.length; render(); return; }
         }
         scrollOffset = Math.max(0, scrollOffset - 3); render(); return;
       case "pgup": scrollOffset += screenHeight - 6; render(); return;

@@ -667,3 +667,32 @@ nominal → 32k usable; `gemma:latest` probes at **8k**, beating the table's
 Surfaces: `/context` (live pressure + per-model windows), `ra doctor`
 (registry section), `ra providers` (ctx column), `ra eval --model <id>`
 (sweep one model with continuation/compaction/escalation telemetry).
+
+## Custom provider pricing
+
+Models not in the static price table cost `$0` by default. Give them real
+prices in `ra.json` — either per model (opencode-compatible `cost` block)
+or as a provider-wide default:
+
+```jsonc
+{
+  "provider": {
+    "my-gateway": {
+      "options": {
+        "baseURL": "https://gw.example/v1",
+        "apiKey": "{env:GW_KEY}",
+        // default for every model under this provider (USD per million tokens)
+        "pricing": { "input_per_m": 0.6, "output_per_m": 2.2 }
+      },
+      "models": {
+        "glm-4.6": { "cost": { "input": 0.6, "output": 2.2 } }  // per-model wins
+      }
+    }
+  },
+  // or keyed explicitly; highest precedence
+  "pricing": { "my-gateway/glm-4.6": { "input_per_m": 0.6, "output_per_m": 2.2 } }
+}
+```
+
+`ra cost`, `ra status`, and the TUI cost readout all consult these
+overrides; unknown models still fall back to $0 (never a guess).

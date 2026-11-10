@@ -205,6 +205,18 @@ describe("responsive TUI chrome", () => {
     expect(wide).toContain("ctx 42%");
   });
 
+  test("context % derives from the live context ledger state", () => {
+    const { contextPctFromLive } = require("../src/tui/chrome.ts") as typeof import("../src/tui/chrome.ts");
+    expect(contextPctFromLive({ windowTokens: 32_768, usedTokens: 16_384 })).toBe(50);
+    expect(contextPctFromLive({ windowTokens: 1000, usedTokens: 2500 })).toBe(100); // clamped
+    expect(contextPctFromLive({ windowTokens: 0, usedTokens: 100 })).toBeUndefined();
+    expect(contextPctFromLive(null)).toBeUndefined();
+    // end-to-end: header renders the derived pct
+    const glyphs = getTuiGlyphs(false);
+    const pct = contextPctFromLive({ windowTokens: 120_000, usedTokens: 90_000 });
+    expect(buildHeader({ width: 120, app: "RA", version: "1", profile: "default", smallModel: "a/b", bigModel: "c/d", contextPct: pct, glyphs })).toContain("ctx 75%");
+  });
+
   test("header: setupNeeded replaces the lane with the ra setup call-to-action", () => {
     const uni = buildHeader({
       width: 120, app: "RA", version: "1", profile: "default",

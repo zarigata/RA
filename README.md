@@ -217,6 +217,7 @@ ra agents
 ra agents new my-agent
 ra moa "Review this architecture and surface disagreements"
 ra moa "Design a safer migration" --roles thoth,maat,sekhmet --concurrency 3
+ra moa "Audit the parser" --timeout 600        # per-run agent timeout (default 180s)
 ~~~
 
 See [docs/AGENTS-CATALOG.md](docs/AGENTS-CATALOG.md) for the catalog.
@@ -487,7 +488,7 @@ The command sandbox has platform limitations and is **not** a hostile-code VM or
 
 ## Benchmarks: evidence, not mythology
 
-The repository ships reproducible benchmark scenarios under `benchmarks/` and a verification gate (`test.sh`, `scripts/verify-release.sh`).
+The repository ships reproducible benchmark scenarios under `benchmarks/` and a verification gate (`test.sh`, `scripts/verify-release.sh`). By default scenarios run under `~/Desktop/RA-Tests`; pass `--cwd DIR` to `ra benchmark init|smoke|run` to relocate them (useful for CI or scratch disks).
 
 Those results are useful for regression testing and design decisions, but they are **point-in-time measurements on specific tasks, models, hardware, and provider conditions**. They should not be read as a universal claim that RA beats every coding tool on every repository.
 

@@ -170,6 +170,48 @@ export function shouldSuggestMoa(task: string, config: RaConfig): { suggest: boo
 
 // ---- execution ----
 
+/** CLI flags accepted by `ra moa` (D5: --timeout <seconds> maps to agent_limits.timeout_ms). */
+export interface MoaCliFlags {
+  roles?: string;
+  concurrency?: string;
+  layers?: string;
+  models?: string;
+  budget?: string;
+  team?: string;
+  timeout?: string;
+}
+
+/**
+ * Parse `ra moa` argv after the task argument (pure). Throws on unknown flags
+ * or missing values — the same errors the CLI printed inline before.
+ */
+export function parseMoaArgs(argv: string[]): MoaCliFlags {
+  const flags: MoaCliFlags = {};
+  for (let i = 0; i < argv.length; i++) {
+    const m = argv[i].match(/^--(roles|concurrency|layers|models|budget|team|timeout)$/);
+    if (m) { flags[m[1] as keyof MoaCliFlags] = argv[++i]; continue; }
+    if (argv[i] !== "--cwd" && argv[i] !== "--json") throw new Error(`Unexpected moa argument: ${argv[i]}`);
+    if (argv[i] === "--cwd") i++;
+  }
+  for (const [flag, value] of Object.entries(flags)) {
+    if (value === undefined || value.startsWith("--")) throw new Error(`--${flag} needs a value`);
+  }
+  return flags;
+}
+
+/**
+ * Apply a `--timeout <seconds>` flag to a config's agent limits (pure).
+ * Returns a new config with agent_limits.timeout_ms set; invalid seconds
+ * throw. This is the existing config override path (execution.ts default
+ * 180 s) — the flag just surfaces it per-run.
+ */
+export function withMoaTimeout<T extends { agent_limits?: { timeout_ms?: number } }>(config: T, timeoutSeconds: string | undefined): T {
+  if (timeoutSeconds === undefined) return config;
+  const n = Number(timeoutSeconds);
+  if (!Number.isFinite(n) || n <= 0) throw new Error(`--timeout needs seconds > 0 (got "${timeoutSeconds}")`);
+  return { ...config, agent_limits: { ...config.agent_limits, timeout_ms: Math.round(n * 1000) } };
+}
+
 /** Force a model for one agent run (mirrors the swarm override pattern). */
 function forceModel(config: RaConfig, role: string, model: string): RaConfig {
   const cfg: RaConfig = { ...config, agent: { ...config.agent, [role]: { ...config.agent?.[role], model } } };

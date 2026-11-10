@@ -91,7 +91,7 @@ const SHORTCUTS: Array<[string, string]> = [
   ["ctrl+d", "quit RA"],
   ["ctrl+l", "clear the screen"],
   ["ctrl+u", "clear the input line"],
-  ["↑ ↓ / pgup pgdn", "scroll history or palette"],
+  ["↑ ↓ / pgup pgdn", "scroll history or palette · ↑ in the input recalls previous prompts"],
   ["right-click", "context menu at the mouse"],
   ["click header", "logo = main menu · model chips = model menu"],
   ["wheel", "scroll the conversation"],

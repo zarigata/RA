@@ -61,6 +61,11 @@ export function shortModel(model?: string, max = 24): string {
   return bare.length > max ? bare.slice(0, Math.max(1, max - 1)) + "…" : bare;
 }
 
+/** Context pressure 0–100 from the live context ledger; undefined when idle/unknown. */
+export function contextPctFromLive(live: { windowTokens: number; usedTokens: number } | null | undefined): number | undefined {
+  return live && live.windowTokens > 0 ? Math.min(100, Math.round((live.usedTokens / live.windowTokens) * 100)) : undefined;
+}
+
 export function buildHeader(opts: {
   width: number;
   app: string;

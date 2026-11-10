@@ -186,6 +186,8 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
     }
     case "cost": {
       const { loadLastRun, formatLaneLine, formatIntentLine, formatPreferLine } = await import("../../../anubis/src/last-run.ts");
+      const { setPriceOverrides, priceOverridesFromConfig } = await import("../../../anubis/src/cost.ts");
+      setPriceOverrides(priceOverridesFromConfig(c.config));
       const last = loadLastRun();
       const lines = [
         "RA cost",
@@ -200,6 +202,8 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
     case "status": {
       const { loadLastRun } = await import("../../../anubis/src/last-run.ts");
       const { formatRaStatus } = await import("../../../anubis/src/ra-status.ts");
+      const { setPriceOverrides, priceOverridesFromConfig } = await import("../../../anubis/src/cost.ts");
+      setPriceOverrides(priceOverridesFromConfig(c.config));
       const usage = formatReport(buildReport(loadUsage()));
       c.reply(
         formatRaStatus({

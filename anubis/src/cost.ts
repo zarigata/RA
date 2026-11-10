@@ -33,9 +33,76 @@ export function isFree(model: string): boolean {
   return FREE_PREFIXES.some((p) => model.startsWith(p));
 }
 
+// ---- config-driven price overrides (per-provider pricing, D2) ----
+
+/** User-facing pricing shape: USD per million tokens. */
+export interface PricingEntry {
+  input_per_m?: number;
+  output_per_m?: number;
+}
+
+/** Registered price overrides (keyed `provider/model`); consulted before the static table. */
+let priceOverrides: Record<string, ModelPrice> = {};
+
+export function setPriceOverrides(map: Record<string, ModelPrice>): void {
+  priceOverrides = map;
+}
+
+/** Test hygiene: drop registered overrides. */
+export function clearPriceOverrides(): void {
+  priceOverrides = {};
+}
+
+/**
+ * Build the override map from ra.json. Sources (later wins):
+ *   1. `provider.<name>.options.pricing {input_per_m, output_per_m}` —
+ *      default for every model under that provider;
+ *   2. `provider.<name>.models.<id>.cost {input, output}` — per-model
+ *      (schema identical to opencode.json providers);
+ *   3. top-level `pricing: {"provider/model": {input_per_m, output_per_m}}`.
+ * Pure; malformed entries are skipped, never thrown.
+ */
+export function priceOverridesFromConfig(config: {
+  provider?: unknown;
+  pricing?: Record<string, PricingEntry>;
+}): Record<string, ModelPrice> {
+  const out: Record<string, ModelPrice> = {};
+  const add = (key: string, i: unknown, o: unknown) => {
+    const inPerM = Number(i);
+    const outPerM = Number(o);
+    if (Number.isFinite(inPerM) && inPerM >= 0 && Number.isFinite(outPerM) && outPerM >= 0 && (inPerM > 0 || outPerM > 0)) {
+      out[key] = { in: inPerM, out: outPerM };
+    }
+  };
+  const providers = (config.provider ?? {}) as Record<string, {
+    options?: { pricing?: PricingEntry };
+    models?: Record<string, { cost?: { input?: number; output?: number } }>;
+  }>;
+  for (const [name, def] of Object.entries(providers)) {
+    if (!def || typeof def !== "object") continue;
+    const perProvider = def.options?.pricing;
+    for (const [id, model] of Object.entries(def.models ?? {})) {
+      if (perProvider) add(`${name}/${id}`, perProvider.input_per_m, perProvider.output_per_m);
+      if (model?.cost) add(`${name}/${id}`, model.cost.input, model.cost.output);
+    }
+  }
+  for (const [key, p] of Object.entries(config.pricing ?? {})) add(key, p?.input_per_m, p?.output_per_m);
+  return out;
+}
+
 export function priceFor(model: string): ModelPrice {
   if (isFree(model)) return { in: 0, out: 0 };
-  return PRICE_TABLE[model] ?? { in: 0, out: 0 };
+  if (priceOverrides[model]) return priceOverrides[model]!;
+  const table = PRICE_TABLE[model];
+  if (table) return table;
+  // ponytail: bare-suffix match so tagged usage rows (e.g. ollama-cloud/<id>,
+  // recorded when a custom provider reports a bare model id) still find their
+  // provider/<id> override; first key wins — two providers sharing a bare id collide.
+  const bare = model.split("/").pop()!;
+  for (const key of Object.keys(priceOverrides)) {
+    if (key === bare || key.endsWith(`/${bare}`)) return priceOverrides[key]!;
+  }
+  return { in: 0, out: 0 };
 }
 
 export function estimateCost(model: string, inputTokens: number, outputTokens: number): number {

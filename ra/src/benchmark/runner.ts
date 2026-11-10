@@ -9,6 +9,30 @@ import type { ToolContext } from "../tools/index.ts";
 
 export const BENCHMARK_ROOT = join(homedir(), "Desktop", "RA-Tests");
 
+// D3: --cwd override for the benchmark root. Defaults to the historical
+// ~/Desktop/RA-Tests; `ra benchmark init|smoke|run --cwd DIR` relocates every
+// scenario dir (and the runs/ report dir) under DIR.
+let benchmarkRoot = BENCHMARK_ROOT;
+
+export function setBenchmarkRoot(dir: string): void {
+  benchmarkRoot = dir;
+}
+
+export function getBenchmarkRoot(): string {
+  return benchmarkRoot;
+}
+
+/**
+ * Map a scenario's `cwd:` field onto the active benchmark root. Scenarios
+ * hard-code `~/Desktop/RA-Tests/<name>`; with an override root the trailing
+ * path segment is re-anchored under it. Pure.
+ */
+export function scenarioCwdUnderRoot(scenarioCwd: string): string {
+  const cwd = scenarioCwd.replace(/^~(?=\/)/, homedir());
+  const deflated = cwd.startsWith(`${BENCHMARK_ROOT}/`) ? cwd.slice(BENCHMARK_ROOT.length + 1) : null;
+  return deflated != null ? join(benchmarkRoot, deflated) : cwd;
+}
+
 /** Per-scenario record for the JSON benchmark report (ra.78). */
 export interface ScenarioReport {
   scenario: string;
@@ -60,12 +84,12 @@ export function parseScenarioYaml(raw: string): Scenario {
 }
 
 export function benchmarkInit(): void {
-  mkdirSync(BENCHMARK_ROOT, { recursive: true });
-  mkdirSync(join(BENCHMARK_ROOT, "runs"), { recursive: true });
+  mkdirSync(benchmarkRoot, { recursive: true });
+  mkdirSync(join(benchmarkRoot, "runs"), { recursive: true });
   for (const dir of ["cookie-website", "todo-app", "fix-bug", "smoke"]) {
-    mkdirSync(join(BENCHMARK_ROOT, dir), { recursive: true });
+    mkdirSync(join(benchmarkRoot, dir), { recursive: true });
   }
-  console.log(`RA-Tests initialized at ${BENCHMARK_ROOT}`);
+  console.log(`RA-Tests initialized at ${benchmarkRoot}`);
 }
 
 /** @deprecated prefer ensureTaskArtifacts in runner — kept for unit tests */
@@ -77,7 +101,7 @@ export function ensureBenchmarkArtifacts(ctx: ToolContext, prompt: string): void
 export async function runScenario(scenarioPath: string): Promise<boolean> {
   const raw = readFileSync(scenarioPath, "utf-8");
   const scenario = parseScenarioYaml(raw);
-  const cwd = scenario.cwd.replace(/\$\{HOME\}/g, homedir());
+  const cwd = scenarioCwdUnderRoot(scenario.cwd.replace(/\$\{HOME\}/g, homedir()));
   mkdirSync(cwd, { recursive: true });
 
   console.log(`\n▶ Benchmark: ${scenario.name}`);
@@ -156,7 +180,7 @@ export async function runScenario(scenarioPath: string): Promise<boolean> {
 /** Write the accumulated scenario reports as JSON under RA-Tests/runs/. */
 export function writeBenchmarkReport(): string {
   if (!lastScenarioReports.length) return "";
-  const dir = join(BENCHMARK_ROOT, "runs");
+  const dir = join(benchmarkRoot, "runs");
   mkdirSync(dir, { recursive: true });
   const p = join(dir, `report-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
   writeFileSync(p, JSON.stringify(lastScenarioReports, null, 2), "utf-8");
@@ -165,7 +189,7 @@ export function writeBenchmarkReport(): string {
 
 export async function benchmarkSmoke(): Promise<number> {
   benchmarkInit();
-  const smokeDir = join(BENCHMARK_ROOT, "smoke");
+  const smokeDir = join(benchmarkRoot, "smoke");
   rmSync(join(smokeDir, "index.html"), { force: true });
   const ok = await runScenario(join(ANUBIS_HOME, "..", "benchmarks", "smoke", "scenario.yaml"));
   return ok ? 0 : 1;
@@ -197,7 +221,7 @@ export async function benchmarkRun(name: string): Promise<number> {
   }
   // Seed buggy file for fix-bug
   if (name === "fix-bug") {
-    const cwd = join(BENCHMARK_ROOT, "fix-bug");
+    const cwd = join(benchmarkRoot, "fix-bug");
     mkdirSync(cwd, { recursive: true });
     const { writeFileSync } = await import("node:fs");
     writeFileSync(join(cwd, "hello.py"), "def hello():\n    hello()\n\nhello()\n");

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": ["Bash(npm run *)", "Read(~/.zshrc)"],
+    "ask": ["Bash(git push *)"],
+    "deny": ["Read(./.env)", "WebFetch"]
+  },
+  "env": {
+    "DISABLE_AUTO_COMPACT": "1",
+    "ANTHROPIC_BASE_URL": "https://proxy.example.com"
+  },
+  "model": "claude-sonnet-5"
+}

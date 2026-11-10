@@ -83,7 +83,10 @@ describe("REPOMAP tool", () => {
   });
 
   test("collectRepoEntries finds this repo's tracked sources", () => {
-    const found = collectRepoEntries(process.cwd(), 30);
+    // Cap must cover the whole tracked set (200+ source files today — the
+    // .agents/skills scripts land before ra/src in git ls-files order, so a
+    // 30-file cap truncates agent.ts out nondeterministically).
+    const found = collectRepoEntries(process.cwd(), 500);
     expect(found.length).toBeGreaterThan(5);
     expect(found.some((e) => e.path.endsWith("agent.ts"))).toBe(true);
   });

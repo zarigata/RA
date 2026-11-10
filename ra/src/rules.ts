@@ -78,19 +78,21 @@ export interface LoadedRule {
 
 /**
  * Load rule files from `.ra/rules/` dirs (project cwd up to root, then
- * ~/.ra/rules — same walk as skills). `touchedFiles` (relative paths) gates
- * `paths:`-conditional rules; rules without frontmatter are always on.
+ * ~/.ra/rules — same walk as skills), including the `memory-bank/`
+ * convention subdir (Roo/Cline memory banks land there on import).
+ * `touchedFiles` (relative paths) gates `paths:`-conditional rules; rules
+ * without frontmatter are always on.
  */
 export function loadRules(cwd = process.cwd(), touchedFiles: string[] = []): LoadedRule[] {
   const dirs: string[] = [];
   let cur = resolve(cwd);
   for (let depth = 0; depth < 8; depth++) {
-    dirs.push(join(cur, ".ra", "rules"));
+    dirs.push(join(cur, ".ra", "rules"), join(cur, ".ra", "rules", "memory-bank"));
     const parent = dirname(cur);
     if (parent === cur) break;
     cur = parent;
   }
-  dirs.push(join(homedir(), ".ra", "rules"));
+  dirs.push(join(homedir(), ".ra", "rules"), join(homedir(), ".ra", "rules", "memory-bank"));
   const out: LoadedRule[] = [];
   const seen = new Set<string>();
   for (const dir of dirs) {

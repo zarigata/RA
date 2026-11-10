@@ -25,6 +25,15 @@ export interface ImportRecord {
   hooksEnabled?: boolean;
   /** Runnable hook definitions (event/matcher/command/timeout) for the runtime shim. */
   hookDefs?: Array<{ event: string; matcher?: string; command: string; timeout?: number }>;
+  /** Settings-import detail: translated permission rules / recorded-not-applied keys. */
+  settings?: {
+    /** ra.json permission.tool entries derived from permissions.{allow,ask,deny}. */
+    permissionRules?: Record<string, string[]>;
+    /** env keys recorded but never applied (security). */
+    envRecordedOnly?: string[];
+    /** model alias noted for the manifest. */
+    model?: string;
+  };
   note?: string;
 }
 
@@ -54,6 +63,75 @@ export function mapHooks(hooks: Record<string, unknown>): Record<string, string 
     out[event] = mapped !== undefined && (PluginHost.KNOWN_HOOKS as readonly string[]).includes(mapped) ? mapped : null;
   }
   return out;
+}
+
+/** Claude Code tool name → RA permission verb (mcp servers map to the mcp verb). */
+const CLAUDE_TOOL_TO_RA: Record<string, string> = {
+  Bash: "bash", Read: "read", Edit: "edit", Write: "write", MultiEdit: "multiedit", Glob: "glob",
+  Grep: "grep", WebFetch: "webfetch", WebSearch: "websearch", Task: "task", TodoWrite: "todo",
+  Skill: "skill", WebFetchTool: "webfetch",
+};
+
+/**
+ * Claude settings.json `permissions.{allow,ask,deny}` rule → namespaced RA
+ * permission.tool entry. Rules are `Tool` or `Tool(specifier)`; only bare
+ * tool names map (RA's permission keys are per-verb — specifiers like
+ * `Bash(npm run *)` have no RA key and pass through as a note, never a
+ * mistranslation). Namespaced as `claude:<level>:<Tool>` so an import can
+ * never overwrite a user's own rule.
+ */
+export function claudePermRuleToRa(rule: string): { key: string; level: "allow" | "ask" | "deny" } | null {
+  const bare = rule.match(/^([A-Za-z]+)(?:[([]|$)/);
+  if (!bare) return null;
+  const verb = CLAUDE_TOOL_TO_RA[bare[1]];
+  if (!verb) return null;
+  const hasSpecifier = /[([]/.test(rule);
+  const key = hasSpecifier ? `claude:${verb}:${rule}` : `claude:${verb}`;
+  return { key, level: "allow" };
+}
+
+/**
+ * Claude settings.json → RA import payload. `permissions.{allow,ask,deny}`
+ * become namespaced ra.json permission.tool entries; `env` is RECORDED,
+ * never applied (auto-exporting env would be a silent security change);
+ * `model` is noted in the manifest. Returns the manifest `settings` record
+ * plus the permission entries to merge (never overwriting existing keys).
+ */
+export function claudeSettingsToImport(data: Record<string, unknown>): {
+  settings: NonNullable<ImportRecord["settings"]>;
+  permissionRules: Record<string, "allow" | "ask" | "deny">;
+  notes: string[];
+} {
+  const settings: NonNullable<ImportRecord["settings"]> = {};
+  const permissionRules: Record<string, "allow" | "ask" | "deny"> = {};
+  const notes: string[] = [];
+  const perms = data.permissions as { allow?: unknown[]; ask?: unknown[]; deny?: unknown[] } | undefined;
+  if (perms) {
+    for (const level of ["deny", "ask", "allow"] as const) {
+      for (const raw of Array.isArray(perms[level]) ? perms[level]! : []) {
+        if (typeof raw !== "string") continue;
+        const m = raw.match(/^([A-Za-z]+)(\(|$)/);
+        if (!m || !CLAUDE_TOOL_TO_RA[m[1]]) { notes.push(`rule not mappable (kept as note): ${raw}`); continue; }
+        const verb = CLAUDE_TOOL_TO_RA[m[1]];
+        const hasSpec = raw.includes("(");
+        // Namespaced key: bare verbs collapse onto claude:<verb>; specifier
+        // rules keep their full text so two Bash rules never collide.
+        const key = hasSpec ? `claude:${verb}:${raw}` : `claude:${verb}`;
+        permissionRules[key] = level;
+        (settings.permissionRules ??= {})[level] ??= [];
+        settings.permissionRules[level]!.push(raw);
+      }
+    }
+  }
+  if (data.env && typeof data.env === "object") {
+    settings.envRecordedOnly = Object.keys(data.env as object);
+    notes.push(`env keys recorded but NOT applied (security): ${settings.envRecordedOnly.join(", ")}`);
+  }
+  if (typeof data.model === "string") {
+    settings.model = data.model;
+    notes.push(`model noted: ${data.model}`);
+  }
+  return { settings, permissionRules, notes };
 }
 
 export function manifestPath(home = homedir()): string {
@@ -97,7 +175,16 @@ export function mcpSnippet(name: string, data: Record<string, unknown>): string 
 
 /** MCP server JSON → RA MCP config entry (stdio command/args/env or url). Never synthesizes secrets. */
 export function mcpConfigEntry(data: Record<string, unknown>): Record<string, unknown> | null {
-  if (typeof data.url === "string") return { url: data.url };
+  if (typeof data.url === "string") {
+    // Cline: `"type":"sse"` selects legacy SSE; `"streamableHttp"` (default)
+    // is the modern transport. The marker rides the entry so mcp.ts picks
+    // the right client.
+    // ponytail: Cline's zod schema also defaults url-without-type to legacy
+    // SSE, but defaulting ALL url entries to sse would mistype Codex/OpenCode
+    // streamable endpoints — pass the source through here if that default
+    // ever needs honoring.
+    return data.type === "sse" ? { url: data.url, type: "sse" } : { url: data.url };
+  }
   const argv = Array.isArray(data.command) ? data.command.map(String) : typeof data.command === "string" ? [data.command] : null;
   if (!argv?.length) return null;
   const out: Record<string, unknown> = { command: argv[0] };
@@ -112,10 +199,7 @@ export function mcpConfigEntry(data: Record<string, unknown>): Record<string, un
     if (typeof v === "number" || typeof v === "string") out[k] = v;
   }
   // Per-server tool allowlist (Cline autoApprove / Codex enabled_tools).
-  // ponytail: record-only — stored on the config entry as `tools.allow` /
-  // `tools.deny`; enforcement needs an MCP-tool-level permission check that
-  // RA doesn't have yet (capability gate is global today). mcp.ts callers can
-  // read this field when that lands.
+  // Enforced by mcp.ts at tool-registration + call time (toolAllowed()).
   const allow = allowlistOf(data);
   if (allow) out.tools = allow;
   return out;
@@ -182,6 +266,7 @@ export function rooModeToAgentMd(mode: RooMode, ns = "roo"): string {
   const body = [
     mode.roleDefinition.trim(),
     mode.customInstructions?.trim(),
+    "When working on this project, consult the memory bank rules (memory-bank/*.md, loaded as .ra/rules/memory-bank/) for current context and progress before large changes.",
     notes.length ? `<!-- roo-import: ${notes.join("; ")} -->` : null,
   ].filter(Boolean).join("\n\n");
   return `---\ndescription: ${description.replace(/\n/g, " ")}\ncategory: roo\nmode: subagent\n${fm.join("\n")}\n---\n\n${body}\n`;
@@ -203,6 +288,7 @@ export function importEntry(entry: StoreEntry, home = homedir(), opts: ImportOpt
   let hooks: Record<string, string | null> | undefined;
   let hookDefs: ImportRecord["hookDefs"] | undefined;
   let hooksEnabled: boolean | undefined;
+  let settingsRecord: ImportRecord["settings"] | undefined;
 
   if (entry.kind === "skill") {
     // Copy the whole skill dir (SKILL.md + assets); frontmatter is already compatible.
@@ -246,6 +332,31 @@ export function importEntry(entry: StoreEntry, home = homedir(), opts: ImportOpt
     mkdirSync(join(home, ".ra", "agents"), { recursive: true });
     writeFileSync(targetPath, rooModeToAgentMd(entry.data as unknown as RooMode));
     note = "Roo mode → RA agent (groups mapped to tool permission gates)";
+  } else if (entry.kind === "settings") {
+    // Claude Code settings.json: permissions → namespaced ra.json
+    // permission.tool entries (merged, never overwriting existing keys); env
+    // RECORDED not applied (security); model noted in the manifest.
+    const data = entry.data ?? {};
+    const { settings, permissionRules, notes } = claudeSettingsToImport(data);
+    let configPath: string | null = null;
+    const ruleKeys = Object.keys(permissionRules);
+    if (ruleKeys.length) {
+      const apply = applyPermissionRules(permissionRules, home);
+      configPath = apply.configPath;
+      report.push(...ruleKeys.map((k) => `permission entry: ${k} = ${permissionRules[k]}`));
+      if (apply.skipped.length) report.push(`already present (never overwritten): ${apply.skipped.join(", ")}`);
+    }
+    report.push(...notes);
+    note = notes.join("; ") || "no mappable keys in settings.json";
+    if (configPath) note += `; rules merged into ${configPath}`;
+    settingsRecord = settings;
+  } else if (entry.kind === "memory-bank") {
+    // Roo/Cline memory-bank/*.md → .ra/rules/memory-bank/ (always-on rules;
+    // injected by loadRules — the memory-bank dir is one of its roots).
+    targetPath = join(home, ".ra", "rules", "memory-bank", `${entry.name}.md`);
+    mkdirSync(join(home, ".ra", "rules", "memory-bank"), { recursive: true });
+    writeFileSync(targetPath, readFileSync(entry.path, "utf-8"));
+    note = "memory-bank file → .ra/rules/memory-bank (always-on rule; roo-* agents consult it via TASK routing)";
   } else if (entry.kind === "permission-profile") {
     // Codex approval_policy/sandbox_mode → record-only. RA has its own
     // permission/sandbox machinery; importing Codex's trust posture wholesale
@@ -280,11 +391,11 @@ export function importEntry(entry: StoreEntry, home = homedir(), opts: ImportOpt
     }
   }
 
-  const record: ImportRecord = { id, source: entry.source, kind: entry.kind, name: entry.name, originPath: entry.path, targetPath, importedAt: new Date().toISOString(), hooks, ...(hooksEnabled !== undefined ? { hooksEnabled } : {}), ...(hookDefs ? { hookDefs } : {}), note };
+  const record: ImportRecord = { id, source: entry.source, kind: entry.kind, name: entry.name, originPath: entry.path, targetPath, importedAt: new Date().toISOString(), hooks, ...(hooksEnabled !== undefined ? { hooksEnabled } : {}), ...(hookDefs ? { hookDefs } : {}), ...(settingsRecord ? { settings: settingsRecord } : {}), note };
   manifest.imports.push(record);
   saveManifest(manifest, home);
   if (targetPath) report.unshift(`→ ${targetPath}`);
-  return { record, status: targetPath || snippet ? "imported" : "skipped", snippet, report };
+  return { record, status: targetPath || snippet || entry.kind === "settings" ? "imported" : "skipped", snippet, report };
 }
 
 /** Remove imported entry/entries: delete copied files + manifest records (all name matches). */
@@ -345,6 +456,43 @@ export function applyMcpToConfig(
     applied.push(name);
   }
   if (applied.length) {
+    mkdirSync(dirname(configPath), { recursive: true });
+    writeFileSync(configPath, JSON.stringify(cfg, null, 2) + "\n", "utf-8");
+  }
+  return { applied, skipped, configPath };
+}
+
+/**
+ * Merge namespaced permission.tool rules (Claude settings import) into ra.json
+ * (project ra.json > ~/.ra/ra.json — same resolution as applyMcpToConfig).
+ * Existing keys are NEVER overwritten; returns which keys were skipped.
+ */
+export function applyPermissionRules(
+  rules: Record<string, "allow" | "ask" | "deny">,
+  home = homedir(),
+  projectRoot?: string,
+): { applied: string[]; skipped: string[]; configPath: string } {
+  const configPath = projectRoot && existsSync(join(projectRoot, "ra.json"))
+    ? join(projectRoot, "ra.json")
+    : join(home, ".ra", "ra.json");
+  let cfg: Record<string, unknown>;
+  try {
+    cfg = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown> : {};
+  } catch {
+    cfg = {};
+  }
+  const permission = (cfg.permission ?? {}) as { tool?: Record<string, string> };
+  const tool = permission.tool ?? {};
+  const applied: string[] = [];
+  const skipped: string[] = [];
+  for (const [key, level] of Object.entries(rules)) {
+    if (tool[key] !== undefined) { skipped.push(key); continue; }
+    tool[key] = level;
+    applied.push(key);
+  }
+  if (applied.length) {
+    permission.tool = tool;
+    cfg.permission = permission;
     mkdirSync(dirname(configPath), { recursive: true });
     writeFileSync(configPath, JSON.stringify(cfg, null, 2) + "\n", "utf-8");
   }

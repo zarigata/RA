@@ -18,7 +18,9 @@ Import never executes third-party code unless hooks are explicitly enabled twice
 plugins are listed with a note. MCP is paste-only unless --apply-mcp is passed.
 Sources: Claude Code, Cursor (plugin caches + skills), OpenCode (global +
 project opencode.json), Cline (rules/workflows/MCP), Roo (.roomodes YAML+JSON,
-MCP), Codex (config.toml MCP, skills, legacy prompts).`;
+MCP), Codex (config.toml MCP, skills, legacy prompts). Claude Code settings.json
+(permissions → namespaced permission entries, env recorded not applied) and the
+Roo/Cline memory-bank/ dir (→ .ra/rules/memory-bank) import too.`;
 
 export function pluginsCommand(args: string[], opts: { json?: boolean; home?: string } = {}): { code: number; data: unknown; text: string } {
   const home = opts.home ?? (process.env.HOME ?? "");

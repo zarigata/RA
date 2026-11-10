@@ -9,7 +9,7 @@ import { parseRoomodes } from "./roo-modes.ts";
 import { parseToml } from "./toml.ts";
 
 export type StoreSource = "claude-code" | "opencode" | "cursor" | "cline" | "roo" | "codex";
-export type EntryKind = "skill" | "agent" | "command" | "mcp" | "plugin" | "roo-mode" | "rule" | "workflow" | "permission-profile";
+export type EntryKind = "skill" | "agent" | "command" | "mcp" | "plugin" | "roo-mode" | "rule" | "workflow" | "permission-profile" | "settings" | "memory-bank";
 
 export interface StoreEntry {
   source: StoreSource;
@@ -190,11 +190,9 @@ function rooEntries(home: string, cwd: string | undefined, out: StoreEntry[]): v
   if (cwd) mdFileEntries(join(cwd, ".roo", "workflows"), "workflow", "roo", out);
 }
 
-/**
- * Codex: config.toml (mcp_servers + approval/sandbox → permission profile
+/** Codex: config.toml (mcp_servers + approval/sandbox → permission profile
  * record), skills dirs, legacy prompts (→ commands).
- */
-function codexEntries(home: string, out: StoreEntry[]): void {
+ */function codexEntries(home: string, out: StoreEntry[]): void {
   const root = process.env.CODEX_HOME && existsSync(process.env.CODEX_HOME) ? process.env.CODEX_HOME : join(home, ".codex");
   const cfgPath = join(root, "config.toml");
   if (existsSync(cfgPath)) {
@@ -222,6 +220,45 @@ function codexEntries(home: string, out: StoreEntry[]): void {
   skillDirEntries(join(root, "skills"), "codex", out);
   // Legacy prompts (~/.codex/prompts, removed in Codex v0.117) → commands.
   mdDirEntries(join(root, "prompts"), "command", "codex", out);
+}
+
+/** Claude Code settings.json (~/.claude/settings.json, project .claude/settings[.local].json). */
+function claudeSettingsEntries(home: string, cwd: string | undefined, out: StoreEntry[]): void {
+  const paths: Array<{ p: string; name: string }> = [
+    { p: join(home, ".claude", "settings.json"), name: "claude-settings" },
+  ];
+  if (cwd) {
+    paths.unshift(
+      { p: join(cwd, ".claude", "settings.local.json"), name: "claude-settings-local" },
+      { p: join(cwd, ".claude", "settings.json"), name: "claude-settings-project" },
+    );
+  }
+  for (const { p, name } of paths) {
+    const cfg = readJson(p);
+    if (!cfg) continue;
+    const perms = cfg.permissions as { allow?: unknown[]; ask?: unknown[]; deny?: unknown[] } | undefined;
+    const envKeys = cfg.env && typeof cfg.env === "object" ? Object.keys(cfg.env as object).length : 0;
+    const bits = [
+      perms?.allow?.length ? `${perms.allow.length} allow` : null,
+      perms?.ask?.length ? `${perms.ask.length} ask` : null,
+      perms?.deny?.length ? `${perms.deny.length} deny` : null,
+      typeof cfg.model === "string" ? `model=${cfg.model}` : null,
+      envKeys ? `${envKeys} env (recorded, never applied)` : null,
+    ].filter(Boolean);
+    out.push({ source: "claude-code", kind: "settings", name, path: p, data: cfg, description: bits.join(", ") || "no mappable keys" });
+    break; // most specific scope wins (project-local > project > user)
+  }
+}
+
+/** Roo/Cline memory-bank convention dir (memory-bank/*.md) → rule entries. */
+function memoryBankEntries(home: string, cwd: string | undefined, out: StoreEntry[]): void {
+  const roots = cwd ? [join(cwd, "memory-bank"), join(cwd, ".roo", "memory-bank")] : [];
+  roots.push(join(home, "memory-bank"));
+  for (const dir of roots) {
+    if (!existsSync(dir)) continue;
+    mdFileEntries(dir, "memory-bank", "roo", out);
+    break; // first found wins (project > home)
+  }
 }
 
 /** Project-root opencode.json (GAP §d.9): same shapes as the global scan. */
@@ -278,6 +315,10 @@ export function detectStores(home = homedir(), cwd = process.cwd()): StoreEntry[
   rooEntries(home, cwd, out);
   // Codex: config.toml + skills + legacy prompts.
   codexEntries(home, out);
+  // Claude Code settings.json (user + project scopes).
+  claudeSettingsEntries(home, cwd, out);
+  // Roo/Cline memory-bank convention dir.
+  memoryBankEntries(home, cwd, out);
   // Dedupe (source, kind, name) — cache revisions can repeat a plugin name.
   const seen = new Set<string>();
   return out.filter((e) => {

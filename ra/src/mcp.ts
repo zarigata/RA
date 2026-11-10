@@ -18,6 +18,8 @@ export interface McpServerConfig {
 /** SSE/HTTP MCP server config (Streamable HTTP transport). */
 export interface McpHttpServerConfig {
   url: string;
+  /** `"sse"` selects the legacy SSE transport (GET stream + endpoint event). */
+  type?: "sse" | "streamableHttp";
   headers?: Record<string, string>;
   /** OAuth 2.1 configuration for authenticated MCP servers. */
   oauth?: McpOAuthConfig;
@@ -39,12 +41,39 @@ export interface McpOAuthConfig {
   tokenEnvVar?: string;
 }
 
+/** Per-server tool allow/deny (imported autoApprove/enabled_tools/disabled_tools). */
+export interface McpToolFilter {
+  allow?: string[];
+  deny?: string[];
+}
+
 /** Union config type: either stdio command or HTTP URL. */
-export type McpServerEntry = McpServerConfig | McpHttpServerConfig;
+export type McpServerEntry = McpServerConfig | (McpHttpServerConfig & { tools?: McpToolFilter });
 
 /** Type guard: is this an HTTP config? */
 export function isHttpConfig(cfg: McpServerEntry): cfg is McpHttpServerConfig {
   return typeof (cfg as McpHttpServerConfig).url === "string";
+}
+
+/**
+ * Per-server tool allow/deny on an MCP config entry (Cline `autoApprove`,
+ * Codex `enabled_tools`/`disabled_tools`; recorded at import, enforced here).
+ * Entry field survives the stdio|http union: no filter → all tools allowed.
+ */
+export function toolFilterOf(cfg: McpServerEntry): McpToolFilter | undefined {
+  const f = (cfg as { tools?: McpToolFilter }).tools;
+  return f && typeof f === "object" && (f.allow?.length || f.deny?.length) ? f : undefined;
+}
+
+/**
+ * Does a tool pass a server's allow/deny lists? Deny wins over allow (both
+ * are exact-name lists in every source format we import). No filter → true.
+ */
+export function toolAllowed(filter: McpToolFilter | undefined, tool: string): boolean {
+  if (!filter) return true;
+  if (filter.deny?.includes(tool)) return false;
+  if (filter.allow?.length) return filter.allow.includes(tool);
+  return true;
 }
 
 interface JsonRpcResponse {
@@ -313,8 +342,195 @@ export class McpHttpClient {
 }
 
 /**
+ * Legacy SSE MCP transport (Cline `"type":"sse"` / url-without-type default;
+ * pre-2025 MCP spec): one long-lived GET text/event-stream per session.
+ *   • `endpoint` event carries the JSON-RPC POST endpoint URL.
+ *   • Client messages are POSTed to that endpoint (Accept: application/json).
+ *   • Responses arrive as `message` events on the same GET stream.
+ * Fail-closed: anything the server doesn't answer or redirect cleanly is an
+ * error, never a silent partial connection. Hand-rolled on fetch — no deps.
+ */
+export class McpSseClient {
+  private nextId = 1;
+  private endpoint = "";
+  private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  private pending = new Map<number, { resolve: (r: JsonRpcResponse) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
+  private decoder = new TextDecoder();
+
+  constructor(
+    private config: McpHttpServerConfig,
+    private signal?: AbortSignal,
+    private timeoutMs = 10000,
+  ) {}
+
+  /** Open the GET stream, learn the POST endpoint from the `endpoint` event. */
+  private async openStream(): Promise<void> {
+    const headers: Record<string, string> = {
+      Accept: "text/event-stream",
+      ...(this.config.headers ?? {}),
+    };
+    const res = await fetch(this.config.url, {
+      method: "GET",
+      headers,
+      signal: this.signal ? AbortSignal.any([this.signal]) : undefined,
+    });
+    if (!res.ok || !(res.headers.get("content-type") ?? "").includes("text/event-stream")) {
+      // Fail-closed with a self-describing error: a server that answers JSON
+      // on GET is a streamable-HTTP server, not legacy SSE.
+      throw new Error(`MCP SSE: ${this.config.url} did not open an event stream (HTTP ${res.status} ${res.headers.get("content-type") ?? "no content-type"}) — not a legacy SSE endpoint`);
+    }
+    this.reader = res.body!.getReader();
+    let buffer = "";
+    // The legacy handshake: the first event must be `endpoint` (some servers
+    // prefix data with a newline). No endpoint within timeout → fail closed.
+    const endpoint = await new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("MCP SSE: no `endpoint` event received during handshake")), this.timeoutMs);
+      (async () => {
+        try {
+          while (true) {
+            const { done, value } = await this.reader!.read();
+            if (done) { reject(new Error("MCP SSE: stream closed before `endpoint` event")); return; }
+            buffer += this.decoder.decode(value, { stream: true });
+            for (const evt of this.splitEvents(buffer)) {
+              buffer = evt.remainder;
+              const ep = evt.event === "endpoint" ? evt.data.find((d) => d.trim().length) : undefined;
+              if (ep) {
+                // Resolve endpoint URLs relative to the SSE root (spec convention).
+                resolve(new URL(ep.trim(), this.config.url).toString());
+                return;
+              }
+            }
+          }
+        } catch (e) { reject(e instanceof Error ? e : new Error(String(e))); }
+      })().finally(() => clearTimeout(timer));
+    });
+    this.endpoint = endpoint;
+    // Drain the rest of the stream on the pending-response loop.
+    void this.pump(buffer);
+  }
+
+  /** Split an SSE buffer into complete events (returns remainder for the next chunk). */
+  private splitEvents(buffer: string): Array<{ event: string; data: string[]; remainder: string }> {
+    const out: Array<{ event: string; data: string[]; remainder: string }> = [];
+    let rest = buffer;
+    let index: number;
+    while ((index = rest.indexOf("\n\n")) >= 0) {
+      const raw = rest.slice(0, index);
+      rest = rest.slice(index + 2);
+      const event = raw.split("\n").find((l) => l.startsWith("event:"))?.slice(6).trim() ?? "message";
+      const data = raw.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).replace(/^ /, ""));
+      out.push({ event, data, remainder: rest });
+    }
+    return out;
+  }
+
+  /** Read the stream, resolving pending requests by id; runs until stream end. */
+  private async pump(initial: string): Promise<void> {
+    let buffer = initial;
+    try {
+      while (this.reader) {
+        const { done, value } = await this.reader.read();
+        if (done) break;
+        buffer += this.decoder.decode(value, { stream: true });
+        for (const evt of this.splitEvents(buffer)) {
+          buffer = evt.remainder;
+          if (evt.event !== "message") continue;
+          for (const d of evt.data) {
+            try {
+              const parsed = JSON.parse(d) as JsonRpcResponse;
+              const item = typeof parsed.id === "number" ? this.pending.get(parsed.id) : undefined;
+              if (item) {
+                this.pending.delete(parsed.id);
+                clearTimeout(item.timer);
+                item.resolve(parsed);
+              }
+            } catch { /* non-JSON data line */ }
+          }
+        }
+      }
+    } catch { /* stream aborted — pending requests fail via their own timers */ }
+    this.failPending(new Error("MCP SSE: stream closed"));
+  }
+
+  private failPending(error: Error): void {
+    for (const item of this.pending.values()) { clearTimeout(item.timer); item.reject(error); }
+    this.pending.clear();
+  }
+
+  private async post(message: unknown): Promise<void> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(this.config.headers ?? {}),
+    };
+    const oauth = this.config.oauth ? new McpOAuthManager(this.config.oauth) : null;
+    const token = oauth?.resolveToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(this.endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(message),
+      signal: this.signal ? AbortSignal.any([this.signal, AbortSignal.timeout(this.timeoutMs)]) : AbortSignal.timeout(this.timeoutMs),
+    });
+    // Legacy SSE accepts 202/204 for notifications; JSON bodies can also ride
+    // the POST response directly (belt-and-braces for hybrid servers).
+    if (res.status === 202 || res.status === 204) return;
+    if ((res.headers.get("content-type") ?? "").includes("application/json") && res.body) {
+      try {
+        const parsed = (await res.json()) as JsonRpcResponse;
+        const item = typeof parsed.id === "number" ? this.pending.get(parsed.id) : undefined;
+        if (item) { this.pending.delete(parsed.id); clearTimeout(item.timer); item.resolve(parsed); }
+      } catch { /* not JSON-RPC — ignore */ }
+    }
+  }
+
+  private request(method: string, params: unknown): Promise<JsonRpcResponse> {
+    const id = this.nextId++;
+    return new Promise<JsonRpcResponse>((resolve, reject) => {
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`MCP SSE request timed out: ${method}`)); }, this.timeoutMs);
+      this.pending.set(id, { resolve, reject, timer });
+      this.post({ jsonrpc: "2.0", id, method, params }).catch((e) => {
+        clearTimeout(timer); this.pending.delete(id); reject(e instanceof Error ? e : new Error(String(e)));
+      });
+    });
+  }
+
+  async start(): Promise<void> {
+    await this.openStream();
+    await this.request("initialize", {
+      protocolVersion: "2024-11-05",
+      capabilities: {},
+      clientInfo: { name: "ra", version: "1.0.0" },
+    });
+    await this.post({ jsonrpc: "2.0", method: "notifications/initialized", params: {} });
+  }
+
+  async listTools(): Promise<McpTool[]> {
+    const res = await this.request("tools/list", {});
+    if (res.error) throw new Error(`MCP tools/list error: ${res.error.message}`);
+    return (res.result as { tools?: McpTool[] })?.tools ?? [];
+  }
+
+  async callTool(name: string, args: Record<string, unknown>): Promise<string> {
+    const res = await this.request("tools/call", { name, arguments: args });
+    if (res.error) throw new Error(`MCP tools/call error: ${res.error.message}`);
+    const result = res.result as { content?: Array<{ type: string; text?: string }> };
+    const text = (result.content ?? []).filter((c) => c.type === "text" && c.text).map((c) => c.text).join("\n");
+    return text || JSON.stringify(result);
+  }
+
+  async close(): Promise<void> {
+    this.failPending(new Error("MCP SSE client closed"));
+    try { await this.reader?.cancel(); } catch { /* already closed */ }
+    this.reader = null;
+  }
+}
+
+/**
  * Connect to all configured MCP servers and return their tools, tagged with
- * the server name. Servers that fail to start are skipped (logged to stderr).
+ * the server name. Per-server `tools.allow/deny` entries (imported from
+ * Cline autoApprove / Codex enabled_tools/disabled_tools) are enforced HERE:
+ * denied tools never materialize into the agent's tool set. Servers that
+ * fail to start are skipped (logged to stderr).
  */
 export async function loadMcpTools(
   servers: Record<string, McpServerEntry>, context: CommandContext = { cwd: process.cwd() },
@@ -322,8 +538,17 @@ export async function loadMcpTools(
   const out: Array<McpTool & { server: string }> = [];
   for (const [name, cfg] of Object.entries(servers)) {
     context.signal?.throwIfAborted();
-    const client = isHttpConfig(cfg) ? new McpHttpClient(cfg, context.signal) : new McpClient(cfg, context);
-    try { await client.start(); for (const tool of await client.listTools()) out.push({ ...tool, server: name }); }
+    const client = isHttpConfig(cfg)
+      ? cfg.type === "sse" ? new McpSseClient(cfg, context.signal) : new McpHttpClient(cfg, context.signal)
+      : new McpClient(cfg, context);
+    try {
+      await client.start();
+      const filter = toolFilterOf(cfg);
+      for (const tool of await client.listTools()) {
+        if (!toolAllowed(filter, tool.name)) continue;
+        out.push({ ...tool, server: name });
+      }
+    }
     catch (error) { context.signal?.throwIfAborted(); console.error(`MCP server '${name}' failed: ${String(error)}`); }
     finally { await client.close(); }
   }
@@ -345,4 +570,50 @@ export async function searchMcpTools(
   return all.filter(
     (t) => t.name.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q),
   );
+}
+
+// ---- MCP elicitation (server-initiated requests for user input) -------------------------
+
+/** MCP `elicitation/createMessage` request as sent by a server. */
+export interface ElicitRequest {
+  jsonrpc: "2.0";
+  id: number;
+  method: "elicitation/createMessage";
+  params?: { message?: string; requestedSchema?: Record<string, unknown> };
+}
+
+/** Is a JSON-RPC message from a server an elicitation request? */
+export function isElicitRequest(msg: unknown): msg is ElicitRequest {
+  return !!msg && typeof msg === "object" &&
+    (msg as { method?: unknown }).method === "elicitation/createMessage";
+}
+
+export interface ElicitDecision {
+  /** The JSON-RPC result payload sent back to the server. */
+  result: { code: number; message?: string };
+  /** Human-readable reason (logged + surfaced in notes). */
+  reason: string;
+}
+
+/**
+ * Decide an elicitation request. RA has no interactive MCP prompt surface:
+ * headless runs and the TUI share one policy — DECLINE, with a reason, so the
+ * server sees an explicit `code 1 (declined)` and the run continues instead of
+ * hanging on a request nobody can answer.
+ * ponytail: ceiling — if the TUI grows an onAsk-style MCP prompt, branch on it
+ * here (the ElicitDecision shape is already the response envelope).
+ */
+export function decideElicitation(
+  request: ElicitRequest,
+  opts: { onAsk?: (message: string) => string | null } = {},
+): ElicitDecision {
+  const message = request.params?.message ?? "(no message)";
+  if (opts.onAsk) {
+    const answer = opts.onAsk(message);
+    if (answer !== null) return { result: { code: 0, message: answer }, reason: `elicitation answered via prompt: ${message}` };
+  }
+  return {
+    result: { code: 1, message: "Declined: RA cannot prompt for MCP elicitation in this context" },
+    reason: `declined elicitation (no interactive surface): ${message}`,
+  };
 }

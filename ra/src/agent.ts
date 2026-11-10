@@ -15,7 +15,7 @@ import { loadEnv } from "../../anubis/src/env.ts";
 import { classifyTier, tierModel } from "./tier.ts";
 import { canRunTool, resolveCapabilities, assertTool, assertBash } from "./permission.ts";
 import { isAirgapped, localizeModel } from "./airgap.ts";
-import { loadMcpTools, McpClient, McpHttpClient, isHttpConfig } from "./mcp.ts";
+import { loadMcpTools, McpClient, McpHttpClient, McpSseClient, isHttpConfig, toolFilterOf, toolAllowed } from "./mcp.ts";
 import type { McpServerEntry, McpTool } from "./mcp.ts";
 import { resolveAgentFile, taskCatalogHint } from "./agents/catalog.ts";
 import { toolSkill } from "./skills.ts";
@@ -610,7 +610,14 @@ export async function getMcpRuntime(config: RaConfig, context: ToolContext = { c
       const cfg = servers[server];
       if (!cfg) throw new Error(`unknown MCP server: ${server}`);
       assertTool(context.capabilities, "mcp");
-      const client = isHttpConfig(cfg) ? new McpHttpClient(cfg, context.signal) : new McpClient(cfg, context);
+      // Per-server allowlist (Cline autoApprove / Codex enabled_tools): a
+      // denied tool errors exactly like any other permission denial.
+      if (!toolAllowed(toolFilterOf(cfg), tool)) {
+        throw new Error(`MCP tool '${tool}' on server '${server}' is not permitted by the server's tool allowlist`);
+      }
+      const client = isHttpConfig(cfg)
+        ? cfg.type === "sse" ? new McpSseClient(cfg, context.signal) : new McpHttpClient(cfg, context.signal)
+        : new McpClient(cfg, context);
       try {
         await client.start();
         return await client.callTool(tool, args);

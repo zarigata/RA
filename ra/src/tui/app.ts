@@ -6,7 +6,7 @@
 // Non-TTY stdin falls back to the legacy readline interface.
 
 import * as readline from "node:readline";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { execSync } from "node:child_process";
@@ -38,6 +38,7 @@ import { visibleCatalog } from "../agents/catalog.ts";
 import { buildTree, toggleDir, renderExplorer, parseWebResults, flattenTree, type TreeNode, type RightPane } from "./explorer.ts";
 import { resolveLane } from "../lane.ts";
 import { promptHistory } from "./history.ts";
+import { detectImageSupport, renderImageBlock } from "./images.ts";
 
 export type { TuiOptions };
 
@@ -351,6 +352,15 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       push("info", "↳ streamed above");
     } else {
       push("assistant", text);
+    }
+    // Inline-image artifacts: any image path the reply references renders as
+    // a placeholder box (dimensions + `open` hint) instead of raw bytes noise.
+    for (const m of text.matchAll(/(?:^|\s)([\w./~-]+\.(?:png|jpe?g|gif|webp|bmp|svg))\b/gi)) {
+      const p = m[1]!;
+      const abs = p.startsWith("/") ? p : join(opts.cwd, p);
+      let sizeBytes: number | undefined;
+      try { sizeBytes = statSync(abs).size; } catch { /* not on disk — placeholder without size */ }
+      push("info", renderImageBlock(p, { sizeBytes, support: detectImageSupport() }));
     }
     const report = buildReport(loadUsage());
     if (report.length) {

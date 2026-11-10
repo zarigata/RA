@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { loadRaConfig } from "../../../../anubis/src/config.ts";
 import { loadEnv } from "../../../../anubis/src/env.ts";
-import { loadUsage, estimateCost } from "../../../../anubis/src/cost.ts";
+import { loadUsage, estimateCost, setPriceOverrides, priceOverridesFromConfig } from "../../../../anubis/src/cost.ts";
 import { runTaskAgent } from "../../agent.ts";
 import type { RaConfig } from "../../../../anubis/src/config.ts";
 import type { ToolContext } from "../../tools/index.ts";
@@ -87,6 +87,9 @@ export async function runExternalBench(opts: ExternalBenchOpts): Promise<Externa
     : undefined;
 
   const config = pinModel(loadRaConfig(ANUBIS_HOME), opts.model);
+  // Provider pricing lives in ra.json (per-model cost overrides); without this
+  // a custom provider's models price at $0 (only `ra status/cost` wired it).
+  setPriceOverrides(priceOverridesFromConfig(loadRaConfig(ANUBIS_HOME)));
   const env = loadEnv(ANUBIS_HOME);
 
   const scratchRoot = join(tmpdir(), "ra-ext-bench");

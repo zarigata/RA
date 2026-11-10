@@ -2,7 +2,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { RA_GLOBAL } from "../../../anubis/src/config.ts";
+import { RA_GLOBAL, slugifyCwd } from "../../../anubis/src/config.ts";
 
 export interface Checkpoint {
   id: string;
@@ -12,7 +12,7 @@ export interface Checkpoint {
 }
 
 function checkpointDir(cwd: string): string {
-  const slug = cwd.replace(/\//g, "_").replace(/^_|_$/g, "") || "default";
+  const slug = slugifyCwd(cwd);
   return join(RA_GLOBAL, "checkpoints", slug);
 }
 

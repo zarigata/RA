@@ -2,7 +2,7 @@
 // Catalog completeness sweep, en fallback, detection matrix, lock persistence,
 // t() interpolation, agent output-language directive, and the /lang + ra lang UX.
 
-import { describe, expect, test, beforeEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterAll } from "bun:test";
 import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,6 +14,9 @@ import {
 import { assistantSystemPrompt } from "../src/lane.ts";
 
 beforeEach(() => setLocale("en"));
+// bun may run test files in one process (CI saw tree.test.ts render German
+// after this file): restore the default locale when these tests end.
+afterAll(() => setLocale("en"));
 
 describe("catalog completeness sweep", () => {
   test("every non-en locale covers every key of every other locale", () => {

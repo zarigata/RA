@@ -9,7 +9,11 @@ import { importEntry, loadManifest, removeImported, mapHooks, applyMcpToConfig, 
 import { PluginHost } from "../src/plugins/host.ts";
 
 let HOME = "";
-const gs = () => join(HOME, "Library", "Application Support", "Code", "User", "globalStorage");
+// VS Code globalStorage lives under Library/... on macOS, ~/.config/Code on
+// Linux/Windows (mirrors the ternary in ra/src/plugins/stores.ts).
+const gs = () => join(HOME, ...process.platform === "darwin"
+  ? ["Library", "Application Support", "Code", "User", "globalStorage"]
+  : [".config", "Code", "User", "globalStorage"]);
 const FIXTURES = join(import.meta.dir, "fixtures", "parity");
 
 beforeAll(() => {

@@ -119,8 +119,18 @@ export function saveRaConfig(cfg: RaConfig, root = RA_HOME): string {
   return path;
 }
 
+/**
+ * One path-segment slug for a project cwd — safe on every OS. Windows paths
+ * carry a drive colon (`C:\…`) that is illegal inside a nested path segment;
+ * separators and Windows-reserved characters become `_`, everything else
+ * (including unicode project names) is kept.
+ */
+export function slugifyCwd(cwd: string): string {
+  return cwd.replace(/[\\/]/g, "_").replace(/[:?*"<>|]/g, "_").replace(/^_+|_+$/g, "") || "default";
+}
+
 export function sessionPath(projectCwd: string): string {
-  const slug = projectCwd.replace(/\//g, "_").replace(/^_|_$/g, "") || "default";
+  const slug = slugifyCwd(projectCwd);
   return join(RA_GLOBAL, "sessions", `${slug}.json`);
 }
 

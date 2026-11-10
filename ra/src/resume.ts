@@ -7,7 +7,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { RA_GLOBAL } from "../../anubis/src/config.ts";
+import { RA_GLOBAL, slugifyCwd } from "../../anubis/src/config.ts";
 import type { RaConfig } from "../../anubis/src/config.ts";
 import { contextPolicy, modelKind, modelMaxContext, usableContext } from "../../anubis/src/context-limits.ts";
 import { escalationChain } from "../../anubis/src/routing.ts";
@@ -87,8 +87,7 @@ export function buildHandoff(i: HandoffInput): string {
 
 /** Persist a handoff under ~/.ra/handoffs/<project-slug>/ and return its path. */
 export function saveHandoff(cwd: string, role: string, index: number, content: string): string {
-  const slug = cwd.replace(/\//g, "_").replace(/^_|_$/g, "") || "default";
-  const dir = join(RA_GLOBAL, "handoffs", slug);
+  const dir = join(RA_GLOBAL, "handoffs", slugifyCwd(cwd));
   mkdirSync(dir, { recursive: true });
   const p = join(dir, `${role}-${index}-${Date.now()}.md`);
   writeFileSync(p, content, "utf-8");

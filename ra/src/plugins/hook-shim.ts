@@ -150,10 +150,16 @@ export async function runHookCommand(
       // (the string replaceAll below only covers the bare form).
       ...(hook.pluginRoot ? { env: { ...process.env, CLAUDE_PLUGIN_ROOT: hook.pluginRoot } } : {}),
     });
+    const timeoutMs2 = Math.max(1, hook.handler.timeout ? hook.handler.timeout * 1000 : timeoutMs);
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
       timedOut = true;
-      proc?.kill();
-    }, Math.max(1, hook.handler.timeout ? hook.handler.timeout * 1000 : timeoutMs));
+      proc?.kill(); // TERM first …
+      // … escalate to KILL: some sh/bun combos leave a TERM'd child's pipes
+      // open, hanging the Response readers past every deadline (seen on
+      // linux/bun-1.4 CI). KILL after a grace period keeps hooks non-blocking.
+      killTimer = setTimeout(() => { try { proc?.kill(9); } catch { /* already gone */ } }, 1000);
+    }, timeoutMs2);
     try {
       proc.stdin!.write(stdin);
       proc.stdin!.end();
@@ -178,6 +184,7 @@ export async function runHookCommand(
       return { decision: { action: "allow" }, stdout, stderr };
     } finally {
       clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
     }
   } catch (e) {
     return { decision: { action: "allow", reason: `hook spawn failed (non-blocking): ${String(e)}` }, stdout: "", stderr: String(e) };

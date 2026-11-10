@@ -29,7 +29,12 @@ export function getBenchmarkRoot(): string {
  */
 export function scenarioCwdUnderRoot(scenarioCwd: string): string {
   const cwd = scenarioCwd.replace(/^~(?=\/)/, homedir());
-  const deflated = cwd.startsWith(`${BENCHMARK_ROOT}/`) ? cwd.slice(BENCHMARK_ROOT.length + 1) : null;
+  // Windows homedir() yields backslash paths; compare on a normalized form
+  // so the re-anchor works on every OS (trailing segment stays os-neutral).
+  const norm = (p: string) => p.replace(/\\/g, "/");
+  const ncwd = norm(cwd);
+  const nroot = `${norm(BENCHMARK_ROOT)}/`;
+  const deflated = ncwd.startsWith(nroot) ? ncwd.slice(nroot.length) : null;
   return deflated != null ? join(benchmarkRoot, deflated) : cwd;
 }
 

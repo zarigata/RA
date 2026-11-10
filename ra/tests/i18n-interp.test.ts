@@ -2,10 +2,11 @@
 // args, extra args, unicode args, numeric args, placeholder edge shapes.
 // Wave 1 covered order + passthrough; this pins the degenerate inputs.
 
-import { describe, expect, test, beforeEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterAll } from "bun:test";
 import { setLocale, t, normalizeLocale } from "../src/i18n.ts";
 
 beforeEach(() => setLocale("en"));
+afterAll(() => setLocale("en")); // shared-process hygiene (see i18n.test.ts)
 
 describe("t() interpolation edge cases", () => {
   test("missing args leave the placeholder verbatim", () => {

@@ -27,6 +27,10 @@ const FIX = join(import.meta.dir, "fixtures", "parity");
 const CLI = join(import.meta.dir, "..", "src", "cli.ts");
 const read = (p: string) => readFileSync(p, "utf-8");
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
+// VS Code globalStorage root — platform-specific (mirrors stores.ts).
+const gsRoot = (home: string) => join(home, ...process.platform === "darwin"
+  ? ["Library", "Application Support", "Code", "User", "globalStorage"]
+  : [".config", "Code", "User", "globalStorage"]);
 
 // ---- shared isolated environment ---------------------------------------------------------
 
@@ -203,7 +207,7 @@ describe("conformance: roo (3 fixtures)", () => {
   });
 
   test("mcp_settings.json → roo-mcp MCP entry; --apply-mcp writes ra.json", () => {
-    const gs = join(HOME, "Library", "Application Support", "Code", "User", "globalStorage", "rooveterinaryinc.roo-cline", "settings");
+    const gs = join(gsRoot(HOME), "rooveterinaryinc.roo-cline", "settings");
     mkdirSync(gs, { recursive: true });
     writeFileSync(join(gs, "mcp_settings.json"), read(join(FIX, "roo", "mcp_settings.json")));
     const mcp = detectStores(HOME, PROJ).find((e) => e.kind === "mcp" && e.name === "roo-mcp")!;
@@ -255,7 +259,7 @@ describe("conformance: cline (4 fixtures)", () => {
   });
 
   test("cline_mcp_settings.json → cline-mcp entry with env passthrough (no secret synthesis)", () => {
-    const gs = join(HOME, "Library", "Application Support", "Code", "User", "globalStorage", "saoudrizwan.claude-dev", "settings");
+    const gs = join(gsRoot(HOME), "saoudrizwan.claude-dev", "settings");
     mkdirSync(gs, { recursive: true });
     writeFileSync(join(gs, "cline_mcp_settings.json"), read(join(FIX, "cline", "cline_mcp_settings.json")));
     const mcp = detectStores(HOME, PROJ).find((e) => e.kind === "mcp" && e.name === "cline-mcp")!;

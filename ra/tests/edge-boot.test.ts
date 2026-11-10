@@ -251,4 +251,11 @@ describe("session slug stability for exotic cwds", () => {
     expect(sessionPath("/tmp/プロジェクト📁")).toContain("プロジェクト📁");
     expect(sessionPath("/").endsWith("default.json")).toBe(true);
   });
+
+  test("Windows drive-colon cwds slug to one safe segment (Wave 6 CI bug)", () => {
+    // `C:\Users\x\proj` previously became a nested path with a colon → ENOENT.
+    const s = sessionPath("C:\\Users\\runneradmin\\proj");
+    expect(s).not.toContain(":");
+    expect(s.endsWith("C__Users_runneradmin_proj.json")).toBe(true);
+  });
 });

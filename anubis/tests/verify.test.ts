@@ -9,12 +9,14 @@ describe("verifyLastRun", () => {
   });
 
   test("missing file fails", async () => {
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
     const r = await verifyLastRun({
       task: "t",
       stages: ["thoth", "ptah"],
       models: ["qwen3.8:latest"],
-      filesWritten: ["/tmp/ra-does-not-exist-xyz.py"],
-      cwd: "/tmp",
+      filesWritten: [join(tmpdir(), "ra-does-not-exist-xyz.py")],
+      cwd: tmpdir(),
       at: 1,
     });
     expect(r.ok).toBe(false);

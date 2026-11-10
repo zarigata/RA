@@ -16,7 +16,10 @@ const nothingUp: ScanFn = async () => null;
 
 describe("runSetup --json", () => {
   let root: string;
-  beforeEach(() => { root = mkdtempSync(join(tmpdir(), "ra-cli-setup-")); });
+  // Ambient RA_CONFIG (e.g. an e2e shell) redirects both loadRaConfig and
+  // saveRaConfig — without this the test reads AND clobbers the wave config
+  // (live incident, twice: WAVE3B §0 + Wave 3c). Mirrors config-malformed.test.ts.
+  beforeEach(() => { root = mkdtempSync(join(tmpdir(), "ra-cli-setup-")); delete process.env.RA_CONFIG; });
   afterEach(() => { rmSync(root, { recursive: true, force: true }); delete process.env.RA_CONFIG; });
 
   test("prints valid JSON with ok, configPath, small, found", async () => {

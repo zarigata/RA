@@ -7,7 +7,7 @@ below) · Harness: `ra bench external` (see [EXTERNAL-BENCH.md](EXTERNAL-BENCH.m
 
 - **Suites**: HumanEval+ v0.1.10 (OriginFmt, 164 tasks) and Aider polyglot
   benchmark — python slice only (34 Exercism practice exercises).
-- **Model/lane**: `codder/claude-sonnet-5-5` via `https://cloud-gw.example.test/v1`
+- **Model/lane**: `codder/claude-sonnet-5-5` via a private cloud gateway (redacted)
   (OpenAI-compatible provider block in `RA_CONFIG=/tmp/ra-e2e/ra-codder.json`,
   key from gitignored `anubis/.env`), model pinned across tier/role/router
   surfaces by the harness so results are attributable. `RA_LOCAL_ONLY=1` on

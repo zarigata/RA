@@ -82,7 +82,7 @@ OLLAMA_BASE_URL=https://ollama.com/v1
 
 ### Add to .env
 ```bash
-CODDER_BASE_URL=https://cloud-gw.example.test/v1
+CODDER_BASE_URL=https://your-gateway.example/v1
 CODDER_API_KEY=codder-...
 ```
 

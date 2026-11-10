@@ -89,6 +89,8 @@ RA is under active development, but the core runtime is real. The current reposi
 | MCP + skills + plugins | ✅ | Extensible tools and capability surfaces |
 | Local/LAN + OpenAI-compatible endpoints | ✅ | Ollama, LM Studio/llama.cpp-compatible servers, cloud providers |
 | Air-gapped mode | ✅ | Local-only operation path |
+| 5-language i18n | ✅ | TUI chrome + agent output language (en · pt-BR · ja · de · pl), locale auto-lock, see [docs/I18N.md](docs/I18N.md) |
+| Plugin import from 5 ecosystems | ✅ | claude-code, cursor, opencode, cline, codex — agents, commands, skills, rules, MCP, hooks; 264/264 conformance |
 | Command sandboxing | ⚠️ | Useful boundary with platform limitations; not a hostile-code VM |
 | Semantic capability search | 📋 | Planned: retrieve only the agents/tools/plugins needed for the task |
 | Multi-node GPU scheduler | 📋 | Planned: treat multiple AI servers as one local compute fabric |
@@ -409,6 +411,18 @@ bash scripts/verify-release.sh
 
 That gate is the repository's main confidence check: it runs the Bun test suites, compile/smoke checks, and repository hygiene verification used by GitHub Actions. Live-provider acceptance stays separate because private LAN endpoints and paid APIs are not appropriate mandatory CI dependencies.
 
+### Hardening program (2026-11-10)
+
+A six-wave stability/parity/release hardening pass landed:
+
+- **1,177 offline tests, 0 fail** (ra 800 + anubis 377), all runnable with `bash scripts/verify-release.sh` under a clean `env -i`.
+- **3-OS CI matrix** (Linux · macOS · Windows) + an install-proof job that clones the pushed tree through the installer and proves idempotency — see the matrix section above.
+- **Plugin conformance at scale**: 264/264 real store entries from all five ecosystems import and produce live artifacts under isolation.
+- **Dual-lane provider truth**: provider-block gateways route as cloud (no local bonus or local context cap on paid lanes), quota failover keyed correctly, `RA_LOCAL_ONLY=1` isolation.
+- **i18n**: five-locale TUI + agent output language with locale auto-lock ([docs/I18N.md](docs/I18N.md)).
+- **External benchmarks**: HumanEval+ 20/20 and Aider polyglot python 9/9 pass@1 on a private cloud gateway lane, single-attempt protocol, $1.67 total spend ([benchmarks/RESULTS.md](benchmarks/RESULTS.md)).
+- **A full session log of the failure modes encountered and fixed** — endpoint outages, harness lies, product bugs, test-env traps — with root causes, fixes, and prevention notes: [docs/SESSION-LOG-2026-11-10.md](docs/SESSION-LOG-2026-11-10.md). If you want to know what can go wrong running RA (or hardening it), read that first.
+
 ### CI matrix (Linux · macOS · Windows)
 
 Every push runs the offline suites on all three desktop operating systems, plus a separate install-proof job that clones the pushed tree through `install-ra.sh` (Linux/macOS) or the manual `git clone` + `./install` path (Windows, via Git-Bash) and re-runs the installer a second time to prove idempotency. Windows lanes set `RA_ASCII=1` and skip POSIX-only tests (symlink surfaces, `env -i` isolation) via in-test platform guards — the same guards keep the suites runnable on any dev box, not just CI. The shared test list lives in [`scripts/offline-tests.txt`](scripts/offline-tests.txt), so the local gate and all CI lanes always run the same suite.
@@ -513,6 +527,8 @@ RA/
 ├── docs/
 │   ├── ARCHITECTURE.md         # architecture and north star
 │   ├── AGENTS-CATALOG.md       # agent catalog
+│   ├── I18N.md                 # the 5-language selector
+│   ├── SESSION-LOG-2026-11-10.md # hardening-program failure catalog
 │   └── assets/                 # README/brand visuals
 ├── benchmarks/                 # evaluation assets
 ├── scripts/                    # verification/release tooling

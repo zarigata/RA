@@ -134,7 +134,9 @@ export async function expandPreExec(prompt: string, cwd: string, timeoutMs = 10_
     const cmd = m[1]!.trim();
     let text: string;
     try {
-      const proc = Bun.spawn(["/bin/sh", "-c", cmd], { cwd, stdout: "pipe", stderr: "pipe" });
+      // Windows: no /bin/sh — PATH `sh` resolves via Git-Bash (ships with git).
+      const shell = process.platform === "win32" ? "sh" : "/bin/sh";
+      const proc = Bun.spawn([shell, "-c", cmd], { cwd, stdout: "pipe", stderr: "pipe" });
       const timer = setTimeout(() => proc.kill(), timeoutMs);
       try {
         const [stdout] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);

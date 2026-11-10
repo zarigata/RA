@@ -39,8 +39,25 @@ if ! command -v bun >/dev/null 2>&1; then
 fi
 
 mkdir -p "$DEST" "$RA_GLOBAL/sessions" "$RA_GLOBAL/benchmarks"
-ln -sf "$ANUBIS_HOME/bin/ra" "$DEST/ra"
-ln -sf "$ANUBIS_HOME/bin/anubis" "$DEST/anubis"
+# Native symlink when the OS supports it; on git-bash (where ln COPIES) fall
+# back to a self-contained launcher with the absolute repo path embedded —
+# a copied launcher can't resolve the repo root from $0 alone.
+install_link() { # install_link <src-script> <dest-path> <entry-file>
+  ln -sfn "$1" "$2" 2>/dev/null || true
+  if [ ! -L "$2" ]; then
+    {
+      echo '#!/bin/sh'
+      echo '# Self-contained launcher (git-bash copy fallback) — path embedded at install time.'
+      echo 'unset BASH_ENV ENV NODE_OPTIONS PYTHONPATH PYTHONHOME RUBYOPT PERL5OPT LD_PRELOAD LD_LIBRARY_PATH DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH'
+      echo "RA_ROOT=\"$RA_ROOT\""
+      echo 'export RA_HOME="$RA_ROOT"'
+      echo 'exec bun run "$RA_ROOT/'"$3"'" "$@"'
+    } > "$2"
+    chmod +x "$2"
+  fi
+}
+install_link "$ANUBIS_HOME/bin/ra" "$DEST/ra" "ra/src/cli.ts"
+install_link "$ANUBIS_HOME/bin/anubis" "$DEST/anubis" "anubis/src/cli.ts"
 chmod +x "$ANUBIS_HOME/bin/ra" "$ANUBIS_HOME/bin/anubis"
 
 probe_lan() {

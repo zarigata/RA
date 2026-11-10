@@ -73,6 +73,11 @@ jobs:
         shell: bash
         env:
           RA_ASCII: "1"
+          # Windows has no OS sandbox backend (no seatbelt/bwrap). RA fails
+          # closed by design; CI tests that spawn commands (MCP stdio, swarm,
+          # TEST verb) run under this explicit CI-only consent — same policy
+          # the linux gate applies when bwrap is blocked by runner policy.
+          RA_ALLOW_UNSANDBOXED: "1"
         run: |
           # GitHub's bash (Git-for-Windows) handles the list; bun.exe resolves
           # via setup-bun. Platform-guarded tests (symlinks, env -i) self-skip.

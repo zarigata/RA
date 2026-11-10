@@ -127,7 +127,7 @@ describe("unicode project paths (emoji + CJK + accents + RTL)", () => {
         const read = toolRead({ cwd: proj }, "héllo-wörld.txt");
         expect(String(read)).toContain("unicode content 🎉");
         // session slug for the unicode cwd resolves (slug is path-mangled, no throw)
-        expect(sessionPath(proj)).toContain(".ra/sessions/");
+        expect(sessionPath(proj)).toContain(join(".ra", "sessions"));
         // scaffold + catalog in unicode cwd
         scaffoldAgent("uni-agent", { cwd: proj });
         expect(listCatalog(proj).some((e) => e.role === "uni-agent")).toBe(true);
@@ -237,7 +237,7 @@ describe("RA_CONFIG isolation under a clean environment (Wave 2 leak guard)", ()
       const dirs = customCommandDirs(proj);
       expect(dirs[0]).toBe(join(proj, ".ra", "commands"));
       expect(dirs[1]).toBe(join(dirs[1]!.split(".ra")[0]!, ".ra", "commands")); // user-level shape
-      expect(dirs[2]).toContain(".anubis/commands"); // legacy
+      expect(dirs[2]).toContain(join(".anubis", "commands")); // legacy (OS-neutral separators)
     } finally {
       rmSync(proj, { recursive: true, force: true });
     }
@@ -255,7 +255,10 @@ describe("session slug stability for exotic cwds", () => {
   test("Windows drive-colon cwds slug to one safe segment (Wave 6 CI bug)", () => {
     // `C:\Users\x\proj` previously became a nested path with a colon → ENOENT.
     const s = sessionPath("C:\\Users\\runneradmin\\proj");
-    expect(s).not.toContain(":");
-    expect(s.endsWith("C__Users_runneradmin_proj.json")).toBe(true);
+    // The slug segment (last path part, minus .json) must be colon-free —
+    // the home prefix may legitimately contain the drive colon on Windows.
+    const seg = s.split(/[\\/]/).pop()!;
+    expect(seg).not.toContain(":");
+    expect(seg).toBe("C__Users_runneradmin_proj.json");
   });
 });

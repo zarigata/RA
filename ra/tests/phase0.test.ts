@@ -4,7 +4,7 @@ import { loadCustomCommands, customCommandDirs } from "../src/commands/index.ts"
 import { toolTodo, listTodos, formatTodos } from "../src/tools/index.ts";
 import { join } from "node:path";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 
 describe("withRetry", () => {
   test("retries transient errors once, then succeeds", async () => {
@@ -107,9 +107,17 @@ describe("custom commands (multi-dir + args)", () => {
   });
 
   test("customCommandDirs includes project .ra/commands and user home", () => {
-    const dirs = customCommandDirs("/tmp/proj");
-    expect(dirs[0]).toBe(join("/tmp/proj", ".ra", "commands"));
-    expect(dirs[1]).toBe(join(process.env.HOME ?? "", ".ra", "commands"));
+    // Self-sufficient: another file's hung test can leave RA_PLUGIN_HOME set —
+    // save/restore so this asserts the real contract, not ambient env.
+    const prev = process.env.RA_PLUGIN_HOME;
+    delete process.env.RA_PLUGIN_HOME;
+    try {
+      const dirs = customCommandDirs("/tmp/proj");
+      expect(dirs[0]).toBe(join("/tmp/proj", ".ra", "commands"));
+      expect(dirs[1]).toBe(join(homedir(), ".ra", "commands"));
+    } finally {
+      if (prev !== undefined) process.env.RA_PLUGIN_HOME = prev;
+    }
   });
 });
 

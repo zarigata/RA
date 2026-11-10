@@ -12,6 +12,7 @@ import { runTaskAgent, getLiveContextState } from "../src/agent.ts";
 import { resumeStepBudget, buildHandoff, buildContinuationTask, lowContextNotice } from "../src/resume.ts";
 import { contextPolicy, ContextLedger } from "../../anubis/src/context-limits.ts";
 import type { RaConfig } from "../../anubis/src/config.ts";
+import { slugifyCwd } from "../../anubis/src/config.ts";
 
 // ---- pure units ----
 
@@ -135,8 +136,8 @@ const PADDING = "lorem ipsum dolor sit amet consetetur sadipscing elitr sed diam
 const OBJECTIVE = "Summarize the migration notes precisely";
 
 function readLatestHandoff(cwd: string): string {
-  const slug = cwd.replace(/\//g, "_").replace(/^_|_$/g, "") || "default";
-  const dir = join(homedir(), ".ra", "handoffs", slug);
+  // Same slug as prod (saveHandoff) — Windows \ separators included.
+  const dir = join(homedir(), ".ra", "handoffs", slugifyCwd(cwd));
   const files = readdirSync(dir).filter((f) => f.startsWith("thoth-0-")).sort();
   return readFileSync(join(dir, files.at(-1)!), "utf-8");
 }

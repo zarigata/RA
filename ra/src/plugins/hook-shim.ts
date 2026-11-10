@@ -151,6 +151,10 @@ export async function runHookCommand(
       ...(hook.pluginRoot ? { env: { ...process.env, CLAUDE_PLUGIN_ROOT: hook.pluginRoot } } : {}),
     });
     const timeoutMs2 = Math.max(1, hook.handler.timeout ? hook.handler.timeout * 1000 : timeoutMs);
+    // Hard cap on the post-kill drain: killing a shell doesn't necessarily
+    // close its pipes on every bun/platform combo (orphaned children hold
+    // them open) — never let a hook hang the agent past timeout + grace.
+    const graceMs = 500;
     let killTimer: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
       timedOut = true;
@@ -158,16 +162,31 @@ export async function runHookCommand(
       // … escalate to KILL: some sh/bun combos leave a TERM'd child's pipes
       // open, hanging the Response readers past every deadline (seen on
       // linux/bun-1.4 CI). KILL after a grace period keeps hooks non-blocking.
-      killTimer = setTimeout(() => { try { proc?.kill(9); } catch { /* already gone */ } }, 1000);
+      killTimer = setTimeout(() => { try { proc?.kill(9); } catch { /* already gone */ } }, 250);
     }, timeoutMs2);
+    const drain = async (readable: ReadableStream<Uint8Array> | "pipe" | undefined, what: string): Promise<string> => {
+      try {
+        return await Promise.race([
+          new Response(readable as ReadableStream<Uint8Array>).text(),
+          // Full timeout window + grace: normal hooks keep their whole budget;
+          // only killed hooks hit this cap when pipes stay open.
+          new Promise<string>((resolve) => setTimeout(() => resolve(`<<hook ${what} unreadable>>`), timeoutMs2 + graceMs)),
+        ]);
+      } catch {
+        return "";
+      }
+    };
     try {
       proc.stdin!.write(stdin);
       proc.stdin!.end();
       const [stdout, stderr] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
+        drain(proc.stdout, "stdout"),
+        drain(proc.stderr, "stderr"),
       ]);
-      await proc.exited;
+      await Promise.race([
+        proc.exited,
+        new Promise<void>((resolve) => setTimeout(resolve, timeoutMs2 + 2 * graceMs)),
+      ]);
       const code = proc.exitCode;
       if (timedOut) {
         return { decision: { action: "allow", reason: "hook timed out (non-blocking)" }, stdout: "", stderr, timedOut: true };

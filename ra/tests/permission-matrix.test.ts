@@ -7,6 +7,7 @@ import { toolPermission, canRunTool, restrictedTools, resolveCapabilities, asser
 import { allowedToolsToPerms } from "../src/commands/index.ts";
 import { resolveBashLevel, bashPatternMatches, loadAgentPermissionDetail } from "../src/agent.ts";
 import type { RaConfig } from "../../anubis/src/config.ts";
+import { tmpdir } from "node:os";
 
 const base: RaConfig = { agent: {}, model: "m" };
 
@@ -200,7 +201,7 @@ describe("bash pattern rules (agent layers)", () => {
     // write a temp agent file into a temp project and read it through the real path
     const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require("node:fs") as typeof import("node:fs");
     const { join } = require("node:path") as typeof import("node:path");
-    const proj = mkdtempSync(join("/tmp", "ra-permmatrix-"));
+    const proj = mkdtempSync(join(tmpdir(), "ra-permmatrix-"));
     try {
       mkdirSync(join(proj, ".ra", "agents"), { recursive: true });
       writeFileSync(join(proj, ".ra", "agents", "tester.md"), raw);
@@ -223,7 +224,7 @@ describe("bash pattern rules (agent layers)", () => {
     const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require("node:fs") as typeof import("node:fs");
     const { join } = require("node:path") as typeof import("node:path");
     const { loadAgentPermissionDetail: lapd } = require("../src/agent.ts") as typeof import("../src/agent.ts");
-    const proj = mkdtempSync(join("/tmp", "ra-permmatrix2-"));
+    const proj = mkdtempSync(join(tmpdir(), "ra-permmatrix2-"));
     try {
       mkdirSync(join(proj, ".ra", "agents"), { recursive: true });
       writeFileSync(join(proj, ".ra", "agents", "t2.md"), [

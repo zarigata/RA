@@ -4,7 +4,7 @@ import type { Session } from "../src/server/session.ts";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { RA_GLOBAL } from "../../anubis/src/config.ts";
+import { RA_GLOBAL, slugifyCwd } from "../../anubis/src/config.ts";
 
 const session: Session = {
   id: "x",
@@ -54,7 +54,7 @@ describe("session replay", () => {
     const dir = join(RA_GLOBAL, "sessions");
     mkdirSync(dir, { recursive: true });
     const cwd = `/tmp/ra-replay-test-${Date.now()}`;
-    const slug = cwd.replace(/\//g, "_").replace(/^_|_$/g, "");
+    const slug = slugifyCwd(cwd);
     const file = join(dir, `${slug}.json`);
     writeFileSync(
       file,

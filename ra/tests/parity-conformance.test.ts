@@ -51,7 +51,9 @@ function cli(args: string[], extraEnv: Record<string, string> = {}): { code: num
   // process.execPath = the running bun binary — Windows-safe (no .exe PATH lookup).
   const r = spawnSync(process.execPath, [CLI, ...args], {
     encoding: "utf-8",
-    env: { ...process.env, HOME, ...extraEnv },
+    // Windows homedir() reads USERPROFILE, not HOME — set both so the
+    // isolated HOME holds on every OS.
+    env: { ...process.env, HOME, USERPROFILE: HOME, ...extraEnv },
     cwd: PROJ,
   });
   return { code: r.status ?? -1, out: r.stdout ?? "", err: r.stderr ?? "" };

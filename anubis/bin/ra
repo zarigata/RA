@@ -1,12 +1,21 @@
 #!/bin/sh
 # Do not allow startup/loader environment hooks to run before the trusted control process.
 unset BASH_ENV ENV NODE_OPTIONS PYTHONPATH PYTHONHOME RUBYOPT PERL5OPT LD_PRELOAD LD_LIBRARY_PATH DYLD_INSERT_LIBRARIES DYLD_LIBRARY_PATH
-TARGET="$(readlink "$0" 2>/dev/null || echo "$0")"
+# git-bash on Windows can report $0 as a Windows drive path with backslashes
+# (especially when this launcher was copied rather than symlinked). cygpath
+# (always present in git-bash) normalizes it to a POSIX path; elsewhere $0
+# already is one. `pwd -P` keeps every resolved segment POSIX-style.
+if command -v cygpath >/dev/null 2>&1; then
+  SELF="$(cygpath -u "$0" 2>/dev/null || echo "$0")"
+else
+  SELF="$0"
+fi
+TARGET="$(readlink "$SELF" 2>/dev/null || echo "$SELF")"
 case "$TARGET" in
   /*) ;;
-  *) TARGET="$(cd "$(dirname "$0")" && pwd)/$TARGET" ;;
+  *) TARGET="$(cd "$(dirname "$SELF")" && pwd -P)/$TARGET" ;;
 esac
-ANUBIS_HOME="$(cd "$(dirname "$TARGET")/.." && pwd)"
-RA_ROOT="$(cd "$ANUBIS_HOME/.." && pwd)"
+ANUBIS_HOME="$(cd "$(dirname "$TARGET")/.." && pwd -P)"
+RA_ROOT="$(cd "$ANUBIS_HOME/.." && pwd -P)"
 export ANUBIS_HOME RA_HOME="$RA_ROOT"
 exec bun run "$RA_ROOT/ra/src/cli.ts" "$@"

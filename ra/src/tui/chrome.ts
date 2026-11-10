@@ -2,6 +2,7 @@
 // Pure helpers keep glyph selection and responsive labels testable outside a TTY.
 
 import { truncateVisible } from "./markdown.ts";
+import { t } from "../i18n.ts";
 import type { StatusKind } from "../../../anubis/src/ui.ts";
 
 export interface TuiGlyphs {
@@ -86,14 +87,14 @@ export function buildHeader(opts: {
   setupNeeded?: boolean;
 }): string {
   const { width, app, version, profile, glyphs } = opts;
-  const state = opts.busy ? ` ${glyphs.busy} ${opts.status || "working"}` : "";
+  const state = opts.busy ? ` ${glyphs.busy} ${opts.status || t("working")}` : "";
   if (width < 68) {
     // Brand + version + profile only, plus a single status glyph.
     const flag = opts.setupNeeded && !opts.busy ? ` ${glyphs.warning}` : "";
     return ` ${glyphs.brand} ${app} ${version} · ${profile}${flag}${state}`;
   }
   const lane = opts.setupNeeded
-    ? `${glyphs.warning} no model — run ra setup`
+    ? `${glyphs.warning} ${t("no model — run ra setup")}`
     : opts.lane;
   if (width < 108) {
     const head = ` ${glyphs.brand} ${app} ${version} · ${profile} · S:${shortModel(opts.smallModel, 16)} · B:${shortModel(opts.bigModel, 16)}`;
@@ -159,19 +160,19 @@ export function buildInputLabel(opts: {
 }): string {
   if (opts.busy) {
     const spin = opts.spinner ? ` ${opts.spinner}` : "";
-    return ` ${opts.glyphs.busy}${spin} ${opts.status || "working…"} `;
+    return ` ${opts.glyphs.busy}${spin} ${opts.status || t("working…")} `;
   }
-  return ` ${opts.glyphs.brand} ${opts.app} ${opts.glyphs.prompt} / search · ? shortcuts `;
+  return ` ${opts.glyphs.brand} ${opts.app} ${opts.glyphs.prompt} ${t("/ search · ? shortcuts")} `;
 }
 
 export function footerHints(busy: boolean): Array<[string, string]> {
   return [
-    ["/", "search"],
-    ["ctrl+p", "palette"],
-    ["ctrl+e", "explorer"],
-    ["?", "keys"],
-    ["esc", busy ? "cancel" : "close"],
-    ["ctrl+d", "quit"],
+    ["/", t("search")],
+    ["ctrl+p", t("palette")],
+    ["ctrl+e", t("explorer")],
+    ["?", t("keys")],
+    ["esc", busy ? t("cancel") : t("close")],
+    ["ctrl+d", t("quit")],
   ];
 }
 

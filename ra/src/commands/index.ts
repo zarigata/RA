@@ -205,6 +205,23 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
       c.reply(`RA ${RA_VERSION}`);
       return true;
     }
+    case "lang": {
+      const { SUPPORTED, getLocale, lockLocale, setLocale } = await import("../i18n.ts");
+      const code = arg.trim().toLowerCase();
+      if (!code) {
+        c.reply([`RA language: ${getLocale()}`, `supported: ${SUPPORTED.map((s) => s.code).join(" · ")}`, "usage: /lang <code> — e.g. /lang pt-BR"].join("\n"));
+        return true;
+      }
+      const match = SUPPORTED.find((s) => s.code.toLowerCase() === code);
+      if (!match) {
+        c.reply(`unsupported language: ${arg} — supported: ${SUPPORTED.map((s) => s.code).join(" · ")}`);
+        return true;
+      }
+      lockLocale(match.code);
+      setLocale(match.code);
+      c.reply(`RA language → ${match.code} (${match.name}), locked. Agent replies follow on the next turn.`);
+      return true;
+    }
     case "ls": {
       const dir = arg || ".";
       c.reply(`RA ls ${dir}\n${listDir(c.ctx, dir)}`);
@@ -734,7 +751,7 @@ async function runBoard(arg: string, c: CommandContext): Promise<boolean> {
 export const PALETTE_COMMANDS = [
   "/help", "/plan", "/code", "/quick", "/again", "/review", "/moa", "/pipeline",
   "/roles", "/models", "/cost", "/status", "/files", "/show", "/result", "/lane", "/intent", "/prefer", "/summary", "/timings", "/verify", "/history", "/ls", "/doctor", "/selfcheck", "/lanes", "/home", "/which", "/clear", "/lan-scan", "/todos",
-  "/simple on", "/simple off", "/palette",
+  "/simple on", "/simple off", "/palette", "/lang",
   "/replay list", "/connect", "/tree", "/agents", "/swarm help", "/swarm list", "/sandbox status",
   "/team list", "/board list", "/board", "/diff", "/providers", "/context",
 ];

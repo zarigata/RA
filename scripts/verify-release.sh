@@ -97,6 +97,7 @@ say "Running offline unit tests"
     ra/tests/tui-history.test.ts \
     ra/tests/help-drift.test.ts \
     ra/tests/plugin-runtime.test.ts \
+    ra/tests/i18n.test.ts \
     ra/tests/parity-wavee.test.ts
 )
 

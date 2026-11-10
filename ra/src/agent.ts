@@ -21,12 +21,13 @@ import { resolveAgentFile, taskCatalogHint } from "./agents/catalog.ts";
 import { toolSkill } from "./skills.ts";
 import { toolRepoMap } from "./repomap.ts";
 import { loadRules, loadMemoryChain } from "./rules.ts";
-import { resolveLane, assistantCapabilities, ASSISTANT_TOOLS } from "./lane.ts";
+import { resolveLane, assistantCapabilities, ASSISTANT_TOOLS, assistantSystemPrompt } from "./lane.ts";
 import { applyRoutingMode, downshiftForBudget, escalationChain } from "../../anubis/src/routing.ts";
 import { jobForRole } from "../../anubis/src/profiles.ts";
 import { pickForJobLive } from "../../anubis/src/capability.ts";
 import { isQuotaError, markExhausted } from "../../anubis/src/quota.ts";
 import { hostTag } from "../../anubis/src/tui.ts";
+import { languageDirective } from "./i18n.ts";
 import { buildHandoff, saveHandoff, buildContinuationTask, resumeStepBudget, lowContextNotice, pickContextEscalation, todoState, type ContextStats, type HandoffReason } from "./resume.ts";
 
 /** Host tag for a local base URL: last IPv4 octet, hostname, or "local". */
@@ -884,7 +885,7 @@ async function executeTaskAgent(
   const allowed = [...ctx.capabilities!.tools];
   const hint = buildToolHint(allowed, mcpRt.tools);
   const accessMode = ctx.capabilities!.readOnly ? "\nThis operation is read-only, including all delegated agents. Inspect and propose; do not modify files." : "";
-  const system = `${loadAgentPrompt(role, ctx.cwd)}${accessMode}${loadProjectMemory(ctx.cwd)}\nProject files (top level):\n${tools.listDir(ctx, ".").slice(0, 4000)}\n${hint}`;
+  const system = `${loadAgentPrompt(role, ctx.cwd)}${accessMode}${languageDirective()}${loadProjectMemory(ctx.cwd)}\nProject files (top level):\n${tools.listDir(ctx, ".").slice(0, 4000)}\n${hint}`;
 
   let rootOutput = "";
   // The active client can change mid-loop: cross-provider failover (quota,
@@ -1066,7 +1067,11 @@ async function executeTaskAgent(
         // an unsendable prompt — checkpoint + resume instead (ra.78).
         if (adaptive && isContextOverflowError(e)) throw e;
         const quotaHit = isQuotaError(e) && !isAuthError(e);
-        if (quotaHit) markExhausted(usedModel, String(e instanceof Error ? e.message : e).slice(0, 120));
+        // Mark under the CONFIGURED id (provider-prefixed): quotaKey derives the
+        // provider from it, which is what pickForJob checks. usedModel here is
+        // the bare wire id (e.g. "claude-sonnet-5-5") and would mark a key the
+        // router never consults — a rate-limited provider would be re-picked.
+        if (quotaHit) markExhausted(configured, String(e instanceof Error ? e.message : e).slice(0, 120));
         const chain = fallbackModels;
         if (chain.length === 0 || isAuthError(e) || isUserCancel(e)) throw e;
         const primary = usedModel;
@@ -1226,7 +1231,7 @@ async function runAssistantTurn(
       // general assistant turn should never need 16 steps.
       const capabilities = assistantCapabilities(config, ctx.capabilities);
       const hint = buildToolHint(ASSISTANT_TOOLS, []);
-      const system = `You are RA, a general-purpose assistant. Answer the user's question directly and concisely; this is a conversation, not a coding task. When source material helps (a file, a web page, search results), use the read-only tools below to ground the answer — otherwise answer from knowledge. Never claim to have read a file or page you did not fetch. Do not create, edit, or run anything.${loadProjectMemory(ctx.cwd)}\n${hint}`;
+      const system = `${assistantSystemPrompt(ctx.cwd)}\n${hint}`;
       const aCtx: ToolContext = { ...ctx, capabilities };
       const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
         { role: "system", content: system },

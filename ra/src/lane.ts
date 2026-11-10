@@ -8,6 +8,8 @@ import { detectIntent } from "../../anubis/src/intent.ts";
 import type { AgentCapabilities } from "./permission.ts";
 import { resolveCapabilities } from "./permission.ts";
 import type { RaConfig } from "../../anubis/src/config.ts";
+import { languageDirective } from "./i18n.ts";
+import { loadRules, loadMemoryChain } from "./rules.ts";
 
 export type Lane = "assistant" | "coding";
 export type LaneMode = Lane | "auto";
@@ -95,3 +97,14 @@ export function assistantCapabilities(config: RaConfig, parent?: AgentCapabiliti
 
 /** Tool-grammar hint for the assistant lane (read-only verbs only). */
 export const ASSISTANT_TOOLS = ["read", "outline", "glob", "grep", "repomap", "webfetch", "websearch", "skill"];
+
+/** Assistant-lane system prompt (exported for the i18n directive test).
+ *  Mirrors agent.ts loadProjectMemory — kept inline here to avoid the
+ *  agent.ts ↔ lane.ts import cycle. */
+export function assistantSystemPrompt(cwd: string): string {
+  const parts: string[] = [];
+  for (const m of loadMemoryChain(cwd)) parts.push(`Project memory (${m.name}):\n${m.body}`);
+  for (const r of loadRules(cwd)) parts.push(`Rule (${r.name}${r.paths.length ? `, paths: ${r.paths.join(", ")}` : ""}):\n${r.body}`);
+  const memory = parts.length ? `\n\n${parts.join("\n\n")}` : "";
+  return `You are RA, a general-purpose assistant. Answer the user's question directly and concisely; this is a conversation, not a coding task. When source material helps (a file, a web page, search results), use the read-only tools below to ground the answer — otherwise answer from knowledge. Never claim to have read a file or page you did not fetch. Do not create, edit, or run anything.${languageDirective()}${memory}`;
+}

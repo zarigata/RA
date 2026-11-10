@@ -34,6 +34,27 @@ if (args[0] === "splash") {
   process.exit(0);
 }
 
+if (args[0] === "lang") {
+  const { SUPPORTED, loadLockedLocale, lockLocale, setLocale, getLocale } = await import("./i18n.ts");
+  const code = (args[1] ?? "").toLowerCase();
+  if (!code) {
+    const current = loadLockedLocale() ?? "en";
+    console.log(`RA language: ${current}`);
+    console.log(`supported: ${SUPPORTED.map((s) => `${s.code} (${s.name})`).join(" · ")}`);
+    console.log("usage: ra lang <code> — locks the UI + agent reply language (~/.ra/locale.json)");
+    process.exit(0);
+  }
+  const match = SUPPORTED.find((s) => s.code.toLowerCase() === code);
+  if (!match) {
+    console.error(`ra lang: unsupported language '${args[1]}'. Supported: ${SUPPORTED.map((s) => s.code).join(", ")}`);
+    process.exit(1);
+  }
+  lockLocale(match.code);
+  setLocale(match.code);
+  console.log(`RA language → ${match.code} (${match.name}), locked. /lang or ra lang to change it later.`);
+  process.exit(0);
+}
+
 if (args[0] === "home") {
   const { RA_GLOBAL } = await import("../../anubis/src/config.ts");
   const { formatRaHome } = await import("../../anubis/src/ra-home.ts");
@@ -82,6 +103,7 @@ Usage:
   ra help                    This help
   ra version                 Print RA version
   ra splash                  Print RA TUI splash (branding check)
+  ra lang [code]             Show or set the UI/agent language (en, pt-BR, ja, de, pl); locks ~/.ra/locale.json
   ra home                    Show anubis + ~/.ra paths
   ra palette                 List TUI slash commands
   ra --task "..." [--quick] [--verify] [--json]  Full pipeline with RA TUI (--quick = 2 stages)
@@ -138,6 +160,7 @@ BIG models: Ollama Cloud (${(() => { try { return loadRaConfig(ANUBIS_HOME).mode
 
 In TUI:
   /quick /again /plan /code /pipeline /help /simple on /status /files /show /result /lane /intent /prefer /summary /timings /verify /history /clear
+  /lang [code]               Show or switch the UI/agent language
   /replay [list|N|keyword]   Session replay + time-travel
   /connect [URL]             Connect to a daemon
   /tree                      Show subagent tree

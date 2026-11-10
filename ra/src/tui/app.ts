@@ -39,6 +39,7 @@ import { buildTree, toggleDir, renderExplorer, parseWebResults, flattenTree, typ
 import { resolveLane } from "../lane.ts";
 import { promptHistory } from "./history.ts";
 import { detectImageSupport, renderImageBlock } from "./images.ts";
+import { initLocale, t, getLocale, lockLocale, SUPPORTED } from "../i18n.ts";
 
 export type { TuiOptions };
 
@@ -61,11 +62,12 @@ const TIPS = [
   "@src/app.ts attaches a file to your prompt",
   "/theme re-skins RA instantly — it stays after restart",
   "/moa asks several agents and synthesizes one answer",
-];
+].map((s) => t(s));
 
 export async function startTui(opts: TuiOptions): Promise<void> {
   ensureRaDirs();
   loadEnv(ANUBIS_HOME);
+  initLocale(); // first run: detect + lock ~/.ra/locale.json; later runs: reuse the lock
   const activeSession = getActiveSession();
   if (activeSession && !opts.remoteUrl) opts.cwd = activeSession.cwd;
   if (!process.stdin.isTTY || process.env.RA_LEGACY_TUI === "1") return startLegacyTui(opts);
@@ -278,8 +280,8 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       if (s) {
         try {
           switchSession(String((s as { id?: string }).id ?? s.cwd));
-          push("info", `session pointer → ${String((s as { id?: string }).id ?? s.cwd)}. Restart ra to open it.`);
-        } catch (e) { push("activity", `session switch failed: ${String(e)}`); }
+          push("info", t("session pointer → {0}. Restart ra to open it.", String((s as { id?: string }).id ?? s.cwd)));
+        } catch (e) { push("activity", t("session switch failed: {0}", String(e))); }
       }
     } else if (explorerRight.kind === "web") {
       const r = explorerRight.results[entry];
@@ -307,7 +309,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       const raw = await toolWebSearch(query, process.env, isAirgapped(config));
       explorerRight = { kind: "web", results: parseWebResults(raw), query, fetched: raw.startsWith("Error:") || raw.startsWith("(") ? raw : undefined };
     } catch (e) {
-      explorerRight = { kind: "web", results: [], query, fetched: `search failed: ${String(e)}` };
+      explorerRight = { kind: "web", results: [], query, fetched: t("search failed: {0}", String(e)) };
     }
     explorerRight.fetching = false;
     scheduleRender();
@@ -339,7 +341,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     return `⚡ ttft ${ttft}s · ~${tps} tok/s`;
   };
   const tip = () => {
-    if (!onboarded || session.simpleMode) push("info", `TIP: ${TIPS[tipIndex++ % TIPS.length]}`);
+    if (!onboarded || session.simpleMode) push("info", t("TIP: {0}", TIPS[tipIndex++ % TIPS.length]));
   };
   const reply = (text: string) => {
     if (remoteOk) void remote!.appendMessage(session, "assistant", text);
@@ -349,7 +351,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     streamedThisTurn = "";
     streaming = null;
     if (streamed.length > 40 && norm(text).includes(norm(streamed).slice(0, 200))) {
-      push("info", "↳ streamed above");
+      push("info", t("↳ streamed above"));
     } else {
       push("assistant", text);
     }
@@ -368,7 +370,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       const tokens = report.reduce((s, r) => s + r.inputTokens + r.outputTokens, 0);
       const top = report.slice(0, 3).map((r) => `  ${r.model}: ${r.inputTokens + r.outputTokens} tok · ${formatCost(r.model, r.cost)}`).join("\n");
       const tele = turnTelemetryLine();
-      push("info", `context ──${tele ? ` ${tele} ·` : ""}\n${top}\n  TOTAL: ${tokens} tok · $${total.toFixed(4)}`);
+      push("info", t("context ──{0}\n{1}\n  TOTAL: {2} tok · ${3}", tele ? ` ${tele} ·` : "", top, tokens, total.toFixed(4)));
     } else {
       const tele = turnTelemetryLine();
       if (tele) push("info", tele);
@@ -376,7 +378,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (subagentTree.hasTree) push("info", subagentTree.render());
     tip();
     statusText = "";
-    notify("RA: task done");
+    notify(t("RA: task done"));
     scheduleRender();
   };
 
@@ -385,7 +387,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     const builtIn: PaletteEntry[] = PALETTE_COMMANDS.map((c) => ({
       label: c,
       category: "command",
-      detail: c === "/palette" ? "open this palette" : c === "/quick" ? "plan + implement a task" : c === "/moa" ? "multiple agents, one synthesis" : undefined,
+      detail: c === "/palette" ? t("open this palette") : c === "/quick" ? t("plan + implement a task") : c === "/moa" ? t("multiple agents, one synthesis") : undefined,
       action: { type: "command", command: c },
     }));
     let custom: PaletteEntry[] = [];
@@ -393,7 +395,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       custom = loadCustomCommands(customCommandDirs(opts.cwd)).map((cc) => ({
         label: `/${cc.name}`,
         category: "custom" as const,
-        detail: (cc as { description?: string }).description ?? `custom command · agent: ${(cc as { agent?: string }).agent ?? "anubis"}`,
+        detail: (cc as { description?: string }).description ?? t("custom command · agent: {0}", (cc as { agent?: string }).agent ?? "anubis"),
         action: { type: "command" as const, command: `/${cc.name}` },
       }));
     } catch { /* no custom dirs */ }
@@ -402,27 +404,27 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   const agentEntries = (): PaletteEntry[] => visibleCatalog(opts.cwd).map((e) => ({
     label: `agent:${e.role}`,
     category: "agent" as const,
-    detail: `${e.category} · ${e.description || "delegate a task"}`,
+    detail: `${e.category} · ${e.description || t("delegate a task")}`,
     action: { type: "insert" as const, text: `agent:${e.role} ` },
   }));
   const themeEntries = (): PaletteEntry[] => listPalettes().map((p) => ({
     label: `theme:${p.name.toLowerCase()}`,
     category: "theme" as const,
-    detail: `${p.name} · accent ${p.accent}`,
+    detail: t("{0} · accent {1}", p.name, p.accent),
     action: { type: "theme" as const, theme: p.name.toLowerCase() },
   }));
   /** §4.4: the setup: group leads the palette when no model lane exists. */
   const setupEntries = (): PaletteEntry[] => [
-    { label: "setup: run model setup", category: "command", detail: "find local AI servers and pick small/big", action: { type: "setup" as const, mode: "run" } },
-    { label: "setup: rescan local servers", category: "command", detail: "forget the saved choice and scan again", action: { type: "setup" as const, mode: "rescan" } },
-    { label: "setup: change small model", category: "command", detail: "pick a different detector model", action: { type: "setup" as const, mode: "rescan" } },
-    { label: "setup: change big model", category: "command", detail: "pick a different fixer model", action: { type: "setup" as const, mode: "rescan" } },
+    { label: "setup: run model setup", category: "command", detail: t("find local AI servers and pick small/big"), action: { type: "setup" as const, mode: "run" } },
+    { label: "setup: rescan local servers", category: "command", detail: t("forget the saved choice and scan again"), action: { type: "setup" as const, mode: "rescan" } },
+    { label: "setup: change small model", category: "command", detail: t("pick a different detector model"), action: { type: "setup" as const, mode: "rescan" } },
+    { label: "setup: change big model", category: "command", detail: t("pick a different fixer model"), action: { type: "setup" as const, mode: "rescan" } },
   ];
   const modelEntries = (): PaletteEntry[] => {
     const models = [...new Set([config.model, config.small_model, ...modelCatalog].filter(Boolean))] as string[];
     return models.flatMap((m) => [
-      { label: `model:${m}`, category: "model" as const, detail: "use as implementation model", action: { type: "model" as const, slot: "big" as const, model: m } },
-      { label: `model-small:${m}`, category: "model" as const, detail: "use as planning model", action: { type: "model" as const, slot: "small" as const, model: m } },
+      { label: `model:${m}`, category: "model" as const, detail: t("use as implementation model"), action: { type: "model" as const, slot: "big" as const, model: m } },
+      { label: `model-small:${m}`, category: "model" as const, detail: t("use as planning model"), action: { type: "model" as const, slot: "small" as const, model: m } },
     ]);
   };
   const sessionEntries = (): PaletteEntry[] => {
@@ -442,10 +444,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     ...themeEntries(),
     ...modelEntries(),
     ...sessionEntries(),
-    { label: "/files", category: "command", detail: "explorer — walk the workspace with the mouse", action: { type: "command", command: "/files" } },
-    { label: "/web <query>", category: "command", detail: "web search in the explorer (Brave/Tavily key)", action: { type: "insert", text: "/web " } },
-    ...projectFiles.map((f) => ({ label: f, category: "file" as const, detail: "insert @file reference", action: { type: "insert" as const, text: `@${f} ` } })),
-    { label: "/exit", category: "command", detail: "quit RA", action: { type: "exit" as const } },
+    { label: "/files", category: "command", detail: t("explorer — walk the workspace with the mouse"), action: { type: "command", command: "/files" } },
+    { label: "/web <query>", category: "command", detail: t("web search in the explorer (Brave/Tavily key)"), action: { type: "insert", text: "/web " } },
+    ...projectFiles.map((f) => ({ label: f, category: "file" as const, detail: t("insert @file reference"), action: { type: "insert" as const, text: `@${f} ` } })),
+    { label: "/lang [code]", category: "command", detail: t("show or switch the UI/agent language"), action: { type: "command", command: "/lang" } },
+    { label: "/exit", category: "command", detail: t("quit RA"), action: { type: "exit" as const } },
   ];
   const refreshPalette = () => {
     paletteRows = searchPalette(editor.text, allEntries(), 40);
@@ -526,7 +529,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       smallModel: config.small_model,
       bigModel: config.model,
       busy,
-      status: statusText || "busy",
+      status: statusText || t("busy"),
       lane,
       costUsd: sessionCostUsd(),
       contextPct: busy ? (lastContextPct ?? liveContextPct()) : undefined,
@@ -537,7 +540,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     out.push(sty.muted(fit(W, buildStatusLine({ width: W, cwd: cwdShort, branch: branch(), theme: themeId.current, lane: setupNeeded ? undefined : lane, mode: currentLane ?? (editor.text.trim() ? resolveLane(editor.text).lane : undefined), costUsd: sessionCostUsd(), glyphs }))));
 
     if (paletteOpen) {
-      const title = ` search everything — commands · agents · files · models · sessions · themes `;
+      const title = t(" search everything — commands · agents · files · models · sessions · themes ");
       out.push(sty.accent(`╭${"─".repeat(Math.max(0, W - 2))}╮`));
       out.push(sty.accent("│") + fit(W - 2, sty.strong(title)) + sty.accent("│"));
       out.push(sty.accent(`├${"─".repeat(Math.max(0, W - 2))}┤`));
@@ -557,8 +560,8 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         out.push(fit(W - 1, ` ${marker}${label}${detail}`));
         rowHitbox.set(out.length, idx);
       }
-      if (!paletteRows.length) out.push(sty.muted(fit(W, "  no matches — keep typing")));
-      out.push(sty.muted(fit(W, `  ↑↓ select · enter run · tab insert · esc close · mouse clickable (${paletteRows.length})`)));
+      if (!paletteRows.length) out.push(sty.muted(fit(W, t("  no matches — keep typing"))));
+      out.push(sty.muted(fit(W, t("  ↑↓ select · enter run · tab insert · esc close · mouse clickable ({0})", paletteRows.length))));
       out.push(sty.accent(`╰${"─".repeat(Math.max(0, W - 2))}╯`));
     } else {
       const vLines = renderViewportLines(W);
@@ -570,7 +573,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     }
 
     const label = buildInputLabel({ app: APP_NAME, busy, status: statusText, spinner: SPINNER[spinnerFrame % SPINNER.length], glyphs });
-    const labelShown = !busy && laneOf().setupNeeded ? `${label.trimEnd().slice(0, -1)} · ${glyphs.warning} no model ` : label;
+    const labelShown = !busy && laneOf().setupNeeded ? `${label.trimEnd().slice(0, -1)} · ${glyphs.warning} ${t("no model ")} ` : label;
     const cursorAt = Math.min(editor.cursor, editor.text.length);
     const before = editor.text.slice(0, cursorAt);
     const at = editor.text.slice(cursorAt, cursorAt + 1) || " ";
@@ -668,17 +671,17 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   // ---------- history seeding ----------
   if (session.messages.length === 0) {
     push("info", [
-      `Welcome to ${APP_NAME}.`,
-      `  /                search EVERYTHING — commands · agents · files · models · themes`,
-      `  ctrl+e / /files  explorer — walk files · agents · sessions · web with the mouse`,
-      `  /quick <task>    plan + implement`,
-      `  /moa <task>      multiple agents, one synthesis`,
-      `  agent:<name> …   delegate to one agent directly`,
-      `  ?                all shortcuts`,
-      `small: ${config.small_model} · code: ${config.model}`,
+      t("Welcome to {0}.", APP_NAME),
+      t("  /                search EVERYTHING — commands · agents · files · models · themes"),
+      t("  ctrl+e / /files  explorer — walk files · agents · sessions · web with the mouse"),
+      t("  /quick <task>    plan + implement"),
+      t("  /moa <task>      multiple agents, one synthesis"),
+      t("  agent:<name> …   delegate to one agent directly"),
+      t("  ?                all shortcuts"),
+      t("small: {0} · code: {1}", config.small_model, config.model),
     ].join("\n"));
   } else {
-    push("info", formatReattach(session) + "\n/history to review · /clear to reset");
+    push("info", formatReattach(session) + t("\n/history to review · /clear to reset"));
   }
 
   // ---------- palette / modal actions ----------
@@ -716,35 +719,35 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (type === "exit") { quit(); return; }
     if (type === "command") { void submit(String(a.command)); return; }
     if (type === "insert") { editor.text = insertAtCursor(String(a.text)); editor.cursor += String(a.text).length; scheduleRender(); return; }
-    if (type === "theme") { setTheme(String(a.theme), true); push("info", `theme → ${String(a.theme)} (saved)`); scheduleRender(); return; }
+    if (type === "theme") { setTheme(String(a.theme), true); push("info", t("theme → {0} (saved)", String(a.theme))); scheduleRender(); return; }
     if (type === "setup") { void openSetupWizard(a.mode === "rescan"); return; }
     if (type === "model") {
       if (a.slot === "small") config.small_model = String(a.model); else config.model = String(a.model);
-      push("info", `${String(a.slot)} model → ${String(a.model)} (this session)`);
+      push("info", t("{0} model → {1} (this session)", String(a.slot), String(a.model)));
       scheduleRender();
       return;
     }
     if (type === "session") {
       try {
         switchSession(String(a.id));
-        push("info", `session pointer → ${String(a.id)}. Restart ra to open it.`);
-      } catch (e) { push("activity", `session switch failed: ${String(e)}`); }
+        push("info", t("session pointer → {0}. Restart ra to open it.", String(a.id)));
+      } catch (e) { push("activity", t("session switch failed: {0}", String(e))); }
       scheduleRender();
     }
     if (type === "explorer") { openExplorer(); return; }
   };
 
   const mainMenuEntries = (): MenuEntry[] => [
-    { label: "Search everything", detail: "commands · files · agents · models · themes", run: { type: "palette" } },
-    { label: "Explorer", detail: "files · agents · sessions · web", run: { type: "explorer" } },
-    { label: "Themes", detail: `${listPalettes().length} looks, live preview`, submenu: themeEntries().map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
-    { label: "Models", submenu: modelEntries().slice(0, 20).map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
-    { label: "Agents", submenu: agentEntries().map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
+    { label: t("Search everything"), detail: t("commands · files · agents · models · themes"), run: { type: "palette" } },
+    { label: t("Explorer"), detail: t("files · agents · sessions · web"), run: { type: "explorer" } },
+    { label: t("Themes"), detail: t("{0} looks, live preview", listPalettes().length), submenu: themeEntries().map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
+    { label: t("Models"), submenu: modelEntries().slice(0, 20).map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
+    { label: t("Agents"), submenu: agentEntries().map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
     { separator: true, label: "" },
-    { label: "Shortcuts", detail: "?", run: { type: "shortcuts" } },
-    { label: "Clear screen", run: { type: "clearscreen" } },
-    ...(busy ? [{ label: "Cancel task", detail: statusText, run: { type: "cancel" } }] : []),
-    { label: "Quit RA", run: { type: "exit" } },
+    { label: t("Shortcuts"), detail: "?", run: { type: "shortcuts" } },
+    { label: t("Clear screen"), run: { type: "clearscreen" } },
+    ...(busy ? [{ label: t("Cancel task"), detail: statusText, run: { type: "cancel" } }] : []),
+    { label: t("Quit RA"), run: { type: "exit" } },
   ];
 
   const activateMenuEntry = (e: MenuEntry) => {
@@ -773,7 +776,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (run.type === "explorer") { openExplorer(); return; }
     if (run.type === "shortcuts") { modal = { kind: "shortcuts" }; scheduleRender(); return; }
     if (run.type === "clearscreen") { segments.length = 0; scheduleRender(); return; }
-    if (run.type === "cancel") { if (abortActiveTurn()) statusText = "cancelling…"; scheduleRender(); return; }
+    if (run.type === "cancel") { if (abortActiveTurn()) statusText = t("cancelling…"); scheduleRender(); return; }
     runAction(run);
   };
 
@@ -789,6 +792,20 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (input.startsWith("/web ")) { openExplorer(); void runExplorerWebSearch(input.slice(5).trim()); return; }
     if (input === "/web") { openExplorer(); switchExplorerTab("web"); return; }
     if (input === "/themes" || input === "/theme") { openPalette("theme:"); return; }
+    if (input === "/lang" || input.startsWith("/lang ")) {
+      const code = input.slice(5).trim().toLowerCase();
+      if (!code) {
+        push("info", [t("language: {0}", getLocale()), t("supported: {0}", SUPPORTED.map((s) => s.code).join(" · ")), t("usage: /lang <code> — e.g. /lang pt-BR")].join("\n"));
+      } else if (SUPPORTED.some((s) => s.code.toLowerCase() === code)) {
+        const loc = SUPPORTED.find((s) => s.code.toLowerCase() === code)!.code;
+        lockLocale(loc);
+        push("info", t("language → {0} (locked — agent replies follow on the next turn)", loc));
+      } else {
+        push("activity", t("unsupported language: {0} — supported: {1}", code, SUPPORTED.map((s) => s.code).join(" · ")));
+      }
+      scheduleRender();
+      return;
+    }
     if (input === "/setup") { void openSetupWizard(input.includes("rescan")); return; }
     if (input === "/shortcuts" || input === "?") { modal = { kind: "shortcuts" }; scheduleRender(); return; }
     push("user", input);
@@ -801,16 +818,16 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       const agentM = /^agent:([a-z0-9_-]+)\s*([\s\S]*)$/i.exec(input);
       if (agentM) {
         const role = agentM[1].toLowerCase();
-        statusText = `${role} working…`;
+        statusText = t("{0} working…", role);
         scheduleRender();
-        const result = await runTaskAgent(role, agentM[2].trim() || `Introduce yourself as the ${role} agent in one short paragraph.`, config, { cwd: opts.cwd, filesWritten: [] }, loadEnv(ANUBIS_HOME));
+        const result = await runTaskAgent(role, agentM[2].trim() || t("Introduce yourself as the {0} agent in one short paragraph.", role), config, { cwd: opts.cwd, filesWritten: [] }, loadEnv(ANUBIS_HOME));
         streamedThisTurn = "";
         noteContextStats(result.context);
         reply(result.output);
       } else if (input.startsWith("/")) {
         const handled = await dispatchCommand(input, { config, session, plugins, ctx, reply });
         if (handled) saveSession(session);
-        else push("activity", `unknown command ${input} — press / to search`);
+        else push("activity", t("unknown command {0} — press / to search", input));
       } else {
         // Mixture auto-suggest (ra.76): architect-class prompts offer a
         // cross-model fan-out before running the single-lane orchestrator.
@@ -822,10 +839,10 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           if (sug) {
             pendingMixture = input;
             modal = {
-              kind: "menu", x: 4, y: 6, title: "Run as mixture?",
+              kind: "menu", x: 4, y: 6, title: t("Run as mixture?"),
               entries: [
-                { label: `Fan out across ${sug.plan.models.length} models`, detail: `${sug.plan.models.join(" · ")} — critics ${sug.plan.critics.join(", ")} · est ${sug.estCostUsd > 0 ? `$${sug.estCostUsd.toFixed(4)}` : "subscription/free"}`, run: { type: "moa-run" } },
-                { label: "Just answer normally", detail: "single-lane orchestrator", run: { type: "moa-skip" } },
+                { label: t("Fan out across {0} models", sug.plan.models.length), detail: t("{0} — critics {1} · est {2}", sug.plan.models.join(" · "), sug.plan.critics.join(", "), sug.estCostUsd > 0 ? `$${sug.estCostUsd.toFixed(4)}` : t("subscription/free")), run: { type: "moa-run" } },
+                { label: t("Just answer normally"), detail: t("single-lane orchestrator"), run: { type: "moa-skip" } },
               ],
               selected: 0,
             };
@@ -853,7 +870,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
    *  here so every entry point gets the same treatment. */
   const runOrchestratedTurn = async (rawInput: string): Promise<void> => {
     busy = true;
-    statusText = "orchestrating…";
+    statusText = t("orchestrating…");
     beginTurnTelemetry();
     scheduleRender();
     try {
@@ -885,7 +902,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     turnStreamChars += tok.length;
     if (!streaming) streaming = { kind: "assistant", text: tok };
     else streaming.text += tok;
-    if (!statusText) statusText = "responding…";
+    if (!statusText) statusText = t("responding…");
     if (!streamTimer) streamTimer = setTimeout(() => { streamTimer = null; render(); }, 40);
   });
   const spinnerTimer = setInterval(() => {
@@ -1000,16 +1017,16 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (k.name === "d") { quit(); return; }
         if (k.name === "c") {
           if (modal) {
-            if (pendingMixture && modal.kind === "menu") {
-              pendingMixture = null;
-              push("info", "cancelled — prompt discarded");
-            }
+          if (pendingMixture && modal.kind === "menu") {
+            pendingMixture = null;
+            push("info", t("cancelled — prompt discarded"));
+          }
             modal = null; scheduleRender(); return;
           }
           if (busy) {
             const aborted = abortActiveTurn();
             if (keyTrace) keyLog(`ctrl+c abort -> ${aborted} (activeRuns=${activeRunCount()})`);
-            statusText = aborted ? "cancelling…" : "finishing…";
+            statusText = aborted ? t("cancelling…") : t("finishing…");
           }
           else { editor.text = ""; editor.cursor = 0; }
           scheduleRender();
@@ -1037,7 +1054,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
             const task = pendingMixture;
             pendingMixture = null;
             modal = null;
-            push("info", "mixture skipped — answering normally");
+            push("info", t("mixture skipped — answering normally"));
             void runOrchestratedTurn(task);
             scheduleRender();
             return;
@@ -1051,7 +1068,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (busy) {
           const aborted = abortActiveTurn();
           if (keyTrace) keyLog(`escape abort -> ${aborted} (activeRuns=${activeRunCount()})`);
-          statusText = aborted ? "cancelling…" : "finishing…";
+          statusText = aborted ? t("cancelling…") : t("finishing…");
           scheduleRender(); return;
         }
         editor.text = ""; editor.cursor = 0; scheduleRender();
@@ -1232,7 +1249,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     onboarded = true;
     savePrefs({ ...prefs, onboarded: true, theme: themeId.current });
     modal = null;
-    push("info", "You're set. Press / any time to search everything.");
+    push("info", t("You're set. Press / any time to search everything."));
     scheduleRender();
   };
 
@@ -1262,9 +1279,9 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       const env = loadEnv(ANUBIS_HOME);
       // Phase 0 — localhost, always
       const { targets, found } = await scanLocalTargets(env);
-      for (const t of targets) {
-        const hit = found.find((f) => f.host === t.host && f.port === t.port);
-        pushScan(`  ${mark(!!hit)} ${t.host}:${t.port} ${hit ? `${hit.name} · ${hit.models.length} models · ${hit.ms}ms` : t.label + " · not running"}`);
+      for (const target of targets) {
+        const hit = found.find((f) => f.host === target.host && f.port === target.port);
+        pushScan(t("  {0} {1}:{2} {3}", mark(!!hit), target.host, target.port, hit ? t("{0} · {1} models · {2}ms", hit.name, hit.models.length, hit.ms) : t("{0} · not running", target.label)));
       }
       scheduleRender();
       let all: SetupFound[] = found;
@@ -1281,11 +1298,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           const subnet = deriveSubnet();
           if (subnet) {
             const onProgress = throttle(() => {
-              if (modal?.kind === "setup") { pushScan(`  ${spinnerFrame(spinnerFrame_, useAsciiGlyphs(process.env))} scanning ${subnet} … (${all.length} found so far)`); scheduleRender(); }
+              if (modal?.kind === "setup") { pushScan(t("  {0} scanning {1} … ({2} found so far)", spinnerFrame(spinnerFrame_, useAsciiGlyphs(process.env)), subnet, all.length)); scheduleRender(); }
             });
             const lan = await scanLanTargets(subnet, (line) => onProgress(line));
             all = [...all, ...lan.found];
-          } else pushScan("  No local network interface found — LAN scan skipped.");
+          } else pushScan(t("  No local network interface found — LAN scan skipped."));
         }
       }
       if (modal?.kind !== "setup") return;
@@ -1294,7 +1311,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         modal.phase = "ask-cloud";
         scheduleRender();
         await waitSetupChoice();
-        skipSetup("no local server found — cloud config available via `ra setup` in a terminal");
+        skipSetup(t("no local server found — cloud config available via `ra setup` in a terminal"));
         return;
       }
       // Pick list — defaults from §5.5, ping before save
@@ -1306,7 +1323,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       modal.selected = 0;
       scheduleRender();
       const done = await waitSetupChoice(); // "finish" | null (esc/s skip)
-      if (modal?.kind !== "setup" || done !== "finish") { skipSetup("skipped — nothing saved"); return; }
+      if (modal?.kind !== "setup" || done !== "finish") { skipSetup(t("skipped — nothing saved")); return; }
       modal.phase = "testing";
       scheduleRender();
       const { pingUrl } = await import("../../../anubis/src/ping.ts");
@@ -1316,7 +1333,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         const host = all.find((f) => f.models.includes(bare) || f.models.some((m) => bare.startsWith(m.split(":")[0]!)));
         const ping = await pingUrl("small", `http://${host?.host ?? "127.0.0.1"}:${host?.port ?? 11434}`, 3000);
         if (!ping.ok) {
-          pushScan(`  ${mark(false)} small host unreachable — pick another model or skip`);
+          pushScan(t("  {0} small host unreachable — pick another model or skip", mark(false)));
           modal.phase = "pick";
           scheduleRender();
           return;
@@ -1329,11 +1346,11 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       config.small_model = fresh.small_model;
       config.model = fresh.model;
       modal.phase = "done";
-      pushScan(`  ${mark(true)} saved → ${saved.configPath}`);
+      pushScan(t("  {0} saved → {1}", mark(true), saved.configPath));
       scheduleRender();
       setTimeout(() => { if (modal?.kind === "setup") advancePastSetup(); }, 600);
     } catch (e) {
-      pushScan(`  ${mark(false)} setup error: ${String(e).slice(0, 120)}`);
+      pushScan(t("  {0} setup error: {1}", mark(false), String(e).slice(0, 120)));
       scheduleRender();
     }
   };
@@ -1345,7 +1362,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   /** esc / s in the setup modal: skip everything, continue onboarding. */
   const skipSetup = (note: string) => {
     if (modal?.kind === "setup" && modal.phase !== "done") {
-      push("info", `setup ${note}`);
+      push("info", t("setup {0}", note));
     }
     advancePastSetup();
   };
@@ -1409,7 +1426,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     process.stdout.write(SYNC_BEGIN + "\x1b[H" + lines.map((l) => fit(screenWidth, l ?? "") + "\x1b[K").join("\n") + SYNC_END);
   };
   if (!process.env.RA_NO_SPLASH) {
-    try { drawSplash(); } catch (e) { stdout.write(`\r\nsplash error: ${String(e)}\r\n`); }
+    try { drawSplash(); } catch (e) { stdout.write(t("\r\nsplash error: {0}\r\n", String(e))); }
     void (async () => {
       const skipped = await Promise.race([
         new Promise<null>((r) => setTimeout(() => r(null), 1600)),

@@ -7,6 +7,7 @@
 
 import { visibleWidth, truncateVisible } from "./markdown.ts";
 import { outlineSymbols } from "../symbols.ts";
+import { t } from "../i18n.ts";
 import type { CatalogEntry } from "../agents/catalog.ts";
 
 export interface TreeNode {
@@ -109,10 +110,10 @@ export function flattenTree(root: TreeNode, expanded: Set<string>): Array<TreeNo
 export interface TabSpec { id: RightPane["kind"]; label: string }
 
 export const EXPLORER_TABS: TabSpec[] = [
-  { id: "file", label: "file" },
-  { id: "agent", label: "agents" },
-  { id: "sessions", label: "sessions" },
-  { id: "web", label: "web" },
+  { id: "file", label: t("file") },
+  { id: "agent", label: t("agents") },
+  { id: "sessions", label: t("sessions") },
+  { id: "web", label: t("web") },
   // TODO(explorer): plugin-store tab — the plugins agent owns ra/src/plugins/stores.ts;
   // add { id: "plugins", label: "store" } here once that module lands.
 ];
@@ -137,18 +138,18 @@ export function renderRightPane(right: RightPane, agents: CatalogEntry[], width:
   const w = Math.max(10, width);
   const curGlyph = ascii ? ">" : "▶";
   const dot = ascii ? "-" : "·";
-  const section = ascii ? "-- content --" : "── content ──";
-  const fetchedHead = ascii ? "-- fetched page (text) - click another result to switch --" : "── fetched page (text) · click another result to switch ──";
+  const section = t(ascii ? "-- content --" : "── content ──");
+  const fetchedHead = t(ascii ? "-- fetched page (text) - click another result to switch --" : "── fetched page (text) · click another result to switch ──");
   if (right.kind === "file") {
     if (!right.path) {
-      out.push({ text: st.muted("click a file on the left to preview it") });
-      out.push({ text: st.muted(`symbol outline ${dot} ${agents.length} agents ${dot} sessions ${dot} /web search in the tabs above`) });
+      out.push({ text: st.muted(t("click a file on the left to preview it")) });
+      out.push({ text: st.muted(t("symbol outline {0} {1} agents {2} sessions {2} /web search in the tabs above", dot, agents.length, dot)) });
       return out;
     }
     const lines = right.content.split("\n");
     const symbols = outlineSymbols(right.content).slice(0, 40);
     out.push({ text: st.strong(truncateVisible(right.path, w)) });
-    out.push({ text: st.muted(`${lines.length} lines ${dot} ${symbols.length} symbols`) });
+    out.push({ text: st.muted(t("{0} lines {1} {2} symbols", lines.length, dot, symbols.length)) });
     out.push({ text: "" });
     for (const s of symbols) out.push({ text: st.muted(`  ${s.line}: ${s.kind} ${s.name}`) });
     out.push({ text: "" });
@@ -162,13 +163,13 @@ export function renderRightPane(right: RightPane, agents: CatalogEntry[], width:
       out.push({ text: st.strong(`agent:${c.role}`) });
       out.push({ text: st.muted(`${c.category} ${dot} ${c.scope}`) });
       out.push({ text: "" });
-      for (const l of wrap(c.description || "(no description)", w - 4)) out.push({ text: `  ${l}` });
+      for (const l of wrap(c.description || t("(no description)"), w - 4)) out.push({ text: `  ${l}` });
       out.push({ text: "" });
-      out.push({ text: st.muted(`delegate: agent:${c.role} <task> in the prompt`) });
-      out.push({ text: st.muted("esc/back: back to the catalog") });
+      out.push({ text: st.muted(t("delegate: agent:{0} <task> in the prompt", c.role)) });
+      out.push({ text: st.muted(t("esc/back: back to the catalog")) });
       return out;
     }
-    out.push({ text: st.muted(ascii ? "agent catalog - click one for its card" : "agent catalog — click one for its card") });
+    out.push({ text: st.muted(t(ascii ? "agent catalog - click one for its card" : "agent catalog — click one for its card")) });
     out.push({ text: "" });
     agents.slice(0, 300).forEach((a, i) => {
       out.push({ text: `${st.strong(a.role)}${st.muted(` ${dot} ${a.category}`)}`, entry: i });
@@ -177,20 +178,20 @@ export function renderRightPane(right: RightPane, agents: CatalogEntry[], width:
     return out;
   }
   if (right.kind === "sessions") {
-    out.push({ text: st.muted(ascii ? "sessions - click to switch (restart ra to reopen)" : "sessions — click to switch (restart ra to reopen)") });
+    out.push({ text: st.muted(t(ascii ? "sessions - click to switch (restart ra to reopen)" : "sessions — click to switch (restart ra to reopen)")) });
     out.push({ text: "" });
     right.list.slice(0, 100).forEach((s, i) => {
       const mark = s.current ? st.accent(curGlyph) : "  ";
       out.push({ text: `${mark}${st.strong(truncateVisible(s.id, w - 20))}`, entry: i });
-      out.push({ text: st.muted(`  ${truncateVisible(s.cwd, w - 6)} ${dot} ${s.messages} msg`), entry: i });
+      out.push({ text: st.muted(`  ${truncateVisible(s.cwd, w - 6)} ${dot} ${s.messages} ${t("msg")}`), entry: i });
     });
-    if (!right.list.length) out.push({ text: st.muted("  (no saved sessions)") });
+    if (!right.list.length) out.push({ text: st.muted(t("  (no saved sessions)")) });
     return out;
   }
   // web
-  out.push({ text: st.muted(right.query ? `web: ${truncateVisible(right.query, w - 6)}` : "type /web <query> in the prompt to search") });
+  out.push({ text: st.muted(right.query ? t("web: {0}", truncateVisible(right.query, w - 6)) : t("type /web <query> in the prompt to search")) });
   out.push({ text: "" });
-  if (right.fetching) { out.push({ text: st.muted(ascii ? "fetching..." : "fetching…") }); return out; }
+  if (right.fetching) { out.push({ text: st.muted(t(ascii ? "fetching..." : "fetching…")) }); return out; }
   if (right.fetched != null) {
     out.push({ text: st.muted(fetchedHead) });
     for (const l of right.fetched.split("\n").slice(0, 400)) out.push({ text: truncateVisible(l, w) });
@@ -202,7 +203,7 @@ export function renderRightPane(right: RightPane, agents: CatalogEntry[], width:
     out.push({ text: st.muted(`  ${truncateVisible(r.snippet, w - 4)}`), entry: i });
     out.push({ text: "" });
   });
-  if (!right.results.length && right.query) out.push({ text: st.muted("  (no results)") });
+  if (!right.results.length && right.query) out.push({ text: st.muted(t("  (no results)")) });
   return out;
 }
 
@@ -243,7 +244,7 @@ export function renderExplorer(opts: {
     title += s;
     col += visibleWidth(label);
   }
-  title += st.muted(opts.ascii ? "  q close - tab switch" : "  q close · tab switch");
+  title += st.muted(t(opts.ascii ? "  q close - tab switch" : "  q close · tab switch"));
   lines.push(fit(W, title));
 
   // ---------- body rows ----------

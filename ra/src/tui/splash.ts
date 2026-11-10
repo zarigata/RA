@@ -2,6 +2,7 @@
 // background pattern, plus terminal recoloring helpers (pure, testable).
 
 import { truncateVisible } from "./markdown.ts";
+import { t } from "../i18n.ts";
 
 export const LOGO: string[] = [
   "██████╗  █████╗ ",
@@ -110,10 +111,10 @@ export function renderSplashFrame(opts: {
   }
   const tagText = TAGLINE;
   composite(top + logo.length + 1, tagText, (s) => `\x1b[1m${hexFg(muted)}${s}\x1b[0m`);
-  const verText = `v${opts.version}  ·  press any key to begin`;
+  const verText = t("v{0}  ·  press any key to begin", opts.version);
   composite(top + logo.length + 2, verText, (s) => `\x1b[2m${hexFg(muted)}${s}\x1b[0m`);
   // Lane / setup hint + next command: two centred muted lines under the version.
-  const laneText = opts.lane ?? (opts.setupNeeded ? "no model yet — run ra setup after this screen" : undefined);
+  const laneText = opts.lane ?? (opts.setupNeeded ? t("no model yet — run ra setup after this screen") : undefined);
   if (laneText) composite(top + logo.length + 3, truncateVisible(laneText, W), (s) => `\x1b[2m${hexFg(muted)}${s}\x1b[0m`);
   if (opts.nextCommand && W >= 68) {
     composite(top + logo.length + 4, truncateVisible(opts.nextCommand, W), (s) => `\x1b[2m${hexFg(muted)}${s}\x1b[0m`);

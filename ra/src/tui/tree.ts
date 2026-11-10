@@ -1,6 +1,8 @@
 // Subagent tree — tracks spawned subagents and renders a visual tree for the TUI.
-// When an agent spawns a subagent via TASK, the tree records the parent→child
+// When a agent spawns a subagent via TASK, the tree records the parent→child
 // relationship and can render it as an indented tree.
+
+import { t } from "../i18n.ts";
 
 export interface SubagentNode {
   role: string;
@@ -79,7 +81,7 @@ export class SubagentTree {
   /** Render the tree as a string with indentation and status indicators. */
   render(): string {
     if (!this.root) return "";
-    const lines: string[] = ["╭ subagents ──────────────"];
+    const lines: string[] = [t("╭ subagents ──────────────")];
     this.renderNode(this.root, lines, "");
     lines.push("╰─");
     return lines.join("\n");

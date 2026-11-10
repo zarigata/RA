@@ -206,6 +206,31 @@ describe("capability router", () => {
     expect(lmOnly.primary.local).toBe(true);
   });
 
+  test("a custom cloud gateway lane (codder/*) is cloud — no local bonus, cloud ctx", () => {
+    // Wave 2: a provider-block-backed lane id must inherit the block's kind.
+    const cfg: RaConfig = {
+      ...config,
+      model: "codder/claude-sonnet-5-5",
+      small_model: "test/qwen3.8",
+      provider: {
+        ...config.provider,
+        codder: { options: { baseURL: "https://cloud-gw.example.test/v1", apiKey: "{env:CODDER_API_KEY}" }, models: { "claude-sonnet-5-5": {}, "claude-opus-5-5": {} } },
+        test: { options: { baseURL: "http://localhost:20123/v1", apiKey: "{env:RA_TEST_API_KEY}" }, models: { "qwen3.8": {}, "bonsai-code-27b": {} } },
+      },
+    };
+    const env2 = { ...env, CODDER_API_KEY: "k", RA_TEST_API_KEY: "t" };
+    const cands = candidateModels(cfg, env2);
+    expect(cands.find((c) => c.model === "codder/claude-sonnet-5-5")!.kind).toBe("cloud");
+    expect(cands.find((c) => c.model === "test/qwen3.8")!.kind).toBe("local");
+    // review job: claude (10) beats qwen3.8 (7+2 local bonus) without the bogus cloud-local bonus.
+    // Ambient quota marks (live runs share ~/.ra/quota.json) must not skew this.
+    clearExhausted("codder"); clearExhausted("test");
+    const review = pickForJob("review", cfg, env2)!;
+    expect(review.primary.model).toMatch(/^codder\/claude-(opus|sonnet)-5-5$/);
+    expect(review.primary.local).toBe(false);
+    clearExhausted("codder"); clearExhausted("test");
+  });
+
   test("formatProviders renders state for /providers", () => {
     const text = formatProviders(config, env);
     expect(text).toContain("capability router on (local_bonus 2)");

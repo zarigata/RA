@@ -16,8 +16,23 @@ import type { RaConfig } from "./config.ts";
 export type RoutingMode = "local-first" | "quality-first" | "balanced" | "economy";
 export const ROUTING_MODES: RoutingMode[] = ["local-first", "quality-first", "balanced", "economy"];
 
-export function isCloudModelId(model: string): boolean {
-  return /^(ollama-cloud|cloud)\//i.test(model);
+/** Pure: is this model id cloud-KIND for routing decisions (escalation,
+ * budget downshift)? True for the ollama-cloud/cloud lane prefixes AND for
+ * provider-block-backed ids whose provider is not a local host — a custom
+ * cloud gateway lane (codder/*, zai/* on a remote baseURL) must be treated
+ * as cloud or balanced-mode escalation and the budget guard ignore it.
+ * Providers dict is optional for the legacy prefix-only call sites. */
+export function isCloudModelId(
+  model: string,
+  providers?: Record<string, { options?: { baseURL?: string } }>,
+): boolean {
+  if (/^(ollama-cloud|cloud)\//i.test(model)) return true;
+  if (!providers) return false;
+  const slash = model.indexOf("/");
+  if (slash <= 0) return false;
+  const def = providers[model.slice(0, slash)];
+  if (!def?.options?.baseURL) return false;
+  return !/localhost|127\.0\.0\.1|192\.168\./.test(def.options.baseURL.replace(/\{env:[A-Z0-9_]+\}/g, ""));
 }
 
 export function resolveRoutingMode(config: Pick<RaConfig, "routing">, env: Record<string, string | undefined> = process.env): RoutingMode {
@@ -72,10 +87,11 @@ export function budgetBreached(config: Pick<RaConfig, "budget">): boolean {
 /** Pure: the local-lane replacement for a cloud model on budget breach. */
 export function downshiftForBudget(
   model: string,
-  config: Pick<RaConfig, "budget" | "small_model">,
+  config: Pick<RaConfig, "budget" | "small_model" | "provider">,
   spentUsd = sessionSpentUsd(),
+  providers?: Record<string, { options?: { baseURL?: string } }>,
 ): string | null {
-  if (!isOverBudget(spentUsd, config) || !isCloudModelId(model)) return null;
+  if (!isOverBudget(spentUsd, config) || !isCloudModelId(model, providers ?? (config.provider as Record<string, { options?: { baseURL?: string } }> | undefined))) return null;
   return config.small_model ?? null;
 }
 
@@ -86,16 +102,17 @@ export function downshiftForBudget(
  */
 export function escalationChain(
   primary: string,
-  config: Pick<RaConfig, "routing" | "model" | "small_model" | "budget">,
+  config: Pick<RaConfig, "routing" | "model" | "small_model" | "budget" | "provider">,
   spentUsd = sessionSpentUsd(),
 ): string[] {
   const mode = resolveRoutingMode(config);
+  const providers = config.provider as Record<string, { options?: { baseURL?: string } }> | undefined;
   const out: string[] = [];
-  if (isCloudModelId(primary)) {
-    if (downshiftForBudget(primary, config, spentUsd)) out.push(downshiftForBudget(primary, config, spentUsd)!);
+  if (isCloudModelId(primary, providers)) {
+    if (downshiftForBudget(primary, config, spentUsd, providers)) out.push(downshiftForBudget(primary, config, spentUsd, providers)!);
     return out;
   }
-  if (mode === "balanced" && config.model && isCloudModelId(config.model)) {
+  if (mode === "balanced" && config.model && isCloudModelId(config.model, providers)) {
     out.push(config.model);
   }
   return out;

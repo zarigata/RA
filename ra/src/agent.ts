@@ -857,7 +857,7 @@ async function executeTaskAgent(
     }
   }
   // Budget guard: past budget.session_usd, cloud work downshifts to the local lane.
-  const budgetDownshift = downshiftForBudget(configured, config);
+  const budgetDownshift = downshiftForBudget(configured, config, undefined, config.provider as Record<string, { options?: { baseURL?: string } }> | undefined);
   if (budgetDownshift) {
     configured = budgetDownshift;
     emitGlobalHook("model.fallback", { from: meta.model ?? "tier", to: budgetDownshift, reason: "session budget breached" });

@@ -63,8 +63,17 @@ export function candidateModels(config: RaConfig, env: Record<string, string | u
   const add = (model: string, provider: string, kind: "local" | "cloud", hasKey: boolean) => {
     if (model && !out.has(model)) out.set(model, { model, provider, kind, hasKey });
   };
-  if (config.small_model) add(config.small_model, config.small_model.split("/")[0], "local", true);
-  if (config.model) add(config.model, config.model.split("/")[0], /^(ollama-cloud|cloud)\//i.test(config.model) ? "cloud" : "local", true);
+  // Lane kind: when a lane id is backed by a provider block (e.g. a custom
+  // cloud gateway like codder/*), the block's baseURL decides local vs cloud —
+  // a paid cloud lane must not inherit the local bonus or the local context cap.
+  const laneKind = (id: string, fallback: "local" | "cloud"): "local" | "cloud" => {
+    if (/^(ollama-cloud|cloud)\//i.test(id)) return "cloud";
+    const def = (config.provider ?? {}) as Record<string, { options?: { baseURL?: string } } | undefined>;
+    const baseURL = def[id.split("/")[0]]?.options?.baseURL;
+    return baseURL ? (isLocalUrl(baseURL) ? "local" : "cloud") : fallback;
+  };
+  if (config.small_model) add(config.small_model, config.small_model.split("/")[0], laneKind(config.small_model, "local"), true);
+  if (config.model) add(config.model, config.model.split("/")[0], laneKind(config.model, "local"), true);
   for (const [name, def] of Object.entries((config.provider ?? {}) as Record<string, { options?: { baseURL?: string; apiKey?: string }; models?: Record<string, unknown> }>)) {
     const kind: "local" | "cloud" = isLocalUrl(def.options?.baseURL) ? "local" : "cloud";
     const hasKey = envKey(def.options?.apiKey, env);

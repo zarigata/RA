@@ -75,7 +75,9 @@ interface ChatBody {
   stream?: boolean;
 }
 
-/** Fake native Ollama: /api/tags, /api/show, and a scripted /api/chat queue. */
+/** Fake OpenAI-compatible provider (a provider block's baseURL is the /v1
+ *  surface by contract — LM Studio/llama.cpp style; native Ollama is reached
+ *  via the dedicated ollama lanes, not provider blocks). */
 function startFakeOllama(script: string[]) {
   const bodies: ChatBody[] = [];
   let n = 0;
@@ -83,21 +85,24 @@ function startFakeOllama(script: string[]) {
     port: 0,
     async fetch(req) {
       const url = new URL(req.url);
-      if (url.pathname === "/api/tags") return Response.json({ models: [{ name: "tiny" }] });
-      if (url.pathname === "/api/show") return Response.json({ model_info: { "tiny.context_length": 8192 } });
-      if (url.pathname === "/api/chat") {
+      if (url.pathname === "/v1/models") return Response.json({ data: [{ id: "tiny" }] });
+      if (url.pathname === "/v1/chat/completions") {
         bodies.push((await req.json()) as ChatBody);
         const step = script[Math.min(n, script.length - 1)]!;
         n++;
-        return new Response(
-          JSON.stringify({ message: { content: step }, done: true, model: "tiny", prompt_eval_count: 100, eval_count: 20 }) + "\n",
-          { headers: { "Content-Type": "application/x-ndjson" } },
-        );
+        const payload = JSON.stringify({
+          model: "tiny",
+          choices: [{ delta: { content: step } }],
+          usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+        });
+        return new Response(`data: ${payload}\n\ndata: [DONE]\n\n`, {
+          headers: { "Content-Type": "text/event-stream" },
+        });
       }
       return new Response("not found", { status: 404 });
     },
   });
-  return { server, url: `http://localhost:${server.port}`, bodies };
+  return { server, url: `http://localhost:${server.port}/v1`, bodies };
 }
 
 function laneConfig(url: string): RaConfig {

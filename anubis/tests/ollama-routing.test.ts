@@ -30,6 +30,13 @@ describe("small Ollama routing", () => {
     ]);
   });
 
+  test("RA_LOCAL_ONLY=1 drops the hardcoded localhost fallback", () => {
+    // Wave 2 isolation: a harness pointing OLLAMA_LAN_URL at its shim must
+    // never silently fall back to a real localhost ollama on this Mac.
+    const urls = smallOllamaUrls({ OLLAMA_LAN_URL: "http://localhost:20123", RA_LOCAL_ONLY: "1" });
+    expect(urls).toEqual(["http://localhost:20123"]);
+  });
+
   test("pickModel prefers the configured family when present", () => {
     const available = ["gemma:latest", "qwen3.8:latest", "gemma2:2b"];
     expect(pickModel("ollama-lan/qwen3.8:latest", available)).toBe("qwen3.8:latest");

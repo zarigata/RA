@@ -389,8 +389,10 @@ export function listDir(ctx: ToolContext, dir = "."): string {
   if (!existsSync(abs)) return `Error: not found: ${dir}`;
   return readdirSync(abs)
     .map((f) => {
-      const s = statSync(join(abs, f));
-      return `${s.isDirectory() ? "d" : "f"} ${f}`;
+      // lstat, not stat: a dangling symlink in the project root must list as
+      // "l" — statSync follows the link and ENOENTs, killing the whole turn.
+      const s = lstatSync(join(abs, f));
+      return `${s.isDirectory() ? "d" : s.isSymbolicLink() ? "l" : "f"} ${f}`;
     })
     .join("\n");
 }

@@ -9,6 +9,7 @@ Setup instructions and copy-paste configs for all major AI providers.
 | Provider | Free | Cheap | Quality | Copy-Paste |
 |---|---|---|---|---|
 | **Ollama Cloud** | ✅ (trial) | ✅ | 🌟🌟🌟 | [below](#ollama-cloud) |
+| **Codder (Claude)** | ❌ | ❌ | 🌟🌟🌟🌟 | [below](#codder) |
 | **Ollama Local** | ✅ | ✅ | 🌟🌟 | [below](#ollama-local) |
 | **Anthropic Claude** | ❌ | ❌ | 🌟🌟🌟🌟 | [below](#anthropic) |
 | **Google Gemini** | ✅ (trial) | ✅ | 🌟🌟🌟 | [below](#google) |
@@ -67,6 +68,60 @@ OLLAMA_BASE_URL=https://ollama.com/v1
 - GLM 5.2: $0.60 per 1M input tokens (5x cheaper than Claude)
 - DeepSeek V4 Pro: $0.75 per 1M input tokens
 - Gemma 4: free tier available
+
+---
+
+## Codder (Claude)
+
+**Best for:** Anthropic Claude models through one OpenAI-compatible endpoint — Opus 5.5 + Sonnet 5.5 with no Anthropic account.
+
+### Get Key
+
+1. Get a Codder API key (format `codder-...`)
+2. The endpoint serves exactly two models: `claude-opus-5-5`, `claude-sonnet-5-5` (OpenAI endpoint type — `/v1/chat/completions`)
+
+### Add to .env
+```bash
+CODDER_BASE_URL=https://cloud-gw.example.test/v1
+CODDER_API_KEY=codder-...
+```
+
+### Add to ra.json
+```jsonc
+{
+  "provider": {
+    "codder": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Codder (Anthropic via OpenAI-compat)",
+      "options": {
+        "baseURL": "{env:CODDER_BASE_URL}",
+        "apiKey": "{env:CODDER_API_KEY}"
+      },
+      "models": {
+        "claude-opus-5-5": { "name": "Claude Opus 5.5 (Codder)", "cost": { "input": 15, "output": 75 } },
+        "claude-sonnet-5-5": { "name": "Claude Sonnet 5.5 (Codder)", "cost": { "input": 3, "output": 15 } }
+      }
+    }
+  },
+  "agent": {
+    "ptah": { "model": "codder/claude-opus-5-5" },
+    "maat": { "model": "codder/claude-sonnet-5-5" }
+  }
+}
+```
+
+Notes:
+- `baseURL` also accepts the literal URL; the `{env:CODDER_BASE_URL}` form keeps
+  the endpoint out of the repo too.
+- The `cost` blocks are placeholders — adjust to your Codder pricing so
+  `ra cost` and the budget guard (`budget.session_usd`) see real dollars.
+- A `codder/*` lane id (as `model`/`small_model`) counts as **cloud** for
+  routing, context and budget (no local bonus) — RA reads the provider block's
+  baseURL for the local/cloud decision.
+
+### Pricing
+- Claude Opus 5.5: ~$15/M in, ~$75/M out — expensive; keep tasks bounded
+- Claude Sonnet 5.5: ~$3/M in, ~$15/M out — the balanced lane
 
 ---
 

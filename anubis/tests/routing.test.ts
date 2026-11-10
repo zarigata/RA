@@ -55,6 +55,18 @@ describe("routing modes", () => {
     expect(isCloudModelId("ollama-lan/qwen3.8:latest")).toBe(false);
     expect(isCloudModelId("zai/glm-4.6")).toBe(false);
   });
+
+  test("cloud model detection honors provider-block baseURLs (custom gateways)", () => {
+    // Wave 2: codder/* on a remote baseURL is cloud for escalation/budget;
+    // a localhost provider block (LAN shim, LM Studio) stays local.
+    const providers = {
+      codder: { options: { baseURL: "https://cloud-gw.example.test/v1" } },
+      test: { options: { baseURL: "http://localhost:20123/v1" } },
+    };
+    expect(isCloudModelId("codder/claude-opus-5-5", providers)).toBe(true);
+    expect(isCloudModelId("test/qwen3.8", providers)).toBe(false);
+    expect(isCloudModelId("codder/x", undefined)).toBe(false); // no dict → legacy prefix-only
+  });
 });
 
 describe("budget guard", () => {
@@ -84,6 +96,16 @@ describe("cross-kind escalation", () => {
   test("budget breach appends local to a cloud primary in any mode", () => {
     const chain = escalationChain("ollama-cloud/glm-5.2", { ...base, budget: { session_usd: 0.5 } }, 2);
     expect(chain).toEqual(["ollama-lan/qwen3.8:latest"]);
+  });
+
+  test("balanced mode escalates local → a custom cloud-gateway BIG (codder/*)", () => {
+    // Wave 2 dual-lane: the escalation path small@201 → BIG@codder.
+    const providers = { codder: { options: { baseURL: "https://cloud-gw.example.test/v1" } } };
+    const chain = escalationChain("test/qwen3.8", { ...base, routing: { mode: "balanced" }, model: "codder/claude-opus-5-5", provider: providers }, 0);
+    expect(chain).toEqual(["codder/claude-opus-5-5"]);
+    // budget breach on the cloud lane downshifts to the local lane
+    const down = downshiftForBudget("codder/claude-opus-5-5", { ...base, small_model: "test/qwen3.8", budget: { session_usd: 0.5 }, provider: providers }, 2);
+    expect(down).toBe("test/qwen3.8");
   });
 });
 

@@ -85,10 +85,12 @@ interface ChatBody {
   model?: string;
   messages?: Array<{ role: string; content: string }>;
   options?: { num_ctx?: number; num_predict?: number; temperature?: number };
+  max_tokens?: number;
   stream?: boolean;
 }
 
-/** Fake native Ollama: /api/tags, /api/show, and a scripted /api/chat queue. */
+/** Fake OpenAI-compatible provider (a provider block's baseURL is the /v1
+ *  surface by contract; native Ollama is reached via the ollama lanes). */
 function startFakeOllama(script: Array<string | { status: number; error: string }>) {
   const bodies: ChatBody[] = [];
   let n = 0;
@@ -96,22 +98,25 @@ function startFakeOllama(script: Array<string | { status: number; error: string 
     port: 0,
     async fetch(req) {
       const url = new URL(req.url);
-      if (url.pathname === "/api/tags") return Response.json({ models: [{ name: "tiny" }] });
-      if (url.pathname === "/api/show") return Response.json({ model_info: { "tiny.context_length": 8192 } });
-      if (url.pathname === "/api/chat") {
+      if (url.pathname === "/v1/models") return Response.json({ data: [{ id: "tiny" }] });
+      if (url.pathname === "/v1/chat/completions") {
         bodies.push((await req.json()) as ChatBody);
         const step = script[Math.min(n, script.length - 1)]!;
         n++;
         if (typeof step === "object") return new Response(step.error, { status: step.status });
-        return new Response(
-          JSON.stringify({ message: { content: step }, done: true, model: "tiny", prompt_eval_count: 800, eval_count: 100 }) + "\n",
-          { headers: { "Content-Type": "application/x-ndjson" } },
-        );
+        const payload = JSON.stringify({
+          model: "tiny",
+          choices: [{ delta: { content: step } }],
+          usage: { prompt_tokens: 800, completion_tokens: 100, total_tokens: 900 },
+        });
+        return new Response(`data: ${payload}\n\ndata: [DONE]\n\n`, {
+          headers: { "Content-Type": "text/event-stream" },
+        });
       }
       return new Response("not found", { status: 404 });
     },
   });
-  return { server, url: `http://localhost:${server.port}`, bodies };
+  return { server, url: `http://localhost:${server.port}/v1`, bodies };
 }
 
 function adaptiveConfig(url: string, extra: Partial<NonNullable<RaConfig["context"]>> = {}): RaConfig {
@@ -150,9 +155,11 @@ describe("adaptive run loop (fake Ollama, 8k window)", () => {
       expect(result.context?.resumes).toBe(1);
       expect(result.context?.windowTokens).toBe(8192);
       expect(bodies.length).toBe(2);
-      // Every call reserved num_ctx from the registry — no silent server default.
-      expect(bodies[0].options?.num_ctx).toBe(8192);
-      expect(bodies[1].options?.num_ctx).toBe(8192);
+      // Window reservation (num_ctx) is a native-Ollama surface; OpenAI-compat
+      // servers self-manage context and get max_tokens only as an output cap.
+      // The compat contract pin: well-formed requests to the right model.
+      expect(bodies[0].model).toBe("tiny");
+      expect(bodies[0].messages!.length).toBeGreaterThan(0);
       // The continuation was seeded with the objective + handoff, not the transcript.
       const cont = bodies[1].messages!.map((m) => m.content).join("\n");
       expect(cont).toContain("CONTINUATION 1/2");

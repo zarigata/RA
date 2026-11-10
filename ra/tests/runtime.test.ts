@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { classifyTier, tierModel } from "../../ra/src/tier.ts";
-import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo, toolMultiEdit, expandMentions, toolOutline } from "../../ra/src/tools/index.ts";
+import { toolWrite, toolRead, toolEdit, safePath, toolWebFetch, toolTodo, toolMultiEdit, expandMentions, toolOutline, listDir } from "../../ra/src/tools/index.ts";
 import { loadProjectMemory, loadAgentPermissions, loadAgentMeta } from "../../ra/src/agent.ts";
 import { join } from "node:path";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 describe("task tier classifier", () => {
@@ -42,6 +42,21 @@ describe("RA tools", () => {
       expect(() => safePath(cwd, "../evil.txt")).toThrow(/escapes/);
     } finally {
       rmSync(cwd, { recursive: true });
+    }
+  });
+
+  test("listDir survives a dangling symlink in the project root", () => {
+    // Wave 2 regression pin: a broken symlink in cwd used to ENOENT the whole
+    // agent turn (moa died before any model call listing /tmp).
+    const cwd = mkdtempSync(join(tmpdir(), "ra-listdir-"));
+    try {
+      writeFileSync(join(cwd, "real.txt"), "x");
+      symlinkSync(join(cwd, "gone-target.txt"), join(cwd, "dangling"));
+      const out = listDir({ cwd }, ".");
+      expect(out).toContain("f real.txt");
+      expect(out).toContain("l dangling");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
     }
   });
 

@@ -532,13 +532,19 @@ export function isClaudeModel(configured: string): boolean {
   return /^(claude|anthropic)\//i.test(configured);
 }
 
-/** Small Ollama: the configured LAN box first (OLLAMA_LAN_URL), then localhost */
+/** Small Ollama: the configured LAN box first (OLLAMA_LAN_URL), then localhost.
+ * RA_LOCAL_ONLY=1 drops the hardcoded localhost fallback — for harnesses and
+ * airgapped runs where an unconfigured probe must fail honestly instead of
+ * finding whatever native Ollama happens to run on this Mac. */
 export function smallOllamaUrls(env: Record<string, string | undefined>): string[] {
   const urls = [
     env.OLLAMA_LAN_URL ?? "http://localhost:11434",
     env.OLLAMA_LOCAL_URL ?? "http://localhost:11434",
-    "http://localhost:11434",
+    ...(env.RA_LOCAL_ONLY === "1" ? [] : ["http://localhost:11434"]),
   ];
+  // RA_LOCAL_ONLY=1 (harness/airgap): only explicitly configured local URLs —
+  // unset vars contribute nothing instead of their localhost defaults.
+  if (env.RA_LOCAL_ONLY === "1") return [...new Set([env.OLLAMA_LAN_URL, env.OLLAMA_LOCAL_URL].filter(Boolean) as string[])];
   return [...new Set(urls)];
 }
 export async function pickOllamaEndpoint(
@@ -605,7 +611,11 @@ export function resolveProviderClient(
   if (!baseURL) return null;
   const apiKey = expandEnv(def.options.apiKey ?? "") ?? "";
   const kind: "cloud" | "local" = /localhost|127\.0\.0\.1|192\.168\./.test(baseURL) ? "local" : "cloud";
-  return new OllamaClient({ baseURL, apiKey, kind });
+  // A custom provider block IS an OpenAI-compatible endpoint by construction
+  // (its baseURL is the /v1 surface). Local blocks (LM Studio, llama.cpp, a
+  // LAN shim) must not take the native /api/chat path — that route exists
+  // only on real Ollama servers and 404s everywhere else.
+  return new OllamaClient({ baseURL, apiKey, kind, openaiCompat: true });
 }
 
 /**

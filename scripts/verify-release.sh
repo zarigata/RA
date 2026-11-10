@@ -127,7 +127,8 @@ say "Running offline unit tests"
     ra/tests/edge-boot.test.ts \
     ra/tests/edge-concurrency.test.ts \
     ra/tests/crlf-frontmatter.test.ts \
-    ra/tests/regression-pins.test.ts
+    ra/tests/regression-pins.test.ts \
+    ra/tests/bench-external.test.ts
 )
 
 say "Smoke-testing the source CLI"

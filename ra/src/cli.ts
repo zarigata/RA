@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
 import { ANUBIS_HOME } from "./paths.ts";
 import { startTui } from "./tui/app.ts";
 import { loadRaConfig, ensureRaDirs, applyProjectOverride, applyEnvOverrides } from "../../anubis/src/config.ts";
@@ -153,6 +153,8 @@ Usage:
   ra selfcheck               Splash + ping + lanes + models (no LLM)
   ra warm [--model ID]       Load the small model on the LAN box (warm start)
   ra benchmark init|smoke|run <name|all> [--cwd DIR]
+  ra bench external <suite> --model <id> [--limit N] [--budget USD] [--cwd DIR] [--local-dir DIR]
+                             External suites: humanevalplus | mbppplus | polyglot-py
   ra --remote <URL>          Connect TUI to a running daemon (or set RA_REMOTE env)
 
 Small models: LAN Ollama via OLLAMA_LAN_URL (${(() => { try { return loadRaConfig(ANUBIS_HOME).small_model ?? "localhost fallback"; } catch { return "unconfigured (run ./install)"; } })()})
@@ -306,7 +308,7 @@ if (args[0] === "selfcheck") {
   process.exit(ok ? 0 : 1);
 }
 
-if (args[0] === "benchmark") {
+if (args[0] === "benchmark" || args[0] === "bench") {
   const sub = args[1];
   const cwdFlag = args.indexOf("--cwd");
   if (cwdFlag >= 0) {
@@ -321,7 +323,49 @@ if (args[0] === "benchmark") {
   }
   if (sub === "smoke") process.exit(await benchmarkSmoke());
   if (sub === "run") process.exit(await benchmarkRun(args[2] ?? "smoke"));
-  console.error("Usage: ra benchmark init|smoke|run <name>");
+  if (sub === "external") {
+    // ra bench external <suite> --model <m> [--limit N] [--cwd DIR] [--budget USD]
+    //                        [--local-dir DIR] [--cache-dir DIR] [--keep-scratch]
+    const suite = args[2];
+    if (!suite || suite.startsWith("--")) {
+      console.error("Usage: ra bench external <humanevalplus|mbppplus|polyglot-py> --model <model> [--limit N] [--cwd DIR]");
+      process.exit(1);
+    }
+    const model = arg("--model");
+    if (!model) {
+      console.error("ra bench external: --model is required (pin one model so results are attributable)");
+      process.exit(1);
+    }
+    const limit = arg("--limit");
+    if (limit != null && !/^\d+$/.test(limit)) {
+      console.error("ra bench external: --limit needs a positive integer");
+      process.exit(1);
+    }
+    const budget = arg("--budget");
+    if (budget != null && !/^\d+(\.\d+)?$/.test(budget)) {
+      console.error("ra bench external: --budget needs a USD amount");
+      process.exit(1);
+    }
+    const { runExternalBench } = await import("./benchmark/external/run.ts");
+    const benchCwd = arg("--cwd");
+    try {
+      const report = await runExternalBench({
+        suite,
+        model,
+        limit: limit ? Number(limit) : undefined,
+        cacheDir: benchCwd ? join(resolve(benchCwd), ".cache") : undefined,
+        localDir: arg("--local-dir"),
+        outDir: benchCwd ? join(resolve(benchCwd), "runs") : undefined,
+        keepScratch: args.includes("--keep-scratch"),
+        budgetUsd: budget ? Number(budget) : undefined,
+      });
+      process.exit(report.passAt1 >= 0 ? 0 : 1);
+    } catch (e) {
+      console.error(`ra bench external: ${String(e instanceof Error ? e.message : e)}`);
+      process.exit(1);
+    }
+  }
+  console.error("Usage: ra benchmark init|smoke|run <name>|external <suite> --model <model>");
   process.exit(1);
 }
 

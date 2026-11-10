@@ -43,7 +43,7 @@ export function agentScopeDirs(cwd = process.cwd()): Array<{ scope: AgentScope; 
 
 /** Parse the frontmatter fields the catalog cares about. Pure. */
 export function parseAgentFrontmatter(raw: string): ParsedFrontmatter {
-  const fm = raw.match(/^---\n([\s\S]*?)\n---/);
+  const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/); // \r?\n: CRLF files (Wave 3a)
   if (!fm) return { description: "", mode: "subagent" };
   const body = fm[1];
   const desc = body.match(/^description:[ \t]*(.+)$/m)?.[1]?.trim() ?? "";

@@ -51,7 +51,7 @@ export function loadCustomCommands(dirs: string | string[] = customCommandDirs()
       if (!f.endsWith(".md")) continue;
       try {
         const raw = readFileSync(join(dir, f), "utf-8");
-        const fm = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+        const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/); // CRLF-tolerant (Wave 3a)
         if (!fm) {
           // Frontmatter-less markdown (canonical Cline workflows are plain
           // procedures): still dispatchable by filename.

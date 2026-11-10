@@ -196,12 +196,12 @@ export function loadAgentPermissionDetail(role: string, cwd = process.cwd()): {
   const p = resolveAgentFile(role, cwd) ?? join(AGENTS_DIR, `${role}.md`);
   if (!existsSync(p)) return null;
   const raw = readFileSync(p, "utf-8");
-  const fm = raw.match(/^---\n([\s\S]*?)\n---/);
+  const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/); // CRLF-tolerant (Wave 3a)
   if (!fm) return null;
   const RANK: Record<string, number> = { deny: 0, ask: 1, allow: 2 };
   const out: Record<string, "allow" | "ask" | "deny"> = {};
   const bashPatterns: BashPatternRule[] = [];
-  const lines = fm[1].split("\n");
+  const lines = fm[1].split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const m = line.match(/^permission:\s*$/);
@@ -285,7 +285,7 @@ export function loadAgentMeta(role: string, cwd = process.cwd()): AgentMeta {
   const p = resolveAgentFile(role, cwd) ?? join(AGENTS_DIR, `${role}.md`);
   if (!existsSync(p)) return {};
   const raw = readFileSync(p, "utf-8");
-  const fm = raw.match(/^---\n([\s\S]*?)\n---/);
+  const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/); // CRLF-tolerant (Wave 3a)
   if (!fm) return {};
   const out: AgentMeta = {};
   const steps = fm[1].match(/^steps:\s*(\d+)\s*$/m);

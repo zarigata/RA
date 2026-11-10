@@ -50,13 +50,13 @@ export function matchesPaths(rel: string, globs: string[]): boolean {
 
 /** Parse `paths: [glob…]` frontmatter (JSON-ish or YAML-ish list). Fail-open: absent → []. */
 export function parseRulePaths(raw: string): string[] {
-  const fm = raw.match(/^---\n([\s\S]*?)\n---/);
+  const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/); // CRLF-tolerant (Wave 3a)
   if (!fm) return [];
   const inline = fm[1].match(/^paths:\s*\[([^\]]*)\]/m);
   if (inline) return inline[1].split(",").map((s) => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
   const block = fm[1].match(/^paths:\s*$/m);
   if (block) {
-    const lines = fm[1].split("\n");
+    const lines = fm[1].split(/\r?\n/);
     const start = lines.findIndex((l) => /^paths:\s*$/.test(l));
     const out: string[] = [];
     for (const l of lines.slice(start + 1)) {

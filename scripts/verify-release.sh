@@ -68,7 +68,9 @@ say "Running offline unit tests"
     tests/hello-guard.test.ts \
     tests/ollama-routing.test.ts \
     tests/cost.test.ts \
-    tests/config.test.ts
+    tests/config.test.ts \
+    tests/config-malformed.test.ts \
+    tests/pricing-permutations.test.ts
   cd ..
   bun test \
     ra/tests/runtime.test.ts \
@@ -76,6 +78,7 @@ say "Running offline unit tests"
     ra/tests/run-command.test.ts \
     ra/tests/session.test.ts \
     ra/tests/permission.test.ts \
+    ra/tests/permission-matrix.test.ts \
     ra/tests/custom-commands.test.ts \
     ra/tests/subagents.test.ts \
     ra/tests/checkpoint.test.ts \
@@ -94,11 +97,37 @@ say "Running offline unit tests"
     ra/tests/assistant-lane.test.ts \
     ra/tests/explorer.test.ts \
     ra/tests/plugins-import.test.ts \
-    ra/tests/tui-history.test.ts \
-    ra/tests/help-drift.test.ts \
+    ra/tests/plugins.test.ts \
     ra/tests/plugin-runtime.test.ts \
+    ra/tests/tui.test.ts \
+    ra/tests/tui-history.test.ts \
+    ra/tests/tui-upgrade.test.ts \
+    ra/tests/tree.test.ts \
+    ra/tests/fallback.test.ts \
+    ra/tests/remote.test.ts \
+    ra/tests/setup.test.ts \
+    ra/tests/phase0.test.ts \
+    ra/tests/adaptive-run.test.ts \
+    ra/tests/bare-fence.test.ts \
+    ra/tests/agents-catalog.test.ts \
+    ra/tests/moa-layers.test.ts \
+    ra/tests/moa-args.test.ts \
+    ra/tests/tools-ra76.test.ts \
+    ra/tests/parity-waveb.test.ts \
+    ra/tests/parity-conformance.test.ts \
+    ra/tests/parity-wavee.test.ts \
     ra/tests/i18n.test.ts \
-    ra/tests/parity-wavee.test.ts
+    ra/tests/help-drift.test.ts \
+    ra/tests/hook-matrix.test.ts \
+    ra/tests/parser-corpus.test.ts \
+    ra/tests/skill-strict.test.ts \
+    ra/tests/i18n-interp.test.ts \
+    ra/tests/router-fallback.test.ts \
+    ra/tests/context-watermark.test.ts \
+    ra/tests/edge-boot.test.ts \
+    ra/tests/edge-concurrency.test.ts \
+    ra/tests/crlf-frontmatter.test.ts \
+    ra/tests/regression-pins.test.ts
 )
 
 say "Smoke-testing the source CLI"

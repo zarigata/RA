@@ -55,7 +55,16 @@ export function parseToml(src: string): TomlParseResult {
   let table: Record<string, unknown> = root;
   let section = "";
   for (const rawLine of src.split(/\r?\n/)) {
-    const line = rawLine.replace(/(^|\s)#.*$/, (m, p1) => (/["']/.test(rawLine.slice(0, rawLine.indexOf(m))) ? m : p1)).trim();
+    // Wave 3a fix: strip comments only when the text before the '#' has
+    // BALANCED quotes (an unbalanced quote means we're inside a string and
+    // the '#' is literal). The old any-quote guard kept the comment for
+    // `key = "v" # note` — quotes exist before '#' — so quoted values with
+    // trailing comments were skipped as unsupported (fail-closed, but wrong).
+    const line = rawLine.replace(/(^|\s)#.*$/, (m, p1) => {
+      const before = rawLine.slice(0, rawLine.indexOf(m));
+      const quotes = (before.match(/["']/g) ?? []).length;
+      return quotes % 2 === 1 ? m : p1;
+    }).trim();
     if (!line) continue;
     const header = line.match(/^\[+\s*([^\]]+?)\s*\]+$/);
     if (header) {

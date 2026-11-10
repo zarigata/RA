@@ -163,6 +163,11 @@ export class OllamaClient {
     return this.cfg.baseURL;
   }
 
+  /** Wave 2 contract: provider blocks always speak OpenAI-compat chat (never native /api/chat). */
+  get openaiCompat(): boolean {
+    return this.cfg.openaiCompat ?? false;
+  }
+
   static fromEnv(env: Record<string, string | undefined>): OllamaClient {
     const apiKey = env.OLLAMA_API_KEY;
     const baseURL = env.OLLAMA_BASE_URL ?? "https://ollama.com/v1";

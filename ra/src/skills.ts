@@ -46,11 +46,13 @@ export function skillDirs(cwd = process.cwd()): Array<{ source: SkillEntry["sour
 }
 
 export function parseSkillFrontmatter(raw: string): { name?: string; description: string } {
-  const fm = raw.match(/^---\n([\s\S]*?)\n---/);
+  // \r?\n: Windows-authored SKILL.md files (CRLF) must parse identically —
+  // Wave 3a fix (was ^---\n only, which dropped the whole frontmatter).
+  const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!fm) return { description: "" };
   const name = fm[1].match(/^name:[ \t]*(.+)$/m)?.[1]?.trim();
   // Description may be a folded block scalar (`>` lines).
-  const descLine = fm[1].split("\n");
+  const descLine = fm[1].split(/\r?\n/);
   const descIdx = descLine.findIndex((l) => /^description:/.test(l));
   let description = "";
   if (descIdx >= 0) {
@@ -125,11 +127,11 @@ const KEBAB_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /** Parse every frontmatter key (top-level `key:` lines) in a SKILL.md. */
 export function frontmatterKeys(raw: string): { keys: string[]; values: Record<string, string> } {
-  const fm = raw.match(/^---\n([\s\S]*?)\n---/);
+  const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/); // \r?\n: CRLF files (Wave 3a)
   if (!fm) return { keys: [], values: {} };
   const keys: string[] = [];
   const values: Record<string, string> = {};
-  for (const line of fm[1].split("\n")) {
+  for (const line of fm[1].split(/\r?\n/)) {
     const m = line.match(/^([A-Za-z][\w-]*):\s*(.*)$/);
     if (!m) continue;
     keys.push(m[1]!);

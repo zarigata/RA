@@ -1039,6 +1039,10 @@ async function executeTaskAgent(
     const keepAlive = env.OLLAMA_KEEP_ALIVE ?? "30m";
     const chat = async () => {
       const signal = reserveCall();
+      // Extended thinking (Anthropic parity) is fully client-internal:
+      // AnthropicClient reads provider.claude.models.<id>.thinking from the
+      // provider def it was constructed with (thinkingBudgetFor) — no
+      // default-on, and non-Anthropic clients ignore thinking entirely.
       const response = await activeClient.nativeChatStream(usedModel, messages, {
         temperature,
         keepAlive,
@@ -1100,6 +1104,12 @@ async function executeTaskAgent(
     }
     checkRun();
     renderer?.("\n");
+    // Extended-thinking channel (Anthropic parity): thinking streams are
+    // kept out of `content`; surface a one-line marker when one arrived.
+    if (res.thinking) {
+      const approx = Math.ceil(res.thinking.length / 4);
+      renderer?.(`\x1b[2m· thinking (${approx} tokens)\x1b[0m\n`);
+    }
     usedModel = res.model;
     last = res.content;
     if (!last.trim()) throw new Error(`Model ${usedModel} returned an empty response`);
@@ -1232,6 +1242,9 @@ async function runAssistantTurn(
           onToken: scopedRenderer(),
         }));
         if (!res.content.trim()) throw new Error(`Empty response from ${model}`);
+        // Extended-thinking channel (Anthropic parity): same one-line marker
+        // as the coding loop; thinking stays out of the visible answer.
+        if (res.thinking) scopedRenderer()?.(`\x1b[2m· thinking (${Math.ceil(res.thinking.length / 4)} tokens)\x1b[0m\n`);
         recordChatUsage(res.model, client.kind === "cloud", res.usage, {
           in: messages.reduce((n, m) => n + m.content.length, 0),
           out: res.content.length,

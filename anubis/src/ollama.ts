@@ -25,6 +25,13 @@ export interface ChatResult {
   content: string;
   model: string;
   usage: ChatUsage | null;
+  /**
+   * Interleaved-thinking channel (Anthropic extended thinking): the model's
+   * reasoning text, kept SEPARATE from `content` (the visible answer). Set
+   * only by clients whose provider supports thinking; never merged into
+   * content.
+   */
+  thinking?: string;
 }
 
 export interface StreamChatOptions {
@@ -44,6 +51,13 @@ export interface StreamChatOptions {
   signal?: AbortSignal;
   /** Called per generated token chunk as it arrives. */
   onToken?: (token: string) => void;
+  /**
+   * Anthropic extended-thinking budget (tokens; API minimum 1024, must stay
+   * below maxTokens). Config-gated per provider/model in the native Anthropic
+   * client — this is the explicit per-call override seam. No default: thinking
+   * is opt-in (it bills output tokens).
+   */
+  thinkingBudget?: number;
 }
 
 /**
@@ -557,7 +571,8 @@ export async function discoverLocalOpenAI(
 
 export interface ProviderDef {
   name?: string;
-  options?: { baseURL?: string; apiKey?: string };
+  /** `thinking` (Anthropic only): true | number | {budget_tokens} — see anthropic.ts. */
+  options?: { baseURL?: string; apiKey?: string; thinking?: unknown };
   models?: Record<string, unknown>;
 }
 

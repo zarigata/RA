@@ -1,7 +1,7 @@
 # RA — Stylish CLI + Initial Model Setup (Cursor brief)
 
 **What this is:** a self-contained implementation brief for the RA repo
-(`github.com/zarigata/RA`, commit `0f0ad0a`, RA `1.0.0-ra.78`, Bun + TypeScript).
+(`github.com/zarigata/RA`, commit `0f0ad0a`, stardate versioning, Bun + TypeScript).
 It covers two linked pieces of work only: (a) make the terminal CLI visibly
 more stylish without changing its identity or adding dependencies, and
 (b) add a visible, active first-run model setup — the "Model Designer" —
@@ -35,8 +35,8 @@ unless the work itself changes.
 | Item | Status now |
 |---|---|
 | Repo / commit | `github.com/zarigata/RA`, `main` @ `0f0ad0a` — "fix(install-ra): add_path returned 1 when shell rc file absent". `git fetch` on 2026-11-09 found **no newer upstream commit**. Working tree clean. |
-| Version | RA `1.0.0-ra.78`, Bun 1.4.4 + TypeScript, ~14,267 LOC across 59 TS files in `ra/` + `anubis/src` |
-| CLI boots? | ✅ Yes. `bun ra/src/cli.ts --version` prints `RA 1.0.0-ra.78` / `RA prefer small@local → big@cloud (localhost fallback)`. `help` prints the full command surface. |
+| Version | Stardate versioning (`RA_VERSION`, e.g. `26856.9` for 2026-11-09; computed from `(year−2000)·1000 + dayOfYear/365.25·1000`), Bun 1.4.4 + TypeScript, ~14,267 LOC across 59 TS files in `ra/` + `anubis/src` |
+| CLI boots? | ✅ Yes. `bun ra/src/cli.ts --version` prints `RA <stardate>` / `RA prefer small@local → big@cloud (localhost fallback)`. `help` prints the full command surface. |
 | `ra doctor` | ⚠️ Diagnoses, does not fix. `✓ bun`, `✓ RA home`, `✓ ra.json`. `✗ local http://localhost:11434 — ECONNREFUSED`, `✗ Ollama small reachable`, `✗ Small Ollama LAN / localhost`, `○ OLLAMA_API_KEY not set`, `○ no RA lane yet (run ra demo or /quick)`. **No usable model on this machine.** |
 | Anubis tests | ✅ **236 pass, 5 skip, 0 fail** (241 tests, 35 files, 607 expects). Skips are live-Ollama tests. Command: `cd anubis && bun test` |
 | RA tests | ⚠️ **275 pass, 7 fail** (282 tests, 32 files, 1001 expects). Command: `bun test ra/tests` |
@@ -64,7 +64,7 @@ number changes, say what changed and why. Do not paste any API key,
 
 > Implement the RA CLI style refresh and the initial model setup exactly
 > as specified in `docs/CURSOR-RA-CLI-SETUP.md` (§4 and §5), in that
-> order, against commit `0f0ad0a` / RA `1.0.0-ra.78`.
+> order, against commit `0f0ad0a`.
 >
 > Constraints, in priority order:
 > 1. Bun + TypeScript only. No new dependencies. No new native modules.
@@ -244,7 +244,7 @@ breakpoints (`<68`, `<108`, `>=108`) and its existing tests passing.
   `costUsd?: number`, `contextPct?: number` (0–100, from the
   agent token ledger in `ra/src/agent.ts` — read-only, no new
   coupling; if no ledger is available, omit it), `setupNeeded?: boolean`.
-- Wide (`>=108`): `𓂀 RA 1.0.0-ra.78 · default · small qwen3:4b · big glm-5.2 · small@lan → big@cloud · $0.04 · ctx 42%`
+- Wide (`>=108`): `𓂀 RA 26856.9 · default · small qwen3:4b · big glm-5.2 · small@lan → big@cloud · $0.04 · ctx 42%`
   — truncate each model with the existing `shortModel()` (24 chars
   wide, 16 chars in the `<108` branch). If `setupNeeded` is true,
   replace the lane segment with `⚠ no model — run ra setup`

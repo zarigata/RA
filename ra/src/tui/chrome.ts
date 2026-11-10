@@ -109,14 +109,17 @@ export function buildStatusLine(opts: {
   branch?: string;
   theme: string;
   lane?: string;
+  /** assistant|coding lane (ra/src/lane.ts) — which pipeline handles the turn. */
+  mode?: string;
   costUsd?: number;
   glyphs: TuiGlyphs;
 }): string {
   const git = opts.branch ? ` · ${opts.glyphs.branch} ${opts.branch}` : "";
   const lane = opts.lane ? ` · ${opts.lane}` : "";
+  const mode = opts.mode ? ` · lane:${opts.mode}` : "";
   const cost = opts.costUsd != null && Number.isFinite(opts.costUsd) ? ` · $${opts.costUsd.toFixed(4)}` : "";
   const sep = opts.glyphs === ASCII_GLYPHS ? "-" : "·";
-  return " " + truncateVisible(`${opts.cwd}${git} ${sep} ${opts.theme}${lane}${cost}`.replace(/ · /g, ` ${sep} `), Math.max(0, opts.width - 2));
+  return " " + truncateVisible(`${opts.cwd}${git} ${sep} ${opts.theme}${lane}${mode}${cost}`.replace(/ · /g, ` ${sep} `), Math.max(0, opts.width - 2));
 }
 
 const ASCII_SPINNER = ["|", "/", "-", "\\"];
@@ -160,6 +163,7 @@ export function footerHints(busy: boolean): Array<[string, string]> {
   return [
     ["/", "search"],
     ["ctrl+p", "palette"],
+    ["ctrl+e", "explorer"],
     ["?", "keys"],
     ["esc", busy ? "cancel" : "close"],
     ["ctrl+d", "quit"],

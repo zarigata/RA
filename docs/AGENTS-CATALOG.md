@@ -1,4 +1,4 @@
-# RA Agent Catalog — 1.0.0-ra.76
+# RA Agent Catalog
 
 Generated from `ra agents`. 76 visible agents + 3 hidden system agents.
 Custom agents: `.ra/agents/<name>.md` (project) or `~/.ra/agents/<name>.md` (user) — same frontmatter.

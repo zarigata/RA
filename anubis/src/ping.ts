@@ -90,7 +90,27 @@ export async function pingAll(env: Record<string, string | undefined>, configure
   if (env.OLLAMA_API_KEY) {
     out.push(await pingCloud(env.OLLAMA_BASE_URL ?? "https://ollama.com/v1", env.OLLAMA_API_KEY));
   }
+  if (env.ANTHROPIC_API_KEY) {
+    out.push(await pingAnthropic(env, configured?.provider));
+  }
   return out;
+}
+
+/** Claude (native /v1/models ping — x-api-key + anthropic-version headers). */
+export async function pingAnthropic(
+  env: Record<string, string | undefined>,
+  providers?: Record<string, { options?: { baseURL?: string; apiKey?: string } }>,
+): Promise<PingResult> {
+  const { AnthropicClient } = await import("./anthropic.ts");
+  const client = AnthropicClient.fromEnv(env, providers?.claude ?? providers?.anthropic);
+  if (!client) return { name: "claude", url: "api.anthropic.com", ok: false, ms: 0, error: "no usable key" };
+  const t0 = Date.now();
+  try {
+    const models = await client.listModels(5000);
+    return { name: "claude", url: client.baseURL, ok: true, ms: Date.now() - t0, models: models.length };
+  } catch (e) {
+    return { name: "claude", url: client.baseURL, ok: false, ms: Date.now() - t0, error: String(e) };
+  }
 }
 
 function lanTagOf(url: string): string {
@@ -111,7 +131,8 @@ export function formatPings(pings: PingResult[], configuredSmall?: string): stri
       lines.push(`✗ ${p.name} ${p.url}  ${p.ms}ms  ${p.error ?? "down"}`);
     }
   }
-  const lan = pings.find((p) => p.name !== "local" && p.name !== "cloud");
+  // The claude ping is a cloud provider, not a small-host candidate.
+  const lan = pings.find((p) => p.name !== "local" && p.name !== "cloud" && p.name !== "claude");
   const local = pings.find((p) => p.name === "local");
   const cloud = pings.find((p) => p.name === "cloud");
   // If the configured small is a localhost-family model (e.g. ollama/gemma),

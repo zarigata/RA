@@ -510,7 +510,12 @@ function bareModel(configured: string): string {
 }
 
 function isCloudModel(configured: string): boolean {
-  return configured.startsWith("ollama-cloud/") || configured.startsWith("cloud/");
+  return configured.startsWith("ollama-cloud/") || configured.startsWith("cloud/") || isClaudeModel(configured);
+}
+
+/** claude/* and anthropic/* ids are cloud models served by the native client. */
+export function isClaudeModel(configured: string): boolean {
+  return /^(claude|anthropic)\//i.test(configured);
 }
 
 /** Small Ollama: the configured LAN box first (OLLAMA_LAN_URL), then localhost */
@@ -600,6 +605,16 @@ export async function pickClientForModel(
   providers?: Record<string, ProviderDef>,
 ): Promise<{ client: OllamaClient; model: string }> {
   const bare = bareModel(configured);
+
+  // Native Claude (claude/*): Anthropic is not OpenAI-compatible — the
+  // dedicated AnthropicClient owns the /v1/messages protocol. Dynamic import
+  // keeps the module graph acyclic (anthropic.ts extends OllamaClient).
+  if (isClaudeModel(configured)) {
+    const { resolveAnthropicClient } = await import("./anthropic.ts");
+    const client = resolveAnthropicClient(configured, providers, env);
+    if (client) return { client, model: bare };
+    throw new Error("claude/* model selected but no usable key: set ANTHROPIC_API_KEY (or provider.claude.options.apiKey)");
+  }
 
   const custom = resolveProviderClient(configured, providers, env);
   if (custom) {
@@ -723,7 +738,7 @@ export function isAuthError(e: unknown): boolean {
  */
 export function isContextOverflowError(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e);
-  return /context length|context window|context_length_exceeded|too many tokens|maximum context|prompt too long|exceeds (?:the )?context|input (?:is )?too large|requested tokens exceed/i.test(msg);
+  return /context length|context window|context_length_exceeded|too many tokens|maximum context|prompt (?:is )?too long|exceeds (?:the )?context|input (?:is )?too large|requested tokens exceed|tokens > \d+ maximum/i.test(msg);
 }
 
 /** User cancellations (Escape, run cancel) are not provider failures. */

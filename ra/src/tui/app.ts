@@ -35,6 +35,8 @@ import { renderSplashFrame, parseOscColorReply, luminance, OSC_TITLE, OSC_QUERY_
 import { renderMenuOverlay, renderShortcutsOverlay, renderOnboardingOverlay, renderSetupOverlay, type MenuEntry, type SetupPhase } from "./overlays.ts";
 import { buildHeader, buildStatusLine, buildInputLabel, footerHints, getTuiGlyphs, useAsciiGlyphs, spinnerFrame, workspaceLabel } from "./chrome.ts";
 import { visibleCatalog } from "../agents/catalog.ts";
+import { buildTree, toggleDir, renderExplorer, parseWebResults, flattenTree, type TreeNode, type RightPane } from "./explorer.ts";
+import { resolveLane } from "../lane.ts";
 
 export type { TuiOptions };
 
@@ -81,7 +83,10 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   setActiveSubagentTracker(subagentTree);
   const plugins = new PluginHost();
   await plugins.load(config.plugin ?? []);
-  onGlobalHook("agent.turn.start", (input) => { void plugins.emit("agent.turn.start", input, {}); });
+  onGlobalHook("agent.turn.start", (input) => {
+    void plugins.emit("agent.turn.start", input, {});
+    currentLane = typeof input.lane === "string" ? input.lane : undefined;
+  });
   onGlobalHook("agent.turn.end", (input) => { void plugins.emit("agent.turn.end", input, {}); });
 
   const stdin = process.stdin;
@@ -182,6 +187,126 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
   let onboardHit = { theme: new Map<number, string>(), action: new Map<number, string>() };
   let setupHit = new Map<number, string>();
   let tipIndex = 0;
+  // ---------- explorer (Ctrl+E / /files) ----------
+  let explorerOpen = false;
+  let explorerRoot: TreeNode | null = null;
+  let explorerExpanded = new Set<string>();
+  let explorerSelected = "";
+  let explorerRight: RightPane = { kind: "file", path: "", content: "" };
+  let explorerTabHit: Array<{ from: number; to: number; tab: RightPane["kind"] }> = [];
+  let explorerLeftHit = new Map<number, string>();
+  let explorerRightHit = new Map<number, number>();
+  let explorerLeftW = 38;
+  let currentLane: string | undefined; // from agent.turn.start payloads (assistant lane agent)
+  const currentAscii = () => useAsciiGlyphs(process.env);
+  const explorerAgents = () => visibleCatalog(opts.cwd);
+  const openExplorer = () => {
+    modal = null;
+    paletteOpen = false;
+    explorerOpen = true;
+    if (!explorerRoot) explorerRoot = buildTree(opts.cwd);
+    explorerRight = { kind: "file", path: explorerSelected, content: explorerSelected ? readFilePreview(explorerSelected) : "" };
+    scheduleRender();
+  };
+  const closeExplorer = () => { explorerOpen = false; scheduleRender(); };
+  /** Move the tree selection by row delta (keyboard + wheel share this). */
+  const moveExplorerSelection = (dir: -1 | 1) => {
+    if (!explorerRoot) return;
+    const rows = flattenTree(explorerRoot, explorerExpanded);
+    if (!rows.length) return;
+    const idx = rows.findIndex((r) => r.path === explorerSelected);
+    const next = rows[Math.max(0, Math.min(rows.length - 1, idx + dir))] ?? rows[0]!;
+    explorerSelected = next.path;
+    explorerRight = next.dir
+      ? { kind: "file", path: next.path, content: "" }
+      : { kind: "file", path: next.path, content: readFilePreview(next.path) };
+  };
+  const readFilePreview = (path: string): string => {
+    try {
+      return readFileSync(join(opts.cwd, path), "utf-8").slice(0, 60_000);
+    } catch { return `(unreadable: ${path})`; }
+  };
+  /** Left-pane click: expand a dir or preview a file in the right pane. */
+  const clickTreeNode = (path: string) => {
+    if (!explorerRoot) return;
+    const node = flattenNode(explorerRoot, path);
+    if (!node) return;
+    if (node.dir) { explorerExpanded = toggleDir(explorerExpanded, path); }
+    else {
+      explorerSelected = path;
+      explorerRight = { kind: "file", path, content: readFilePreview(path) };
+    }
+    scheduleRender();
+  };
+  const flattenNode = (root: TreeNode, path: string): TreeNode | null => {
+    const walk = (nodes: TreeNode[]): TreeNode | null => {
+      for (const n of nodes) {
+        if (n.path === path) return n;
+        if (n.children) { const hit = walk(n.children); if (hit) return hit; }
+      }
+      return null;
+    };
+    return walk(root.children ?? []);
+  };
+  /** Tab bar + right-pane switching. */
+  const switchExplorerTab = (tab: RightPane["kind"]) => {
+    if (tab === "file") explorerRight = { kind: "file", path: explorerSelected, content: explorerSelected ? readFilePreview(explorerSelected) : "" };
+    else if (tab === "agent") explorerRight = { kind: "agent" };
+    else if (tab === "sessions") explorerRight = { kind: "sessions", list: listSessions().slice(0, 20).map((s) => ({ id: (s as { id?: string }).id ?? s.cwd, cwd: s.cwd, messages: s.messages.length, current: s.cwd === opts.cwd })) };
+    else if (tab === "web" && explorerRight.kind !== "web") explorerRight = { kind: "web", results: [], query: "" };
+    scheduleRender();
+  };
+  const cycleExplorerTab = () => {
+    const kinds = ["file", "agent", "sessions", "web"] as const;
+    const idx = kinds.indexOf(explorerRight.kind as (typeof kinds)[number]);
+    switchExplorerTab(kinds[(idx + 1) % kinds.length]!);
+  };
+  /** Right-pane row click by entry index (agent cards, sessions, web results). */
+  const clickExplorerEntry = (entry: number) => {
+    if (explorerRight.kind === "agent") {
+      const a = explorerAgents()[entry];
+      if (a) explorerRight = { kind: "agent", card: { role: a.role, category: a.category, description: a.description, scope: a.scope } };
+    } else if (explorerRight.kind === "sessions") {
+      const list = listSessions().slice(0, 20);
+      const s = list[entry];
+      if (s) {
+        try {
+          switchSession(String((s as { id?: string }).id ?? s.cwd));
+          push("info", `session pointer → ${String((s as { id?: string }).id ?? s.cwd)}. Restart ra to open it.`);
+        } catch (e) { push("activity", `session switch failed: ${String(e)}`); }
+      }
+    } else if (explorerRight.kind === "web") {
+      const r = explorerRight.results[entry];
+      if (r?.url) {
+        explorerRight = { ...explorerRight, fetching: true, fetched: undefined };
+        scheduleRender();
+        void (async () => {
+          const { toolWebFetch } = await import("../tools/index.ts");
+          const text = await toolWebFetch(r.url, 15000);
+          explorerRight = { ...explorerRight, fetching: false, fetched: text.slice(0, 40_000) };
+          scheduleRender();
+        })();
+      }
+    }
+    scheduleRender();
+  };
+  /** /web <query> while the explorer is open → run the existing WEBSEARCH tool. */
+  const runExplorerWebSearch = async (query: string) => {
+    explorerOpen = true;
+    explorerRight = { kind: "web", results: [], query, fetching: true };
+    scheduleRender();
+    try {
+      const { toolWebSearch } = await import("../tools/index.ts");
+      const { isAirgapped } = await import("../airgap.ts");
+      const raw = await toolWebSearch(query, process.env, isAirgapped(config));
+      explorerRight = { kind: "web", results: parseWebResults(raw), query, fetched: raw.startsWith("Error:") || raw.startsWith("(") ? raw : undefined };
+    } catch (e) {
+      explorerRight = { kind: "web", results: [], query, fetched: `search failed: ${String(e)}` };
+    }
+    explorerRight.fetching = false;
+    scheduleRender();
+  };
+
   const ctx = {
     cwd: opts.cwd,
     get history() { return session.messages.slice(0, -1).slice(-8).map((m) => ({ role: m.role, content: m.content.slice(-3000) })); },
@@ -302,6 +427,8 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     ...themeEntries(),
     ...modelEntries(),
     ...sessionEntries(),
+    { label: "/files", category: "command", detail: "explorer — walk the workspace with the mouse", action: { type: "command", command: "/files" } },
+    { label: "/web <query>", category: "command", detail: "web search in the explorer (Brave/Tavily key)", action: { type: "insert", text: "/web " } },
     ...projectFiles.map((f) => ({ label: f, category: "file" as const, detail: "insert @file reference", action: { type: "insert" as const, text: `@${f} ` } })),
     { label: "/exit", category: "command", detail: "quit RA", action: { type: "exit" as const } },
   ];
@@ -392,7 +519,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       glyphs,
     });
     out.push(sty.bar(fit(W, header)));
-    out.push(sty.muted(fit(W, buildStatusLine({ width: W, cwd: cwdShort, branch: branch(), theme: themeId.current, lane: setupNeeded ? undefined : lane, costUsd: sessionCostUsd(), glyphs }))));
+    out.push(sty.muted(fit(W, buildStatusLine({ width: W, cwd: cwdShort, branch: branch(), theme: themeId.current, lane: setupNeeded ? undefined : lane, mode: currentLane ?? (editor.text.trim() ? resolveLane(editor.text).lane : undefined), costUsd: sessionCostUsd(), glyphs }))));
 
     if (paletteOpen) {
       const title = ` search everything — commands · agents · files · models · sessions · themes `;
@@ -445,6 +572,25 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     out.push(fit(Math.max(0, W - visibleWidth(right) - 1), chipLine) + sty.muted(right));
 
     // modals paint over the base frame
+    if (explorerOpen && !modal) {
+      const frame = renderExplorer({
+        screenW: W,
+        screenH: H,
+        root: explorerRoot ?? { name: ".", path: "", dir: true, children: [] },
+        expanded: explorerExpanded,
+        selectedPath: explorerSelected,
+        right: explorerRight,
+        agents: explorerAgents(),
+        ascii: currentAscii(),
+        style: { accent: sty.accent, strong: sty.strong, muted: sty.muted, bar: sty.bar },
+      });
+      explorerLeftHit = frame.leftHit;
+      explorerRightHit = frame.rightHit;
+      explorerTabHit = frame.tabHits;
+      explorerLeftW = frame.leftW;
+      out.length = 0;
+      out.push(...frame.lines);
+    }
     if (modal?.kind === "menu") {
       const frame = renderMenuOverlay({
         base: out.slice(0, H - 1),
@@ -509,6 +655,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     push("info", [
       `Welcome to ${APP_NAME}.`,
       `  /                search EVERYTHING — commands · agents · files · models · themes`,
+      `  ctrl+e / /files  explorer — walk files · agents · sessions · web with the mouse`,
       `  /quick <task>    plan + implement`,
       `  /moa <task>      multiple agents, one synthesis`,
       `  agent:<name> …   delegate to one agent directly`,
@@ -569,10 +716,12 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       } catch (e) { push("activity", `session switch failed: ${String(e)}`); }
       scheduleRender();
     }
+    if (type === "explorer") { openExplorer(); return; }
   };
 
   const mainMenuEntries = (): MenuEntry[] => [
     { label: "Search everything", detail: "commands · files · agents · models · themes", run: { type: "palette" } },
+    { label: "Explorer", detail: "files · agents · sessions · web", run: { type: "explorer" } },
     { label: "Themes", detail: `${listPalettes().length} looks, live preview`, submenu: themeEntries().map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
     { label: "Models", submenu: modelEntries().slice(0, 20).map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
     { label: "Agents", submenu: agentEntries().map((e) => ({ label: e.label, detail: e.detail, run: e.action as unknown as Record<string, unknown> })) },
@@ -606,6 +755,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       return;
     }
     if (run.type === "palette") { openPalette(""); return; }
+    if (run.type === "explorer") { openExplorer(); return; }
     if (run.type === "shortcuts") { modal = { kind: "shortcuts" }; scheduleRender(); return; }
     if (run.type === "clearscreen") { segments.length = 0; scheduleRender(); return; }
     if (run.type === "cancel") { if (abortActiveTurn()) statusText = "cancelling…"; scheduleRender(); return; }
@@ -619,6 +769,9 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
     if (!input) return;
     if (input === "/exit" || input === "exit" || input === "/quit") { quit(); return; }
     if (input === "/palette") { openPalette(""); return; }
+    if (input === "/files" || input === "/explorer") { openExplorer(); return; }
+    if (input.startsWith("/web ")) { openExplorer(); void runExplorerWebSearch(input.slice(5).trim()); return; }
+    if (input === "/web") { openExplorer(); switchExplorerTab("web"); return; }
     if (input === "/themes" || input === "/theme") { openPalette("theme:"); return; }
     if (input === "/setup") { void openSetupWizard(input.includes("rescan")); return; }
     if (input === "/shortcuts" || input === "?") { modal = { kind: "shortcuts" }; scheduleRender(); return; }
@@ -754,6 +907,8 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           if (modal?.kind === "menu") {
             const n = modal.entries.filter((e) => !e.separator).length;
             modal.selected = Math.max(0, Math.min(n - 1, modal.selected + dir));
+          } else if (explorerOpen && !paletteOpen) {
+            moveExplorerSelection(dir as -1 | 1);
           } else if (!paletteOpen) {
             scrollOffset = Math.max(0, scrollOffset + dir * scrollSpeed * 3);
           }
@@ -797,6 +952,23 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           finishOnboarding();
           return;
         }
+        if (explorerOpen) {
+          // title row: tabs resolve by click column
+          if (ev.y === 0) {
+            const hit = explorerTabHit.find((t) => ev.x >= t.from && ev.x < t.to);
+            if (hit) { switchExplorerTab(hit.tab); render(); }
+            return;
+          }
+          // x-aware routing: left of the divider = tree, right = pane rows
+          if (ev.x <= explorerLeftW) {
+            const path = explorerLeftHit.get(ev.y);
+            if (path !== undefined) { clickTreeNode(path); render(); }
+            return;
+          }
+          const entry = explorerRightHit.get(ev.y);
+          if (entry !== undefined) { clickExplorerEntry(entry); render(); }
+          return; // clicks inside the explorer never fall through to the base UI
+        }
         if (paletteOpen) {
           const hit = rowHitbox.get(ev.y);
           if (hit !== undefined) { activateRow(hit); return; }
@@ -832,11 +1004,17 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
           if (paletteOpen) closePalette(); else openPalette("");
           return;
         }
+        if (k.name === "e") {
+          if (modal) return;
+          if (explorerOpen) closeExplorer(); else openExplorer();
+          return;
+        }
         if (k.name === "l") { segments.length = 0; scheduleRender(); return; }
         if (k.name === "u") { editor.text = ""; editor.cursor = 0; scheduleRender(); return; }
         return;
       case "escape":
         if (keyTrace) keyLog(`escape key: modal=${modal?.kind ?? "-"} mixture=${pendingMixture !== null} palette=${paletteOpen} busy=${busy}`);
+        if (explorerOpen && !modal && !paletteOpen) { closeExplorer(); return; }
         if (modal) {
           // ESC on the mixture suggestion = keep the prompt, answer normally.
           if (pendingMixture && modal.kind === "menu") {
@@ -866,6 +1044,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (k.n === 1) { modal = modal?.kind === "shortcuts" ? null : { kind: "shortcuts" }; scheduleRender(); }
         return;
       case "enter":
+        if (explorerOpen && !modal && !paletteOpen) { clickTreeNode(explorerSelected); render(); return; }
         if (modal?.kind === "menu") {
           const actionable = modal.entries.filter((e) => !e.separator);
           const entry = actionable[modal.selected];
@@ -898,6 +1077,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         { const t = editor.text; editor.text = ""; editor.cursor = 0; void submit(t); }
         return;
       case "tab": {
+        if (explorerOpen && !modal && !paletteOpen) { cycleExplorerTab(); return; }
         if (!paletteOpen || !paletteRows[paletteSelected]) return;
         const label = paletteRows[paletteSelected].entry.label;
         if (/^(agent:|\/)/.test(label)) {
@@ -917,6 +1097,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); paletteScroll = Math.min(paletteScroll, paletteSelected); render(); }
         return;
       case "up":
+        if (explorerOpen && !modal && !paletteOpen) { moveExplorerSelection(-1); render(); return; }
         if (modal?.kind === "menu") {
           const n = modal.entries.filter((e) => !e.separator).length;
           modal.selected = (modal.selected - 1 + n) % n;
@@ -928,6 +1109,7 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
         if (paletteOpen) { paletteSelected = Math.max(0, paletteSelected - 1); if (paletteSelected < paletteScroll) paletteScroll = paletteSelected; livePreview(); render(); return; }
         scrollOffset += 3; render(); return;
       case "down":
+        if (explorerOpen && !modal && !paletteOpen) { moveExplorerSelection(1); render(); return; }
         if (modal?.kind === "menu") {
           const n = modal.entries.filter((e) => !e.separator).length;
           modal.selected = (modal.selected + 1) % n;
@@ -975,6 +1157,10 @@ async function startFullscreen(opts: TuiOptions): Promise<void> {
       }
       case "text":
         if (k.text === "?" && !editor.text && !paletteOpen && !modal) { modal = { kind: "shortcuts" }; scheduleRender(); return; }
+        if (explorerOpen && !modal && !paletteOpen) {
+          if (k.text === "q") { closeExplorer(); return; }
+          return; // full-screen explorer owns key input; ctrl+e / esc still exit
+        }
         if (modal) {
           if (modal.kind === "setup") {
             if (k.text === "s") { skipSetup("skipped"); return; }

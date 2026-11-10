@@ -346,7 +346,7 @@ ra
 The TUI is meant to stay useful while RA is planning, streaming, delegating, and verifying—not just look decorative.
 
 ~~~text
- 𓂀 RA 1.0.0-ra.77  ·  default  ·  small planner  ·  big coder
+ 𓂀 RA 26856.9  ·  default  ·  small planner  ·  big coder
 
    › you
      inspect this repo and fix the failing tests
@@ -510,7 +510,6 @@ RA/
 │   └── assets/                 # README/brand visuals
 ├── benchmarks/                 # evaluation assets
 ├── scripts/                    # verification/release tooling
-├── docs/                       # architecture + agent catalog
 ├── ROADMAP.md                  # public backlog
 └── README.md
 ~~~

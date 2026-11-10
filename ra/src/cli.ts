@@ -59,6 +59,20 @@ if (args[0] === "palette") {
   process.exit(0);
 }
 
+if (args[0] === "plugins") {
+  const { pluginsCommand, listStoresText, detectStores } = await import("./commands/plugins.ts");
+  const asJson = args.includes("--json");
+  const rest = args.slice(1).filter((a) => a !== "--json");
+  if (!rest.length) {
+    const entries = detectStores();
+    console.log(asJson ? JSON.stringify(entries, null, 2) : listStoresText(entries));
+    process.exit(0);
+  }
+  const result = pluginsCommand(rest, { json: asJson });
+  console.log(asJson ? JSON.stringify(result.data, null, 2) : result.text);
+  process.exit(result.code);
+}
+
 if (args.includes("--help") || args.includes("-h") || args[0] === "help") {
   console.log(`${APP_NAME} — Relic Agent Terminal Coding Agent
 
@@ -111,6 +125,7 @@ Usage:
   ra setup --check           Non-interactive localhost check; exit 0 if a small model is reachable
   ra demo                    One-shot RA TUI full-dev (hello.py) + verify
   ra sandbox status|exec     Inspect or use the command sandbox
+  ra plugins                 Detect plugin stores (Claude Code/OpenCode/Cursor/Cline/Roo) + import
   ra doctor [--fix]          Health check (--fix repairs a stale model config)
   ra selfcheck               Splash + ping + lanes + models (no LLM)
   ra benchmark init|smoke|run <name|all>

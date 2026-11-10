@@ -76,7 +76,7 @@ bun -e "import { APP_NAME } from './src/tui.ts'; if (APP_NAME !== 'RA') process.
 
 echo "▶ ra version"
 "${RA_BIN[@]}" version | tee /tmp/ra-version.txt
-grep -qE "^RA 1\.0\.0-ra\." /tmp/ra-version.txt || { echo "FAIL: ra version missing RA branding"; cat /tmp/ra-version.txt; exit 1; }
+grep -qE "^RA [0-9]{4,6}\.[0-9]$" /tmp/ra-version.txt || { echo "FAIL: ra version missing RA branding (expected stardate like RA 26856.9)"; cat /tmp/ra-version.txt; exit 1; }
 grep -qE "RA prefer small@.+" /tmp/ra-version.txt || { echo "FAIL: ra version missing RA prefer"; cat /tmp/ra-version.txt; exit 1; }
 echo "✓ ra version"
 
@@ -143,7 +143,7 @@ echo "✓ ra palette"
 echo "▶ ra splash (RA TUI branding)"
 "${RA_BIN[@]}" splash | tee /tmp/ra-splash.txt
 grep -q "RA TUI" /tmp/ra-splash.txt || { echo "FAIL: ra splash missing RA TUI"; cat /tmp/ra-splash.txt; exit 1; }
-grep -qE "v1\.0\.0-ra\." /tmp/ra-splash.txt || { echo "FAIL: ra splash missing version"; exit 1; }
+grep -qE "v[0-9]{4,6}\.[0-9]" /tmp/ra-splash.txt || { echo "FAIL: ra splash missing version"; exit 1; }
 grep -qE "Relic Agent|Mixture-of-Agents" /tmp/ra-splash.txt || { echo "FAIL: ra splash missing tagline"; exit 1; }
 grep -qE "RA prefer small@.+" /tmp/ra-splash.txt || { echo "FAIL: ra splash missing RA prefer"; cat /tmp/ra-splash.txt; exit 1; }
 echo "✓ ra splash"
@@ -163,13 +163,13 @@ echo "▶ bun test (ra runtime)"
 # Run from the repo root: the sandboxed MCP stdio fixtures resolve their
 # workspace from the process cwd, matching how the suites are run everywhere else.
 cd "$RA_HOME"
-bun test ra/tests/runtime.test.ts ra/tests/benchmark-artifacts.test.ts ra/tests/run-command.test.ts ra/tests/session.test.ts ra/tests/permission.test.ts ra/tests/custom-commands.test.ts ra/tests/subagents.test.ts ra/tests/checkpoint.test.ts ra/tests/symbols.test.ts ra/tests/mcp.test.ts ra/tests/daemon.test.ts ra/tests/diagnostics.test.ts ra/tests/airgap.test.ts ra/tests/selfheal.test.ts ra/tests/diff.test.ts ra/tests/search.test.ts ra/tests/replay.test.ts ra/tests/swarm.test.ts ra/tests/ide.test.ts ra/tests/eval.test.ts ra/tests/tree.test.ts ra/tests/remote.test.ts ra/tests/plugins.test.ts ra/tests/phase0.test.ts
+bun test ra/tests/runtime.test.ts ra/tests/benchmark-artifacts.test.ts ra/tests/run-command.test.ts ra/tests/session.test.ts ra/tests/permission.test.ts ra/tests/custom-commands.test.ts ra/tests/subagents.test.ts ra/tests/checkpoint.test.ts ra/tests/symbols.test.ts ra/tests/mcp.test.ts ra/tests/daemon.test.ts ra/tests/diagnostics.test.ts ra/tests/airgap.test.ts ra/tests/selfheal.test.ts ra/tests/diff.test.ts ra/tests/search.test.ts ra/tests/replay.test.ts ra/tests/swarm.test.ts ra/tests/ide.test.ts ra/tests/eval.test.ts ra/tests/tree.test.ts ra/tests/remote.test.ts ra/tests/plugins.test.ts ra/tests/phase0.test.ts ra/tests/assistant-lane.test.ts ra/tests/explorer.test.ts ra/tests/plugins-import.test.ts
 cd "$ROOT"
 
 echo "▶ ra doctor"
 "${RA_BIN[@]}" doctor | tee /tmp/ra-doctor.txt
 grep -q "RA doctor" /tmp/ra-doctor.txt || { echo "FAIL: ra doctor missing RA doctor banner"; exit 1; }
-grep -qE "v1\.0\.0-ra\." /tmp/ra-doctor.txt || { echo "FAIL: ra doctor missing version"; exit 1; }
+grep -qE "v[0-9]{4,6}\.[0-9]" /tmp/ra-doctor.txt || { echo "FAIL: ra doctor missing version"; exit 1; }
 grep -qE "${NOTABLE_RE}|Small Ollama|localhost" /tmp/ra-doctor.txt || { echo "FAIL: ra doctor missing small-model path"; exit 1; }
 grep -qE "Small Ollama \(@(${LAN_TAG}|local|cloud)" /tmp/ra-doctor.txt || { echo "FAIL: ra doctor missing @${LAN_TAG}|@local host tag"; cat /tmp/ra-doctor.txt; exit 1; }
 grep -qE "RA prefer small@(${LAN_TAG}|local|cloud)" /tmp/ra-doctor.txt || { echo "FAIL: ra doctor missing RA prefer"; cat /tmp/ra-doctor.txt; exit 1; }
@@ -421,7 +421,7 @@ fi
 grep -q "RA verify" "$OUT" || { echo "FAIL: --verify output missing"; exit 1; }
 grep -q "RA" "$OUT" || { echo "FAIL: RA name missing"; exit 1; }
 grep -q "RA TUI" "$OUT" || { echo "FAIL: RA TUI splash missing"; exit 1; }
-grep -qE "1\.0\.0-ra\.|v1\." "$OUT" || { echo "FAIL: version missing from RA TUI splash"; exit 1; }
+grep -qE "v[0-9]{4,6}\.[0-9]" "$OUT" || { echo "FAIL: version missing from RA TUI splash"; exit 1; }
 grep -q "RA pipeline\|stage:" "$OUT" || { echo "FAIL: pipeline TUI missing"; exit 1; }
 grep -qE "RA ✓ done|dev cycle complete" "$OUT" || { echo "FAIL: done banner missing"; exit 1; }
 # Done box must embed live lane/prefer (TUI-visible mid-full-dev)

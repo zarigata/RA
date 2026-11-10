@@ -10,9 +10,6 @@
 .zcode/
 
 # Internal development artifacts — not shipped (kept locally by developers)
-ra tests/
-BUILD/
-RA-v2-design-pack-v2/
 docs/archive/
 ANUBIS-SPEC.md
 EVALUATION.md

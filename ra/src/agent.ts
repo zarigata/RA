@@ -19,6 +19,7 @@ import type { McpServerEntry, McpTool } from "./mcp.ts";
 import { resolveAgentFile, taskCatalogHint } from "./agents/catalog.ts";
 import { toolSkill } from "./skills.ts";
 import { toolRepoMap } from "./repomap.ts";
+import { resolveLane, assistantCapabilities, ASSISTANT_TOOLS } from "./lane.ts";
 import { applyRoutingMode, downshiftForBudget, escalationChain } from "../../anubis/src/routing.ts";
 import { jobForRole } from "../../anubis/src/profiles.ts";
 import { pickForJobLive } from "../../anubis/src/capability.ts";
@@ -1109,8 +1110,14 @@ export async function runOrchestratorTurn(
     return tools.listDir(ctx, userText.replace(/^ls\s*/, "") || ".");
   }
 
-  // Coding / create tasks → ptah tool loop
-  if (/\b(create|write|make|build|implement|add)\b/i.test(userText)) {
+  // Assistant lane (plan step 2): conversational/research asks take a cheap
+  // single-shot path — no repo scan, no ptah pipeline — with read-only tools.
+  // Edit-intent verbs route to the coding pipeline below instead.
+  const lane = resolveLane(userText);
+
+  // Coding / create tasks → ptah tool loop (edit intent, file+failure context,
+  // or debug cues — a superset of the old create/write/make/build verb list)
+  if (lane.lane === "coding") {
     let modelTag = "local";
     let output = "";
     try {
@@ -1123,18 +1130,71 @@ export async function runOrchestratorTurn(
     return `## ptah (${modelTag})\n${output}`;
   }
 
-  return withAgentRun({ limits: config.agent_limits, signal: ctx.signal, renderer: activeStreamRenderer }, async () => {
-  const { client, model } = await pickClientForModel(config.small_model ?? config.model, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
-  const system = "You are RA, a concise coding assistant. This is a direct conversation: no role agents or tools ran for this reply. Answer the user directly; never invent tool execution, model names, or delegated work." + loadProjectMemory(ctx.cwd);
-  const res = await withRetry(() => client.nativeChatStream(model, [
-    { role: "system", content: system }, ...(ctx.history ?? []), { role: "user", content: userText },
-  ], { signal: reserveCall(), onToken: scopedRenderer() }));
-  recordChatUsage(res.model, client.kind === "cloud", res.usage, {
-    in: system.length + userText.length,
-    out: res.content.length,
-  }, ctx.cwd);
-  return res.content;
-  });
+  // Assistant lane (plan step 2): conversational/research asks answered
+  // directly on the small model — no repo scan, no forced plan phase, no
+  // subagents/MoA. Read-only tools (read/search/web) stay available in a
+  // small tool loop; WRITE/EDIT/BASH are gated via assistantCapabilities.
+  return runAssistantTurn(userText, config, ctx, env, lane.reason);
+}
+
+/** One assistant-lane turn: conversational system prompt + read-only tool loop. */
+async function runAssistantTurn(
+  userText: string,
+  config: RaConfig,
+  ctx: ToolContext,
+  env: Record<string, string>,
+  laneReason: string,
+): Promise<string> {
+  return withAgentRun({ limits: config.agent_limits, tree: activeTracker, signal: ctx.signal, renderer: activeStreamRenderer }, () =>
+    withAgentScope("general", userText, async scope => {
+      emitGlobalHook("agent.turn.start", { role: "general", task: userText, lane: "assistant", reason: laneReason });
+      const { client, model } = await pickClientForModel(config.small_model ?? config.model, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
+      if (scope.node) scope.node.model = model;
+      // ponytail: short asks are single-shot (1 model call + up to 2 tool
+      // rounds); deep research naturally spills to the coding pipeline via
+      // edit-verb routing or RA_LANE=coding. Ceiling is deliberate — a
+      // general assistant turn should never need 16 steps.
+      const capabilities = assistantCapabilities(config, ctx.capabilities);
+      const hint = buildToolHint(ASSISTANT_TOOLS, []);
+      const system = `You are RA, a general-purpose assistant. Answer the user's question directly and concisely; this is a conversation, not a coding task. When source material helps (a file, a web page, search results), use the read-only tools below to ground the answer — otherwise answer from knowledge. Never claim to have read a file or page you did not fetch. Do not create, edit, or run anything.${loadProjectMemory(ctx.cwd)}\n${hint}`;
+      const aCtx: ToolContext = { ...ctx, capabilities };
+      const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+        { role: "system", content: system },
+        ...(ctx.history ?? []),
+        { role: "user", content: userText },
+      ];
+      let last = "";
+      // Small tool loop: the model may fetch (READ/WEBFETCH/WEBSEARCH/…) then
+      // answer. Cap at 3 model calls — an assistant turn is bounded by design.
+      for (let i = 0; i < 3; i++) {
+        const res = await withRetry(() => client.nativeChatStream(model, messages, {
+          signal: reserveCall(),
+          onToken: scopedRenderer(),
+        }));
+        if (!res.content.trim()) throw new Error(`Empty response from ${model}`);
+        recordChatUsage(res.model, client.kind === "cloud", res.usage, {
+          in: messages.reduce((n, m) => n + m.content.length, 0),
+          out: res.content.length,
+        }, ctx.cwd);
+        messages.push({ role: "assistant", content: res.content });
+        last = res.content;
+        const tool = await execToolBlock(aCtx, res.content, config, null, undefined, [], undefined);
+        if (tool.done) {
+          const out = tool.note || last;
+          emitGlobalHook("agent.turn.end", { role: "general", model: res.model, lane: "assistant" });
+          return `## general (${res.model})\n${out}`;
+        }
+        if (tool.note) {
+          messages.push({ role: "user", content: `Tool result:\n${tool.note}\nContinue answering the user. Return DONE with your answer when finished.` });
+          continue;
+        }
+        // Plain reply with no tool call: the answer itself.
+        emitGlobalHook("agent.turn.end", { role: "general", model: res.model, lane: "assistant" });
+        return `## general (${res.model})\n${last}`;
+      }
+      emitGlobalHook("agent.turn.end", { role: "general", model, lane: "assistant" });
+      return `## general (${model})\n${last}`;
+    }));
 }
 
 // ---- MoA aggregation (Phase 0.6) ----

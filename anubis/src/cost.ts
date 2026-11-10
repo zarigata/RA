@@ -14,6 +14,10 @@ const PRICE_TABLE: Record<string, ModelPrice> = {
   "anthropic/claude-sonnet-4-5": { in: 3, out: 15 },
   "anthropic/claude-opus-4-5": { in: 15, out: 75 },
   "anthropic/claude-haiku-4-5": { in: 1, out: 5 },
+  // Native AnthropicClient result ids (claude/<model>)
+  "claude/claude-sonnet-4-5": { in: 3, out: 15 },
+  "claude/claude-opus-4-5": { in: 15, out: 75 },
+  "claude/claude-haiku-4-5": { in: 1, out: 5 },
   "google/gemini-2.5-pro": { in: 1.25, out: 10 },
   "google/gemini-2.5-flash": { in: 0.075, out: 0.3 },
   "openai/gpt-5": { in: 1.25, out: 10 },

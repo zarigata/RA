@@ -8,6 +8,7 @@ import type { RaConfig } from "./config.ts";
 import { rankForJob, type Job, type RankedModel } from "./profiles.ts";
 import { isExhausted, exhaustedUntil } from "./quota.ts";
 import { contextPolicy, formatContext, minContextForJob, modelMaxContext, usableContext } from "./context-limits.ts";
+import { hasAnthropicKey, DEFAULT_ANTHROPIC_MODELS } from "./anthropic.ts";
 
 export interface CapabilityRouterConfig {
   enabled?: boolean;
@@ -68,6 +69,20 @@ export function candidateModels(config: RaConfig, env: Record<string, string | u
     const kind: "local" | "cloud" = isLocalUrl(def.options?.baseURL) ? "local" : "cloud";
     const hasKey = envKey(def.options?.apiKey, env);
     for (const modelId of Object.keys(def.models ?? {})) add(`${name}/${modelId}`, name, kind, hasKey);
+  }
+  // Native Claude (provider/claude): registered by key alone — ANTHROPIC_API_KEY
+  // (or an explicit provider.claude block) makes the default models routable.
+  // Explicit provider.claude models replace the defaults.
+  {
+    const claudeDef = (config.provider ?? {}) as Record<string, { options?: { apiKey?: string }; models?: Record<string, unknown> }>;
+    const explicit = claudeDef.claude?.models ?? claudeDef.anthropic?.models;
+    const keyTpl = claudeDef.claude?.options?.apiKey ?? claudeDef.anthropic?.options?.apiKey;
+    const usable = keyTpl ? envKey(keyTpl, env) : hasAnthropicKey(env);
+    if (usable) {
+      for (const modelId of explicit ? Object.keys(explicit) : DEFAULT_ANTHROPIC_MODELS) {
+        add(`claude/${modelId}`, "claude", "cloud", true);
+      }
+    }
   }
   return [...out.values()];
 }

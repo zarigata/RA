@@ -33,6 +33,12 @@ export const MODEL_PROFILES: ModelProfile[] = [
     note: "frontier coder — best-in-class edits, strong reasoning",
   },
   {
+    // Anthropic Haiku — the fast/cheap Claude tier
+    match: ["claude-haiku"],
+    scores: { code: 7, research: 7, reasoning: 7.5, review: 7, chat: 8.5, docs: 7.5 },
+    note: "fast Claude — chat, drafts, light review",
+  },
+  {
     // Anthropic (Claude Fable 5 95% Verified; Opus 4.5 top-4 official; reviewer reputation)
     match: ["claude-fable", "fable", "claude-opus", "claude-sonnet", "claude-4", "claude-3"],
     scores: { code: 9.5, research: 8.5, reasoning: 9, review: 10, chat: 9, docs: 9 },
@@ -164,7 +170,7 @@ export function rankForJob(
   return models
     .map((entry) => {
       const model = typeof entry === "string" ? entry : entry.model;
-      const local = typeof entry === "string" ? !/^(ollama-cloud|cloud)\//i.test(model) : entry.local;
+      const local = typeof entry === "string" ? !/^(ollama-cloud|cloud|claude|anthropic)\//i.test(model) : entry.local;
       const p = profileFor(model);
       return { model, score: p.scores[job] + (local ? localBonus : 0), note: p.note, local };
     })

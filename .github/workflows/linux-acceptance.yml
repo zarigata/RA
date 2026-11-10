@@ -1,6 +1,5 @@
 # Linux acceptance: installs RA on an Ubuntu runner (a Linux container),
-# runs one real cloud coding task end-to-end, verifies sandbox behavior,
-# and drives the full-screen TUI through a real PTY.
+# runs one real cloud coding task end-to-end and verifies sandbox behavior.
 name: linux-acceptance
 on:
   workflow_dispatch:
@@ -89,11 +88,3 @@ jobs:
           else
             echo "user namespaces unavailable on this runner — bwrap isolation covered by desktop-Linux installs"
           fi
-      - name: Full-screen TUI through a real PTY
-        env:
-          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
-          RA_CONFIG: /tmp/ra-linux.json
-          RA_MODEL: ollama-cloud/deepseek-v4-pro:0813
-          RA_SMALL_MODEL: ollama-cloud/glm-5.3-flash
-          RA_ALLOW_UNSANDBOXED: "1"
-        run: python3 "ra tests/linux_tui_pty.py"

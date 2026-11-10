@@ -83,6 +83,7 @@ export function renderMenuOverlay(opts: {
 const SHORTCUTS: Array<[string, string]> = [
   ["/", "search everything — commands, agents, files, models, themes"],
   ["ctrl+p", "open the palette"],
+  ["ctrl+e", "explorer — walk the workspace, agents, sessions, web with the mouse"],
   ["?", "this shortcuts panel"],
   ["tab", "complete the highlighted palette entry"],
   ["esc", "close overlay · cancel the running task"],

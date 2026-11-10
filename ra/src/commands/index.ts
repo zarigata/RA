@@ -52,7 +52,16 @@ export function loadCustomCommands(dirs: string | string[] = customCommandDirs()
       try {
         const raw = readFileSync(join(dir, f), "utf-8");
         const fm = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-        if (!fm) continue;
+        if (!fm) {
+          // Frontmatter-less markdown (canonical Cline workflows are plain
+          // procedures): still dispatchable by filename.
+          const bare = f.slice(0, -3);
+          if (bare && raw.trim() && !seen.has(bare)) {
+            seen.add(bare);
+            out.push({ name: bare, description: "", prompt: raw.trim(), raw });
+          }
+          continue;
+        }
         const name = fm[1].match(/^name:\s*(.+)$/m)?.[1]?.trim();
         const description = fm[1].match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
         const agent = fm[1].match(/^agent:\s*(.+)$/m)?.[1]?.trim();

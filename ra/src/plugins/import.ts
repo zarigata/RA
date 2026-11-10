@@ -104,6 +104,13 @@ export function mcpConfigEntry(data: Record<string, unknown>): Record<string, un
   const args = argv.length > 1 ? argv.slice(1) : Array.isArray(data.args) ? data.args.map(String) : undefined;
   if (args?.length) out.args = args;
   if (data.env && typeof data.env === "object") out.env = data.env;
+  // Codex startup_timeout_sec / tool_timeout_sec ride the entry verbatim
+  // (INTEROP §4: timeouts → mcp config). Consumers may read them when wiring
+  // per-server timeouts; unknown keys never block the import.
+  for (const k of ["startup_timeout_sec", "tool_timeout_sec"] as const) {
+    const v = data[k];
+    if (typeof v === "number" || typeof v === "string") out[k] = v;
+  }
   // Per-server tool allowlist (Cline autoApprove / Codex enabled_tools).
   // ponytail: record-only — stored on the config entry as `tools.allow` /
   // `tools.deny`; enforcement needs an MCP-tool-level permission check that

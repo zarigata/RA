@@ -204,10 +204,14 @@ function codexEntries(home: string, out: StoreEntry[]): void {
       for (const [name, srv] of Object.entries(servers)) {
         out.push({ source: "codex", kind: "mcp", name, path: cfgPath, data: srv, description: "MCP server from Codex config.toml" });
       }
-      if (cfg.approval_policy !== undefined || cfg.sandbox_mode !== undefined) {
+      const hasTrust = cfg.projects && typeof cfg.projects === "object" && Object.keys(cfg.projects as object).length > 0;
+      if (cfg.approval_policy !== undefined || cfg.sandbox_mode !== undefined || hasTrust) {
+        const trustNote = hasTrust
+          ? `; ${Object.keys(cfg.projects as object).length} trusted [projects] entr${Object.keys(cfg.projects as object).length === 1 ? "y" : "ies"} (noted, not applied)`
+          : "";
         out.push({
           source: "codex", kind: "permission-profile", name: "codex", path: cfgPath,
-          description: `approval_policy=${String(cfg.approval_policy ?? "(unset)")} sandbox_mode=${String(cfg.sandbox_mode ?? "(unset)")}`,
+          description: `approval_policy=${String(cfg.approval_policy ?? "(unset)")} sandbox_mode=${String(cfg.sandbox_mode ?? "(unset)")}${trustNote}`,
           data: { approval_policy: cfg.approval_policy, sandbox_mode: cfg.sandbox_mode },
         });
       }

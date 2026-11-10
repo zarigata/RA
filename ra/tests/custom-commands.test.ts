@@ -22,12 +22,16 @@ describe("custom slash commands", () => {
     }
   });
 
-  test("skips files without frontmatter or prompt", () => {
+  test("frontmatter-less files load by filename; empty prompts skipped", () => {
     const dir = mkdtempSync(join(tmpdir(), "ra-cmd-"));
     try {
       writeFileSync(join(dir, "bad.md"), "no frontmatter here");
       writeFileSync(join(dir, "noprompt.md"), "---\nname: x\n---\n");
-      expect(loadCustomCommands(dir)).toEqual([]);
+      const cmds = loadCustomCommands(dir);
+      // Wave D: plain markdown (Cline workflows) is dispatchable by filename;
+      // frontmatter with no prompt body is still skipped.
+      expect(cmds.map((c) => c.name)).toEqual(["bad"]);
+      expect(cmds[0]!.prompt).toContain("no frontmatter here");
     } finally {
       rmSync(dir, { recursive: true });
     }

@@ -142,6 +142,10 @@ export async function runHookCommand(
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
+      // GAP-19: $CLAUDE_PLUGIN_ROOT must resolve inside the hook's shell —
+      // exported as an env var so both $VAR and ${VAR} forms expand natively
+      // (the string replaceAll below only covers the bare form).
+      ...(hook.pluginRoot ? { env: { ...process.env, CLAUDE_PLUGIN_ROOT: hook.pluginRoot } } : {}),
     });
     const timer = setTimeout(() => {
       timedOut = true;

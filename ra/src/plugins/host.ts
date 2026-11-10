@@ -125,6 +125,7 @@ export class PluginHost {
     "tui.prompt.append",       // before sending prompt to model
     "tui.command.execute",      // when a slash command is dispatched
     "tool.execute.before",      // before any tool runs
+    "tool.execute.after",       // after any tool runs (imported PostToolUse)
     "tool.write.before",        // before writing a file (can transform content)
     "tool.write.after",         // after writing a file (can trigger diagnostics)
     "tool.edit.before",         // before editing a file
@@ -132,6 +133,9 @@ export class PluginHost {
     "message.part.updated",     // when a message part is updated (can truncate)
     "agent.turn.start",         // when an agent turn begins
     "agent.turn.end",           // when an agent turn ends
+    "session.start",            // imported Claude SessionStart handlers
+    "session.end",              // imported Claude SessionEnd handlers
+    "context.compact",          // imported Claude PreCompact handlers
     "session.save",             // when a session is persisted
     "model.fallback",           // when a model falls back to another
   ] as const;

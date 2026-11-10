@@ -76,7 +76,10 @@ export function claudeEventToRaHook(event: string, matcher?: string): string | n
     case "UserPromptSubmit": return "tui.prompt.append";
     case "Stop":
     case "SubagentStop": return "agent.turn.end";
-    default: return null; // SessionStart/End, Notification, PreCompact — Wave B
+    case "SessionStart": return "session.start";
+    case "SessionEnd": return "session.end";
+    case "PreCompact": return "context.compact";
+    default: return null; // Notification — Wave B left unmapped (TUI seam)
   }
 }
 

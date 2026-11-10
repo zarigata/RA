@@ -20,7 +20,9 @@ const NAME_RE = /^[a-z0-9][a-z0-9_-]*$/i;
 
 /**
  * Skill sources: every `.agents/skills` from cwd up to the repo/root
- * (nearest wins on name conflicts), plus the user dir ~/.ra/skills.
+ * (nearest wins on name conflicts), plus the user-level neutral + compat
+ * dirs (~/.ra/skills, ~/.agents/skills, ~/.claude/skills, ~/.codex/skills,
+ * ~/.cursor/skills). Project dirs win over user dirs.
  */
 export function skillDirs(cwd = process.cwd()): Array<{ source: SkillEntry["source"]; dir: string }> {
   const dirs: Array<{ source: SkillEntry["source"]; dir: string }> = [];
@@ -31,7 +33,15 @@ export function skillDirs(cwd = process.cwd()): Array<{ source: SkillEntry["sour
     if (parent === cur) break;
     cur = parent;
   }
-  dirs.push({ source: "user", dir: join(homedir(), ".ra", "skills") });
+  // User-level dirs, RA's own first, then the neutral standard + compat dirs.
+  const home = homedir();
+  dirs.push(
+    { source: "user", dir: join(home, ".ra", "skills") },
+    { source: "user", dir: join(home, ".agents", "skills") },
+    { source: "user", dir: join(home, ".claude", "skills") },
+    { source: "user", dir: join(home, ".codex", "skills") },
+    { source: "user", dir: join(home, ".cursor", "skills") },
+  );
   return dirs;
 }
 
@@ -99,6 +109,65 @@ export function skillPermission(config: RaConfig): "allow" | "ask" | "deny" {
   const rules = config.permission?.skill ?? {};
   return (rules["*"] ?? "allow") as "allow" | "ask" | "deny";
 }
+
+// ---- Strict SKILL.md spec (Codex / agent-skills.io portability) --------------------------
+
+export interface SkillSpecFinding {
+  skill: string;
+  /** Extra frontmatter keys beyond the strict {name, description} set. */
+  extraKeys?: string[];
+  /** Spec violations (bad name, missing/too-long description). */
+  problems: string[];
+}
+
+const STRICT_KEYS = new Set(["name", "description"]);
+const KEBAB_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/** Parse every frontmatter key (top-level `key:` lines) in a SKILL.md. */
+export function frontmatterKeys(raw: string): { keys: string[]; values: Record<string, string> } {
+  const fm = raw.match(/^---\n([\s\S]*?)\n---/);
+  if (!fm) return { keys: [], values: {} };
+  const keys: string[] = [];
+  const values: Record<string, string> = {};
+  for (const line of fm[1].split("\n")) {
+    const m = line.match(/^([A-Za-z][\w-]*):\s*(.*)$/);
+    if (!m) continue;
+    keys.push(m[1]!);
+    values[m[1]!] = m[2]!.trim();
+  }
+  return { keys, values };
+}
+
+/**
+ * Check one SKILL.md against the strict spec (Codex-strict subset):
+ * name ≤64 chars kebab-case matching nothing else required; description
+ * present and ≤1024 chars; no extra frontmatter keys (flagged, not fatal —
+ * RA's superset reads them fine; they just don't round-trip to Codex).
+ */
+export function checkSkillStrict(name: string, raw: string): SkillSpecFinding {
+  const problems: string[] = [];
+  const { keys, values } = frontmatterKeys(raw);
+  const extraKeys = keys.filter((k) => !STRICT_KEYS.has(k));
+  const fmName = values.name;
+  const effName = fmName || name;
+  if (!fmName) problems.push("frontmatter `name` missing (dirname would be used on import)");
+  else if (fmName.length > 64) problems.push(`name exceeds 64 chars (${fmName.length})`);
+  else if (!KEBAB_RE.test(fmName)) problems.push(`name '${fmName}' is not kebab-case`);
+  if (fmName && fmName !== name && !KEBAB_RE.test(name)) problems.push(`dirname '${name}' is not kebab-case`);
+  const desc = parseSkillFrontmatter(raw).description;
+  if (!desc) problems.push("description missing");
+  else if (desc.length > 1024) problems.push(`description exceeds 1024 chars (${desc.length})`);
+  return { skill: name, ...(extraKeys.length ? { extraKeys } : {}), problems };
+}
+
+/** Check every skill visible from `cwd` (project + user dirs) against the strict spec. */
+export function checkSkillsStrict(cwd = process.cwd()): SkillSpecFinding[] {
+  return listSkills(cwd).map((s) => {
+    try { return checkSkillStrict(s.name, readFileSync(s.path, "utf-8")); }
+    catch { return { skill: s.name, problems: ["unreadable"] }; }
+  });
+}
+
 
 /** `SKILL list` / `SKILL <name>` dispatch (pure-ish; FS reads only). */
 export function toolSkill(ctx: { cwd: string }, arg: string, config?: RaConfig): string {

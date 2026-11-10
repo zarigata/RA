@@ -4,10 +4,10 @@ import { detectStores } from "../plugins/stores.ts";
 import { importEntry, loadManifest, removeImported, applyMcpToConfig } from "../plugins/import.ts";
 
 export const PLUGINS_HELP = `RA plugins — convert other stores' declarative content into RA formats
-  ra plugins                      Detect local stores (Claude Code, OpenCode, Cursor, Cline, Roo) + counts
+  ra plugins                      Detect local stores (Claude Code, OpenCode, Cursor, Cline, Roo, Codex) + counts
   ra plugins --json               Detected entries as JSON
-  ra plugins import <name>        Convert one entry into ~/.ra/{skills,agents,commands}
-  ra plugins import <name> --with-hooks   Also mark imported command hooks runnable
+  ra plugins import <name>        Convert one entry into ~/.ra/{skills,agents,commands,rules}
+    10|  ra plugins import <name> --with-hooks   Also mark imported command hooks runnable
                                          (still needs ra.json plugin_runtime.hooks:"on")
   ra plugins import <name> --apply-mcp    Write MCP servers into ra.json instead of paste-only
                                          (existing names are skipped, never overwritten)
@@ -15,7 +15,10 @@ export const PLUGINS_HELP = `RA plugins — convert other stores' declarative co
   ra plugins remove <name>        Delete an imported item (files + manifest record)
 Import never executes third-party code unless hooks are explicitly enabled twice
 (--with-hooks at import + plugin_runtime.hooks:"on" in ra.json); imperative
-plugins are listed with a note. MCP is paste-only unless --apply-mcp is passed.`;
+plugins are listed with a note. MCP is paste-only unless --apply-mcp is passed.
+Sources: Claude Code, Cursor (plugin caches + skills), OpenCode (global +
+project opencode.json), Cline (rules/workflows/MCP), Roo (.roomodes YAML+JSON,
+MCP), Codex (config.toml MCP, skills, legacy prompts).`;
 
 export function pluginsCommand(args: string[], opts: { json?: boolean; home?: string } = {}): { code: number; data: unknown; text: string } {
   const home = opts.home ?? (process.env.HOME ?? "");
@@ -59,7 +62,7 @@ export function pluginsCommand(args: string[], opts: { json?: boolean; home?: st
 
 /** Human listing for `ra plugins` (no action): stores + kinds + counts. */
 export function listStoresText(entries: StoreEntry[]): string {
-  if (!entries.length) return "No plugin stores detected. RA scans ~/.claude/plugins, ~/.opencode, ~/.cursor, and VS Code globalStorage (Cline/Roo).";
+  if (!entries.length) return "No plugin stores detected. RA scans ~/.claude/plugins, ~/.opencode, ~/.cursor, ~/.codex, ~/.agents/skills, and VS Code globalStorage (Cline/Roo), plus project .roomodes/.clinerules/opencode.json.";
   const bySource = new Map<string, StoreEntry[]>();
   for (const e of entries) {
     const list = bySource.get(e.source) ?? [];

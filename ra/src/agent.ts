@@ -20,6 +20,7 @@ import type { McpServerEntry, McpTool } from "./mcp.ts";
 import { resolveAgentFile, taskCatalogHint } from "./agents/catalog.ts";
 import { toolSkill } from "./skills.ts";
 import { toolRepoMap } from "./repomap.ts";
+import { loadRules, loadMemoryChain } from "./rules.ts";
 import { resolveLane, assistantCapabilities, ASSISTANT_TOOLS } from "./lane.ts";
 import { applyRoutingMode, downshiftForBudget, escalationChain } from "../../anubis/src/routing.ts";
 import { jobForRole } from "../../anubis/src/profiles.ts";
@@ -45,6 +46,12 @@ export function onGlobalHook(event: string, fn: GlobalHookFn): void {
 export function emitGlobalHook(event: string, input: Record<string, unknown>): void {
   for (const fn of globalHooks.get(event) ?? []) {
     try { fn(input); } catch { /* ignore hook errors */ }
+  }
+  // Imported Claude-Stop handlers ride agent.turn.end (Wave B). Fire-and-
+  // forget: the turn already ended, decisions are non-blocking by design.
+  // ponytail: cwd = process.cwd() — emitGlobalHook call sites don't carry one.
+  if (event === "agent.turn.end") {
+    void runImportedHooksFor(event, input, process.cwd());
   }
 }
 
@@ -294,18 +301,21 @@ export function loadAgentMeta(role: string, cwd = process.cwd()): AgentMeta {
 }
 
 /**
- * Load project memory (AGENTS.md or RA.md) from the project cwd, if present.
- * Injected into the system prompt so the agent follows project conventions.
+ * Load project memory: AGENTS.md/RA.md chain (global → root → cwd, one file
+ * per level, 32 KiB cap) plus imported rules from .ra/rules/ (Cline imports
+ * land there). Injected into the system prompt so the agent follows project
+ * conventions. Rules with `paths:` frontmatter are always injected at this
+ * layer — tools that know the touched-file set can filter via loadRules().
  */
 export function loadProjectMemory(cwd: string): string {
-  for (const name of ["AGENTS.md", "RA.md"]) {
-    const p = join(cwd, name);
-    if (existsSync(p)) {
-      const body = readFileSync(p, "utf-8").trim();
-      if (body) return `\n\nProject memory (${name}):\n${body}`;
-    }
-  }
-  return "";
+  const parts: string[] = [];
+  for (const m of loadMemoryChain(cwd)) parts.push(`Project memory (${m.name}):\n${m.body}`);
+  // ponytail: paths-conditional rules inject always at prompt-assembly time —
+  // filtering needs the session's touched-file list which this layer doesn't
+  // have. Ceiling noted; upgrade = pass ctx.mutations/files into loadRules.
+  const rules = loadRules(cwd);
+  for (const r of rules) parts.push(`Rule (${r.name}${r.paths.length ? `, paths: ${r.paths.join(", ")}` : ""}):\n${r.body}`);
+  return parts.length ? `\n\n${parts.join("\n\n")}` : "";
 }
 
 /**
@@ -335,6 +345,23 @@ export function splitToolBlocks(content: string): string[] {
 }
 
 export async function execToolBlock(
+  ctx: ToolContext,
+  content: string,
+  config?: RaConfig,
+  agentPerms?: Record<string, "allow" | "ask" | "deny"> | null,
+  spawn?: (role: string, task: string) => Promise<string>,
+  bashPatterns?: BashPatternRule[],
+  mcpCall?: (name: string, args: Record<string, unknown>) => Promise<string>,
+): Promise<{ done: boolean; note: string }> {
+  const result = await execToolBlockInner(ctx, content, config, agentPerms, spawn, bashPatterns, mcpCall);
+  // Imported PostToolUse handlers fire after every tool execution (Wave B).
+  // Non-blocking by design — the tool already ran; decision output is ignored.
+  const verb = content.trim().match(/^(WRITE|EDIT|MULTIEDIT|READ|OUTLINE|DIAGNOSE|GLOB|GREP|BASH|WEBFETCH|WEBSEARCH|TODO|TASK|MCP|SKILL|REPOMAP|TEST)\b/i)?.[1]?.toLowerCase();
+  if (verb) void runImportedHooksFor("tool.execute.after", { tool_name: verb, tool_input: { command: content }, tool_response: result.note, cwd: ctx.cwd }, ctx.cwd);
+  return result;
+}
+
+async function execToolBlockInner(
   ctx: ToolContext,
   content: string,
   config?: RaConfig,
@@ -831,6 +858,13 @@ async function executeTaskAgent(
   if (opts.modelOverride) configured = opts.modelOverride;
   if (currentScope()?.node) currentScope()!.node!.model = configured;
   emitGlobalHook("agent.turn.start", { role, task, model: configured });
+  // Imported UserPromptSubmit handlers run at agent-turn start (Wave B): the
+  // task text is the submitted prompt. A block decision aborts the turn
+  // before any model call — Claude parity for prompt-guard hooks.
+  const promptGuard = await runImportedHooksFor("tui.prompt.append", { prompt: task, cwd: ctx.cwd }, ctx.cwd);
+  if (promptGuard.blocked) {
+    return { role, model: configured, output: `Error: imported hook blocked the prompt: ${promptGuard.reason ?? "denied"}` };
+  }
   const { client, model } = await pickClientForModel(configured, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
   const permDetail = loadAgentPermissionDetail(role, ctx.cwd);
   const agentPerms = permDetail?.tools ?? null;
@@ -963,6 +997,8 @@ async function executeTaskAgent(
             ...plan.keep.slice(1));
           if (opts.stats) opts.stats.compactions++;
           renderer?.(`\n\x1b[2m[RA compaction: ${plan.summarize.length} messages folded into a summary]\x1b[0m\n`);
+          // Imported PreCompact handlers (Wave B) — non-blocking observation.
+          void runImportedHooksFor("context.compact", { trigger: "auto", summarize: plan.summarize.length, cwd: ctx.cwd }, ctx.cwd);
         } catch { /* compaction is best-effort */ }
       }
       const after = ledger.pressure(messages);
@@ -988,6 +1024,8 @@ async function executeTaskAgent(
             { role: "user", content: `[Earlier conversation compacted by the compaction agent]\n${summary}` },
             ...plan.keep.slice(1));
           renderer?.(`\n\x1b[2m[RA compaction: ${plan.summarize.length} messages folded into a summary]\x1b[0m\n`);
+          // Imported PreCompact handlers (Wave B) — non-blocking observation.
+          void runImportedHooksFor("context.compact", { trigger: "manual-threshold", summarize: plan.summarize.length, cwd: ctx.cwd }, ctx.cwd);
         } catch { /* compaction is best-effort */ }
       }
     }
@@ -1157,6 +1195,12 @@ async function runAssistantTurn(
   return withAgentRun({ limits: config.agent_limits, tree: activeTracker, signal: ctx.signal, renderer: activeStreamRenderer }, () =>
     withAgentScope("general", userText, async scope => {
       emitGlobalHook("agent.turn.start", { role: "general", task: userText, lane: "assistant", reason: laneReason });
+      // Imported UserPromptSubmit handlers (Wave B) — same guard as task turns.
+      const promptGuard = await runImportedHooksFor("tui.prompt.append", { prompt: userText, cwd: ctx.cwd }, ctx.cwd);
+      if (promptGuard.blocked) {
+        emitGlobalHook("agent.turn.end", { role: "general", lane: "assistant", blocked: "imported hook" });
+        return `Error: imported hook blocked the prompt: ${promptGuard.reason ?? "denied"}`;
+      }
       const { client, model } = await pickClientForModel(config.small_model ?? config.model, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
       if (scope.node) scope.node.model = model;
       // ponytail: short asks are single-shot (1 model call + up to 2 tool

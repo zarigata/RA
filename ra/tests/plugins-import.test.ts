@@ -129,13 +129,14 @@ describe("importer", () => {
   test("hook JSON maps onto KNOWN_HOOKS; unmapped recorded, never dropped", () => {
     const mapped = mapHooks({ SessionStart: [], UserPromptSubmit: [], PostToolUse: [] });
     expect(mapped.UserPromptSubmit).toBe("tui.prompt.append");
-    expect(mapped.SessionStart).toBeNull();
-    expect(mapped.PostToolUse).toBeNull();
+    expect(mapped.SessionStart).toBe("session.start"); // Wave B coverage
+    expect(mapped.PostToolUse).toBe("tool.execute.after"); // Wave B coverage
+    expect(mapHooks({ Notification: [] }).Notification).toBeNull(); // still unmapped
     const e = find(detectStores(HOME), "claude-code", "plugin", "acme-tools")!;
     const r = importEntry(e, HOME);
-    expect(r.record.hooks!.SessionStart).toBeNull();
+    expect(r.record.hooks!.SessionStart).toBe("session.start");
     expect(r.record.hooks!.UserPromptSubmit).toBe("tui.prompt.append");
-    expect(r.report.some((l) => l.includes("no RA equivalent"))).toBe(true);
+    expect(r.report.some((l) => l.includes("no RA equivalent"))).toBe(false); // all mapped now
   });
 
   test("idempotent re-import", () => {

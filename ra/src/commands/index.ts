@@ -23,6 +23,10 @@ export interface CustomCommand {
   prompt: string;
   /** Role that runs the command (default: anubis). */
   agent?: string;
+  /** Claude-style `allowed-tools:` frontmatter (e.g. `Bash(git add:*)`). */
+  allowedTools?: string[];
+  /** Original markdown body (for `!cmd` pre-execution). */
+  raw?: string;
 }
 
 const CUSTOM_COMMANDS_DIR = join(ANUBIS_HOME, ".anubis", "commands");
@@ -52,10 +56,17 @@ export function loadCustomCommands(dirs: string | string[] = customCommandDirs()
         const name = fm[1].match(/^name:\s*(.+)$/m)?.[1]?.trim();
         const description = fm[1].match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
         const agent = fm[1].match(/^agent:\s*(.+)$/m)?.[1]?.trim();
+        // Claude `allowed-tools: Bash(git add:*), WebFetch` — a comma list of
+        // Tool(specifier) / Tool entries gating which tools the turn may use.
+        const allowedToolsLine = fm[1].match(/^allowed-tools:\s*(.+)$/m)?.[1]?.trim();
+        const allowedTools = allowedToolsLine
+          ? allowedToolsLine.split(",").map((t) => t.trim()).filter(Boolean)
+          : undefined;
         const prompt = fm[2].trim();
-        if (name && prompt && !seen.has(name)) {
-          seen.add(name);
-          out.push({ name, description, prompt, agent });
+        const cmdName = name ?? f.slice(0, -3);
+        if (cmdName && prompt && !seen.has(cmdName)) {
+          seen.add(cmdName);
+          out.push({ name: cmdName, description, prompt, agent, allowedTools, raw });
         }
       } catch {
         /* skip malformed command file */
@@ -94,6 +105,63 @@ const HELP_PRO = `RA — commands:
   Ctrl+P       Command palette
   Esc          Cancel the current model request`;
 
+
+/**
+ * Claude Code `` !`cmd` `` pre-execution: replace each backtick-bang block
+ * with the command's captured (bounded) stdout, inlined into the prompt the
+ * model receives. Runs via /bin/sh in the project cwd with a short timeout;
+ * failures degrade to a note, never abort the command.
+ */
+export async function expandPreExec(prompt: string, cwd: string, timeoutMs = 10_000): Promise<string> {
+  // ponytail: regex over the whole body — a `!` inside a fenced code block
+  // would also be executed. Ceiling accepted (fixture shape: bare `!`cmd` `
+  // list items); upgrade path is fence-aware scanning.
+  const blocks = [...prompt.matchAll(/!`([^`\n]+)`/g)];
+  if (!blocks.length) return prompt;
+  let out = prompt;
+  for (const m of blocks) {
+    const cmd = m[1]!.trim();
+    let text: string;
+    try {
+      const proc = Bun.spawn(["/bin/sh", "-c", cmd], { cwd, stdout: "pipe", stderr: "pipe" });
+      const timer = setTimeout(() => proc.kill(), timeoutMs);
+      try {
+        const [stdout] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+        text = stdout.trim().slice(0, 4000) || "(no output)";
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (e) {
+      text = `(command failed: ${String(e).slice(0, 120)})`;
+    }
+    out = out.replace(m[0], text);
+  }
+  return out;
+}
+
+/** Map a Claude `allowed-tools:` list onto RA permission tool rules. */
+export function allowedToolsToPerms(specs: string[]): Record<string, "allow" | "deny"> {
+  // Claude entry: `Tool` or `Tool(specifier)`. RA permission granularity is
+  // per-tool-verb, so a spec entry allows the mapped verb and everything
+  // unmapped is denied for the turn. `mcp__server__tool` entries allow `mcp`.
+  const allow = new Set<string>();
+  for (const spec of specs) {
+    const tool = spec.split("(")[0]!.trim().toLowerCase();
+    const mapped: Record<string, string> = {
+      bash: "bash", write: "write", edit: "edit", multiedit: "multiedit", read: "read",
+      glob: "glob", grep: "grep", webfetch: "webfetch", websearch: "websearch",
+      todo: "todo", task: "task", skill: "skill", test: "test",
+    };
+    if (mapped[tool]) allow.add(mapped[tool]);
+    else if (tool.startsWith("mcp")) allow.add("mcp");
+    // Unknown tool names (e.g. NotebookEdit) are not RA tools — deny by omission.
+  }
+  // Every RA tool verb not explicitly allowed is denied for this turn.
+  const verbs = ["write", "edit", "multiedit", "read", "outline", "diagnose", "glob", "grep", "bash", "test", "webfetch", "websearch", "skill", "repomap", "todo", "task", "mcp"];
+  const perms: Record<string, "allow" | "deny"> = {};
+  for (const v of verbs) perms[v] = allow.has(v) ? "allow" : "deny";
+  return perms;
+}
 
 export async function dispatchCommand(raw: string, c: CommandContext): Promise<boolean> {
   const trimmed = raw.trim();
@@ -526,8 +594,25 @@ export async function dispatchCommand(raw: string, c: CommandContext): Promise<b
         } else if (arg) {
           prompt += `\n\nUser input: ${arg}`;
         }
-        const result = await runTaskAgent(custom.agent ?? "anubis", prompt, c.config, c.ctx, env);
-        c.reply(`## ${custom.name}\n${result.output}`);
+        // Claude Code `` !`cmd` `` pre-execution: run the shell snippets and
+        // inline their (bounded) output into the prompt before the model sees it.
+        prompt = await expandPreExec(prompt, c.ctx.cwd);
+        // `allowed-tools:` frontmatter gates the turn (Claude semantics):
+        // temporarily narrow the config's tool permissions for this command's
+        // run only, restoring the original block afterwards.
+        const originalPermission = c.config.permission;
+        if (custom.allowedTools) {
+          (c.config as RaConfig).permission = {
+            ...originalPermission,
+            tool: { ...(originalPermission?.tool ?? {}), ...allowedToolsToPerms(custom.allowedTools) },
+          };
+        }
+        try {
+          const result = await runTaskAgent(custom.agent ?? "anubis", prompt, c.config, c.ctx, env);
+          c.reply(`## ${custom.name}\n${result.output}`);
+        } finally {
+          if (custom.allowedTools) (c.config as RaConfig).permission = originalPermission;
+        }
         return true;
       }
       c.reply(`Unknown: /${slashCmd}. Try /help`);

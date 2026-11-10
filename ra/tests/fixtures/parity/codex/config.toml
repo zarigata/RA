@@ -1,0 +1,30 @@
+# Codex CLI config — canonical field subset (source: ~/.codex/config.toml, trimmed;
+# docs: https://github.com/openai/codex + learn.chatgpt.com/docs/config-file)
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
+service_tier = "default"
+notify = ["/Users/zari/.codex/notify-hook", "turn-ended"]
+
+# Repo-local feature flags (how caveman enables Codex hooks)
+[features]
+hooks = true
+
+# MCP servers (stdio or URL)
+[mcp_servers.roblox-studio]
+command = "/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP"
+
+[mcp_servers.cloudflare]
+url = "https://mcp.cloudflare.com/mcp"
+
+[mcp_servers.godot-mcp]
+command = "/Users/zari/.local/bin/uv"
+args = ["run", "server.py"]
+startup_timeout_sec = 60.0
+tool_timeout_sec = 90.0
+
+[mcp_servers.godot-mcp.env]
+GDAI_MCP_SERVER_PORT = "3571"
+
+# Per-project trust
+[projects."/Users/zari/Documents/RA/RA"]
+trust_level = "trusted"

@@ -7,6 +7,8 @@ import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { PluginHost } from "./host.ts";
 import { extractHookCommands } from "./hook-shim.ts";
+import { parseRulePaths } from "../rules.ts";
+import type { RooMode } from "./roo-modes.ts";
 import type { StoreEntry } from "./stores.ts";
 
 export interface ImportRecord {
@@ -37,11 +39,11 @@ const HOOK_MAP: Record<string, string | null> = {
   PreToolUse: "tool.execute.before",
   Stop: "agent.turn.end",
   SubagentStop: "agent.turn.end",
-  SessionStart: null,
-  SessionEnd: null,
-  PostToolUse: null,
+  SessionStart: "session.start",
+  SessionEnd: "session.end",
+  PostToolUse: "tool.execute.after",
   Notification: null,
-  PreCompact: null,
+  PreCompact: "context.compact",
 };
 
 /** Map Claude hook names onto KNOWN_HOOKS; unmapped ones are kept as null. */
@@ -102,7 +104,22 @@ export function mcpConfigEntry(data: Record<string, unknown>): Record<string, un
   const args = argv.length > 1 ? argv.slice(1) : Array.isArray(data.args) ? data.args.map(String) : undefined;
   if (args?.length) out.args = args;
   if (data.env && typeof data.env === "object") out.env = data.env;
+  // Per-server tool allowlist (Cline autoApprove / Codex enabled_tools).
+  // ponytail: record-only — stored on the config entry as `tools.allow` /
+  // `tools.deny`; enforcement needs an MCP-tool-level permission check that
+  // RA doesn't have yet (capability gate is global today). mcp.ts callers can
+  // read this field when that lands.
+  const allow = allowlistOf(data);
+  if (allow) out.tools = allow;
   return out;
+}
+
+/** Cline `autoApprove` / Codex `enabled_tools`+`disabled_tools` → {allow,deny} record. */
+function allowlistOf(data: Record<string, unknown>): { allow?: string[]; deny?: string[] } | undefined {
+  const allow = Array.isArray(data.autoApprove) ? data.autoApprove.map(String)
+    : Array.isArray(data.enabled_tools) ? data.enabled_tools.map(String) : undefined;
+  const deny = Array.isArray(data.disabled_tools) ? data.disabled_tools.map(String) : undefined;
+  return allow?.length || deny?.length ? { ...(allow?.length ? { allow } : {}), ...(deny?.length ? { deny } : {}) } : undefined;
 }
 
 /** OpenCode agent JSON → RA agent markdown (mode names already match). */function agentMdFromJson(name: string, def: Record<string, unknown>): string {
@@ -114,6 +131,56 @@ export function mcpConfigEntry(data: Record<string, unknown>): Record<string, un
   ].filter(Boolean);
   return `---\n${fm.join("\n")}\n---\n\n${String(def.system ?? "").trim() || "(no system prompt in source)"}\n`;
 }
+
+// ---- Roo modes → RA agents (INTEROP §2) ------------------------------------------------
+
+/** Roo group → RA tool allow/deny sets. edit+fileRegex → path-scoped rule. */
+function rooGroupsToPermission(mode: RooMode): { fm: string[]; notes: string[] } {
+  const tools: Record<string, "allow" | "deny"> = {};
+  const notes: string[] = [];
+  let fileRegex: string | undefined;
+  for (const g of mode.groups) {
+    switch (g.name) {
+      case "read": tools.read = "allow"; tools.glob = "allow"; tools.grep = "allow"; tools.outline = "allow"; tools.repomap = "allow"; break;
+      case "edit":
+        tools.edit = "allow"; tools.multiedit = "allow"; tools.write = "allow";
+        if (g.fileRegex) fileRegex = g.fileRegex;
+        break;
+      case "command": tools.bash = "allow"; tools.diagnose = "allow"; tools.test = "allow"; break;
+      case "mcp": tools.mcp = "allow"; break;
+      case "browser": notes.push("browser group has no RA equivalent — recorded only"); break;
+    }
+  }
+  const fm: string[] = [];
+  const keys = Object.keys(tools);
+  if (keys.length) {
+    // Deny everything not in the group-derived allow set: RA's default-allow
+    // would otherwise hand a read-only Roo mode WRITE/BASH.
+    const allTools = ["write", "edit", "multiedit", "read", "outline", "diagnose", "glob", "grep", "bash", "test", "webfetch", "websearch", "skill", "repomap", "todo", "task", "mcp"];
+    const lines = allTools.map((t) => `  ${t}: ${tools[t] === "allow" ? "allow" : "deny"}`);
+    fm.push("permission:", ...lines);
+  } else {
+    // groups: [] → read-only agent.
+    fm.push("permission:", "  read: allow", "  glob: allow", "  grep: allow", "  outline: allow", "  write: deny", "  edit: deny", "  bash: deny", "  mcp: deny");
+    notes.push("empty groups → read-only agent");
+  }
+  if (fileRegex) fm.push(`  # roo fileRegex: ${fileRegex} (edit path scope)`);
+  return { fm, notes };
+}
+
+/** A Roo mode → RA agent markdown (same artifact shape `ra plugins import` writes). */
+export function rooModeToAgentMd(mode: RooMode, ns = "roo"): string {
+  const description = [mode.description, mode.whenToUse].filter(Boolean).join(" — ") || `Imported Roo mode ${mode.slug}.`;
+  const { fm, notes } = rooGroupsToPermission(mode);
+  const body = [
+    mode.roleDefinition.trim(),
+    mode.customInstructions?.trim(),
+    notes.length ? `<!-- roo-import: ${notes.join("; ")} -->` : null,
+  ].filter(Boolean).join("\n\n");
+  return `---\ndescription: ${description.replace(/\n/g, " ")}\ncategory: roo\nmode: subagent\n${fm.join("\n")}\n---\n\n${body}\n`;
+}
+
+// ---- Cline rules / Codex artifacts ------------------------------------------------------
 
 export function importEntry(entry: StoreEntry, home = homedir(), opts: ImportOpts = {}): ImportResult {
   const id = `${entry.source}:${entry.kind}:${entry.name}`;
@@ -152,6 +219,32 @@ export function importEntry(entry: StoreEntry, home = homedir(), opts: ImportOpt
     mkdirSync(join(home, ".ra", "commands"), { recursive: true });
     // Claude Code + OpenCode both use $ARGUMENTS/$1..$N — same syntax as RA. Copy verbatim.
     writeFileSync(targetPath, readFileSync(entry.path, "utf-8"));
+  } else if (entry.kind === "workflow") {
+    // Cline workflows are slash-invoked markdown procedures — same shape as
+    // RA commands. Copy verbatim; $ARGUMENTS semantics already match.
+    targetPath = join(home, ".ra", "commands", `${entry.name}.md`);
+    mkdirSync(join(home, ".ra", "commands"), { recursive: true });
+    writeFileSync(targetPath, readFileSync(entry.path, "utf-8"));
+  } else if (entry.kind === "rule") {
+    // Cline rules → project-memory-style instruction files under .ra/rules/
+    // (injected by loadProjectMemory via the rules loader). `paths:` frontmatter
+    // is preserved so the conditional activation survives for tools that honor it.
+    targetPath = join(home, ".ra", "rules", `${entry.name}.md`);
+    mkdirSync(join(home, ".ra", "rules"), { recursive: true });
+    writeFileSync(targetPath, readFileSync(entry.path, "utf-8"));
+    const paths = parseRulePaths(readFileSync(entry.path, "utf-8"));
+    if (paths.length) note = `paths-gated rule (${paths.join(", ")}) — injected when a touched file matches`;
+  } else if (entry.kind === "roo-mode") {
+    targetPath = join(home, ".ra", "agents", `roo-${entry.name}.md`);
+    mkdirSync(join(home, ".ra", "agents"), { recursive: true });
+    writeFileSync(targetPath, rooModeToAgentMd(entry.data as unknown as RooMode));
+    note = "Roo mode → RA agent (groups mapped to tool permission gates)";
+  } else if (entry.kind === "permission-profile") {
+    // Codex approval_policy/sandbox_mode → record-only. RA has its own
+    // permission/sandbox machinery; importing Codex's trust posture wholesale
+    // would silently change the security stance, so this is reported, not enforced.
+    note = "Codex approval_policy/sandbox_mode recorded (report-only, not auto-enforced)";
+    report.push(note);
   } else if (entry.kind === "mcp") {
     snippet = entry.data ? mcpSnippet(entry.name, entry.data) ?? undefined : undefined;
     note = snippet ? "config snippet returned — add it to your ra config manually (never auto-edited)" : "unrecognized MCP server shape (no command/url)";

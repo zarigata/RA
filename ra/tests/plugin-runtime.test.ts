@@ -61,7 +61,10 @@ describe("fixture extraction", () => {
   test("event + matcher mapping", () => {
     expect(claudeEventToRaHook("PreToolUse")).toBe("tool.execute.before");
     expect(claudeEventToRaHook("UserPromptSubmit")).toBe("tui.prompt.append");
-    expect(claudeEventToRaHook("SessionStart")).toBeNull();
+    expect(claudeEventToRaHook("SessionStart")).toBe("session.start"); // Wave B
+    expect(claudeEventToRaHook("SessionEnd")).toBe("session.end"); // Wave B
+    expect(claudeEventToRaHook("PostToolUse")).toBe("tool.execute.after"); // Wave B
+    expect(claudeEventToRaHook("PreCompact")).toBe("context.compact"); // Wave B
     expect(matcherToRaTool("Bash")).toBe("bash");
     expect(matcherToRaTool("Write|Edit")).toBe("write");
     expect(matcherToRaTool("startup|resume")).toBeNull();
@@ -150,10 +153,11 @@ describe("default-deny opt-in", () => {
     expect(r.record.hookDefs!.length).toBe(2);
     const rec = loadManifest(HOME).imports.find((i) => i.name === "caveman")!;
     expect(rec.hooksEnabled).toBe(true);
-    // Only mappable events become runnable (SessionStart has no RA hook yet).
+    // Wave B: both SessionStart and UserPromptSubmit map now → 2 runnable.
     const runnable = loadEnabledHooks(HOME);
-    expect(runnable.length).toBe(1); // UserPromptSubmit → tui.prompt.append
-    expect(runnable[0]!.raHook).toBe("tui.prompt.append");
+    expect(runnable.length).toBe(2);
+    expect(runnable.some((h) => h.raHook === "tui.prompt.append")).toBe(true);
+    expect(runnable.some((h) => h.raHook === "session.start")).toBe(true);
   });
 
   test("readHooksPolicy defaults to opt-in when no ra.json", () => {

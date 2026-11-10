@@ -41,7 +41,8 @@
       "source": "JuliusBrussee/caveman",
       "sourceType": "github",
       "skillPath": "skills/caveman-explore/SKILL.md",
-      "computedHash": "52bb43d1be0667b6322c5ae0c816e21c3c4d0475e3dcf4b69d3561c461b35485"
+      "computedHash": "74802575e2c70b11fef28da350201423aa849a8ca91095294e2591d2655d562b",
+      "localEdits": "frontmatter normalized to strict spec (removed tools:/model:) \u2014 Wave B item 4b"
     },
     "caveman-help": {
       "source": "JuliusBrussee/caveman",

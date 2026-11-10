@@ -214,7 +214,11 @@ function prepareCommand(context: CommandContext, args: string[], options: Launch
   context.signal?.throwIfAborted();
   const tool = options.tool ?? "bash";
   assertTool(context.capabilities, tool);
-  if (tool === "bash" || tool === "diagnose") assertBash(context.capabilities, tool === "bash" && args[0] === "/bin/bash" ? args[2] : args.join(" "));
+  if (tool === "bash" || tool === "diagnose") {
+    // `bash -c CMD` shape (both /bin/bash and PATH bash) — assert on CMD.
+    const isBashShape = tool === "bash" && args[1] === "-c" && (args[0] === "/bin/bash" || args[0] === "bash");
+    assertBash(context.capabilities, isBashShape ? args[2] : args.join(" "));
+  }
   const settings = sandboxSettings(context);
   if (settings.backend === "unavailable") throw new Error(
     "No OS command sandbox on this platform. Install bubblewrap (Debian/Ubuntu: apt install bubblewrap; Fedora: dnf install bubblewrap) "

@@ -24,7 +24,7 @@ describe("swarm mode", () => {
     const root = join(repo, "ra-swarms", "wt");
     try {
       const path = createWorktree(repo, "ra-swarm/t1", root);
-      expect(path).toContain("ra-swarm/t1");
+      expect(path).toContain(join("ra-swarm", "t1"));
       removeWorktree(repo, "ra-swarm/t1", path);
     } finally {
       rmSync(repo, { recursive: true, force: true });

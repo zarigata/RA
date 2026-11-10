@@ -175,7 +175,7 @@ describe("conformance: claude-code (8 fixtures)", () => {
     expect(entries.some((e) => e.source === "claude-code" && e.kind === "plugin" && e.name === "caveman")).toBe(true);
     const imp = cli(["plugins", "import", "c3"]);
     expect(imp.code).toBe(0);
-    expect(imp.out).toContain(".ra/commands/c3.md");
+    expect(imp.out).toContain(join(".ra", "commands", "c3.md"));
     expect(existsSync(join(HOME, ".ra", "commands", "c3.md"))).toBe(true);
   });
 });

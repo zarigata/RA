@@ -4,6 +4,7 @@ set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")" && pwd)"
 ANUBIS_HOME="$SRC/anubis"
+RA_ROOT="$SRC"
 DEST="${RA_INSTALL_DIR:-$HOME/.local/bin}"
 RA_GLOBAL="$HOME/.ra"
 

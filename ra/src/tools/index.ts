@@ -168,9 +168,13 @@ export async function toolGrep(ctx: ToolContext, pattern: string, globPat = "**/
   }
 }
 
+// Windows has no /bin/bash — PATH lookup finds Git-Bash's bash.exe (git
+// ships with it on every CI runner and dev box).
+const BASH = process.platform === "win32" ? "bash" : "/bin/bash";
+
 export async function toolBash(ctx: ToolContext, command: string, timeoutMs = 60000): Promise<string> {
   const safe = redact(command).text;
-  const result = await runCommand(ctx, ["/bin/bash", "-c", safe], { timeoutMs });
+  const result = await runCommand(ctx, [BASH, "-c", safe], { timeoutMs });
   return redact(`$ ${safe}\n[${result.sandbox}]\nexit ${result.code ?? "signal"}${result.timedOut ? " (timeout)" : ""}\n${result.stdout}${result.stderr ? `\nstderr:\n${result.stderr}` : ""}`.trim()).text;
 }
 
@@ -202,7 +206,7 @@ export async function toolTest(ctx: ToolContext, target?: string, timeoutMs = 18
     cmd = ["pytest", target].filter(Boolean).join(" ");
   }
   if (!cmd) return "Error: no test runner detected (package.json scripts.test or pytest). Run BASH directly with your command.";
-  const result = await runCommand(ctx, ["/bin/bash", "-c", cmd], { timeoutMs });
+  const result = await runCommand(ctx, [BASH, "-c", cmd], { timeoutMs });
   const tail = (result.stdout + (result.stderr ? `\n${result.stderr}` : "")).trim().split("\n").slice(-15).join("\n");
   const summary = tail.match(/(\d+\s+(?:pass|passed|passing)|\d+\s+(?:fail|failed|failing)|(\d+)\s+skipped|exit\s+\d+|\d+\/\d+)/gi)?.slice(0, 6).join(" · ") ?? "";
   return `TEST ${cmd}\n[${result.sandbox}] exit ${result.code ?? "signal"}${result.timedOut ? " (timeout)" : ""}${summary ? ` · ${summary}` : ""}\n${tail.slice(-2000)}`;

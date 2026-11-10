@@ -34,7 +34,7 @@ describe("semantic search", () => {
     }
   });
 
-  test("reindex reuses unchanged docs and re-indexes changed", () => {
+  test("reindex reuses unchanged docs and re-indexes changed", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "ra-search-"));
     try {
       writeFileSync(join(cwd, "a.ts"), "one");
@@ -43,11 +43,14 @@ describe("semantic search", () => {
       // Unchanged → same object reference.
       expect(second[0]).toBe(first[0]);
 
+      // NTFS mtime granularity can collapse rapid writes to the same ms —
+      // bump the clock distance so "changed" is detectable on Windows too.
+      await new Promise((r) => setTimeout(r, 20));
       writeFileSync(join(cwd, "a.ts"), "two three");
       const third = reindex(cwd, second);
       expect(third[0]).not.toBe(first[0]);
     } finally {
-      rmSync(cwd, { recursive: true });
+      rmSync(cwd, { recursive: true, force: true });
     }
   });
 

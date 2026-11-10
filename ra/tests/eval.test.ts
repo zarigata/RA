@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { configuredModels, formatEvalResults, EVAL_TASKS } from "../src/eval.ts";
 import type { RaConfig } from "../../anubis/src/config.ts";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const config: RaConfig = {
   model: "ollama-cloud/glm-5.2",
@@ -53,5 +56,31 @@ describe("eval harness", () => {
 
   test("formatEvalResults empty", () => {
     expect(formatEvalResults([])).toContain("No eval results");
+  });
+
+  // W3B live findings: sum-function verified hello.py (unwinnable); fix-*
+  // tasks described files the fresh dir never contained.
+  test("sum-function verify checks add.py and prompt names it", () => {
+    const t = EVAL_TASKS.find((t) => t.name === "sum-function")!;
+    expect(t.prompt).toContain("add.py");
+    const dir = mkdtempSync(join(tmpdir(), "ra-evaltest-"));
+    try {
+      writeFileSync(join(dir, "add.py"), "def add(a, b):\n    return a + b\n");
+      expect(t.verify(dir)).toBe(true);
+      expect(t.verify(mkdtempSync(join(tmpdir(), "ra-evaltest-")))).toBe(false);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test("fix-* tasks seed the pre-existing file they describe", () => {
+    for (const name of ["fix-missing-print", "fix-off-by-one"]) {
+      const t = EVAL_TASKS.find((t) => t.name === name)!;
+      expect(Object.keys(t.seed ?? {}).length).toBeGreaterThan(0);
+      const dir = mkdtempSync(join(tmpdir(), "ra-evaltest-"));
+      try {
+        for (const [f, body] of Object.entries(t.seed!)) writeFileSync(join(dir, f), body);
+        // the buggy seed itself must NOT pass verify (pre-fix state)
+        expect(t.verify(dir)).toBe(false);
+      } finally { rmSync(dir, { recursive: true, force: true }); }
+    }
   });
 });

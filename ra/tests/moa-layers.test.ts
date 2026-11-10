@@ -171,6 +171,35 @@ describe("layered execution (fake agents)", () => {
     expect(result.status).toBe("completed"); // at least one success + synthesis
   });
 
+  // W3B live finding: codder/claude-sonnet-5-30 (typo) "completed" while the
+  // endpoint served sonnet-5-5 — estCostUsd 0, wrong model on the card.
+  test("unknown provider-prefixed --models id fails fast (no silent aliasing)", async () => {
+    let ran = 0;
+    const providerCfg: RaConfig = {
+      ...config,
+      provider: { codder: { options: { baseURL: "https://cloud-gw.example.test/v1", apiKey: "{env:CODDER_API_KEY}" }, models: { "claude-sonnet-5-5": {} } } },
+    };
+    await expect(runLayeredMoa("typo check", providerCfg, { cwd: process.cwd() }, {
+      models: ["codder/claude-sonnet-5-30"],
+      layers: 1,
+      runAgent: async () => { ran++; return { role: "general", model: "x", output: "never" }; },
+    })).rejects.toThrow(/Unknown model\(s\) in --models: codder\/claude-sonnet-5-30/);
+    expect(ran).toBe(0);
+    // bare ids (test fakes) and configured ids still pass the gate
+    await runLayeredMoa("bare ok", providerCfg, { cwd: process.cwd() }, {
+      models: ["m1"],
+      layers: 1,
+      synthesize: fakeSynth,
+      runAgent: async (role) => ({ role, model: "m1", output: "ok" }),
+    });
+    await runLayeredMoa("known ok", providerCfg, { cwd: process.cwd() }, {
+      models: ["codder/claude-sonnet-5-5"],
+      layers: 1,
+      synthesize: fakeSynth,
+      runAgent: async (role) => ({ role, model: "codder/claude-sonnet-5-5", output: "ok" }),
+    });
+  });
+
   afterAll(() => rmSync(boardDir, { recursive: true, force: true }));
 });
 

@@ -10,6 +10,7 @@ import { estimateCost, isFree } from "../../../anubis/src/cost.ts";
 import type { RaConfig } from "../../../anubis/src/config.ts";
 import type { ToolContext } from "../tools/index.ts";
 import { loadEnv } from "../../../anubis/src/env.ts";
+import { candidateModels } from "../../../anubis/src/capability.ts";
 import { ANUBIS_HOME } from "../paths.ts";
 import { redact } from "../../../anubis/src/redact.ts";
 import { TeamBoard } from "../teams/board.ts";
@@ -233,6 +234,17 @@ export async function runLayeredMoa(
   const estCostUsd = estimateMoaCost(plan, task);
   if (plan.budgetUsd !== undefined && estCostUsd > plan.budgetUsd) {
     throw new Error(`Mixture estimate $${estCostUsd.toFixed(4)} exceeds budget $${plan.budgetUsd.toFixed(4)} (${plan.models.length} models × ${plan.layers} layers). Raise --budget or narrow --models.`);
+  }
+  // An explicit --models id must exist in the registry — a typo would
+  // otherwise "complete" on whatever the endpoint aliases it to (or the
+  // router re-picks), reporting the typo'd id with estCostUsd 0 (live
+  // finding W3B: codder/claude-sonnet-5-30 silently served as sonnet-5-5).
+  // Provider-prefixed ids are checkable offline via candidateModels; bare
+  // ids (test fakes like "m1") pass through — they resolve per-provider.
+  const known = new Set(candidateModels(config).map((c) => c.model));
+  const unknown = plan.models.filter((m) => m.includes("/") && !known.has(m));
+  if (unknown.length) {
+    throw new Error(`Unknown model(s) in --models: ${unknown.join(", ")}. Configured: ${[...known].join(", ")}`);
   }
   const concurrency = options.concurrency ?? config.moa?.concurrency ?? 4;
   const run = options.runAgent ?? runTaskAgent;

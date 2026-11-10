@@ -2,7 +2,7 @@
 // record pass rate, latency, and cost. This is how RA proves it works with
 // local models, not just claims it.
 
-import { existsSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runTaskAgent, type TaskResult } from "./agent.ts";
@@ -17,6 +17,9 @@ export interface EvalTask {
   prompt: string;
   /** Verify the result in the task's working directory. */
   verify: (cwd: string) => boolean;
+  /** Files to write into the fresh task dir before the run (fix-* tasks
+   * describe pre-existing state — without a seed the prompt lies). */
+  seed?: Record<string, string>;
 }
 
 export interface EvalResult {
@@ -48,9 +51,9 @@ export const EVAL_TASKS: EvalTask[] = [
   },
   {
     name: "sum-function",
-    prompt: "Write a Python function add(a, b) that returns a + b.",
+    prompt: "Write a Python function add(a, b) that returns a + b. Save it in add.py.",
     verify: (cwd) => {
-      const p = join(cwd, "hello.py");
+      const p = join(cwd, "add.py");
       return existsSync(p) && /def add\(/.test(readFileSync(p, "utf-8"));
     },
   },
@@ -175,6 +178,9 @@ export const EVAL_TASKS: EvalTask[] = [
   {
     name: "fix-missing-print",
     prompt: "The file hello.py contains a function hello() but it doesn't print anything. Fix it so it prints 'Hello, World!'.",
+    seed: {
+      "hello.py": "def hello():\n    pass\n\nif __name__ == \"__main__\":\n    hello()\n",
+    },
     verify: (cwd) => {
       const p = join(cwd, "hello.py");
       if (!existsSync(p)) return false;
@@ -184,6 +190,9 @@ export const EVAL_TASKS: EvalTask[] = [
   {
     name: "fix-off-by-one",
     prompt: "The file range.py has a function get_range(n) that returns range(0, n-1) but should return range(0, n). Fix the off-by-one bug.",
+    seed: {
+      "range.py": "def get_range(n):\n    return range(0, n - 1)\n",
+    },
     verify: (cwd) => {
       const p = join(cwd, "range.py");
       if (!existsSync(p)) return false;
@@ -251,6 +260,9 @@ export async function runEvalTask(
 ): Promise<EvalResult> {
   const cwd = mkdtempSync(join(tmpdir(), "ra-eval-"));
   const ctx: ToolContext = { cwd };
+  for (const [file, body] of Object.entries(task.seed ?? {})) {
+    writeFileSync(join(cwd, file), body, "utf-8");
+  }
   const before = loadUsage();
   const t0 = Date.now();
   let passed = false;

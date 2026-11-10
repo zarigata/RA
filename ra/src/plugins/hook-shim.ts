@@ -177,8 +177,12 @@ export async function runHookCommand(
       }
     };
     try {
-      proc.stdin!.write(stdin);
-      proc.stdin!.end();
+      // Fast-exiting hooks (e.g. bare `exit 3`) can close stdin before this
+      // write lands — EPIPE is not an error, the hook just didn't read stdin.
+      try {
+        proc.stdin!.write(stdin);
+        proc.stdin!.end();
+      } catch { /* stdin closed early — proceed to drain output */ }
       const [stdout, stderr] = await Promise.all([
         drain(proc.stdout, "stdout"),
         drain(proc.stderr, "stderr"),

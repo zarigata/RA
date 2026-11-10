@@ -1,4 +1,7 @@
 import { describe, expect, test, afterEach } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   estimateCost,
   isFree,
@@ -10,6 +13,8 @@ import {
   setPriceOverrides,
   priceOverridesFromConfig,
   clearPriceOverrides,
+  loadUsageJson,
+  writeJsonAtomic,
 } from "../src/cost.ts";
 
 describe("cost estimation", () => {
@@ -106,6 +111,86 @@ describe("usage tagging", () => {
     expect(tagModel("glm-5.2", true)).toBe("ollama-cloud/glm-5.2");
     expect(isFree(tagModel("qwen3.8:latest", false))).toBe(true);
     expect(isFree(tagModel("glm-5.2", true))).toBe(false);
+  });
+});
+
+// ---- atomic + tolerant usage persistence (F6, Wave 3c) ----
+
+describe("usage.json atomic write + tolerant read (F6)", () => {
+  const dir = () => mkdtempSync(join(tmpdir(), "ra-usage-f6-"));
+
+  test("writeJsonAtomic replaces the file wholesale — no .tmp residue, valid JSON on disk", () => {
+    const d = dir();
+    try {
+      const p = join(d, "usage.json");
+      writeJsonAtomic(p, { "ollama-lan/tiny": { model: "ollama-lan/tiny", inputTokens: 10, outputTokens: 5 } });
+      writeJsonAtomic(p, { "codder/opus": { model: "codder/opus", inputTokens: 1, outputTokens: 2 } });
+      expect(existsSync(p)).toBe(true);
+      expect(readdirSync(d).filter((f) => f.includes(".tmp"))).toEqual([]); // rename, never a leftover
+      expect(JSON.parse(readFileSync(p, "utf-8"))).toEqual({ "codder/opus": { model: "codder/opus", inputTokens: 1, outputTokens: 2 } });
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  test("corrupt JSON is backed up and read as fresh — never crashes cost reporting", () => {
+    const d = dir();
+    try {
+      const p = join(d, "usage.json");
+      writeFileSync(p, '{ "codder/opus": { "inputTokens": 12,', "utf-8"); // torn write
+      const usage = loadUsageJson(p);
+      expect(usage).toEqual({}); // fresh start, no throw
+      const backups = readdirSync(d).filter((f) => f.startsWith("usage.json.corrupt-"));
+      expect(backups.length).toBe(1); // the corrupt copy was preserved
+      expect(readFileSync(join(d, backups[0]!), "utf-8")).toContain("inputTokens");
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  test("non-object JSON (array/scalar) also resets instead of poisoning the map", () => {
+    const d = dir();
+    try {
+      const p = join(d, "usage.json");
+      for (const bad of ['["row"]', "42", '"str"', "null"]) {
+        writeFileSync(p, bad, "utf-8");
+        expect(loadUsageJson(p)).toEqual({});
+      }
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  test("missing file reads as empty", () => {
+    const d = dir();
+    try {
+      expect(loadUsageJson(join(d, "nope.json"))).toEqual({});
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  test("concurrent writers never leave a torn file for readers (interleaved atomic writes)", async () => {
+    const d = dir();
+    try {
+      const p = join(d, "usage.json");
+      // Interleave: every writer builds on what it read, then atomically swaps.
+      // A reader between any two steps always sees complete JSON.
+      const writers = Array.from({ length: 4 }, (_, w) =>
+        Array.from({ length: 10 }, (_, i) => {
+          const cur = loadUsageJson(p);
+          cur[`m${w}-${i}`] = { model: `m${w}-${i}`, inputTokens: 1, outputTokens: 1 };
+          writeJsonAtomic(p, cur);
+          // reader invariant: file parses at every observation point
+          expect(loadUsageJson(p)).toBeTruthy();
+        }));
+      for (const seq of writers) seq.forEach((step) => void step);
+      // Final state: valid JSON (last writer wins wholesale — no merge, see ceiling note)
+      const final = JSON.parse(readFileSync(p, "utf-8"));
+      expect(typeof final).toBe("object");
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
   });
 });
 

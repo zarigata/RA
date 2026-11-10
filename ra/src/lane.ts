@@ -98,6 +98,17 @@ export function assistantCapabilities(config: RaConfig, parent?: AgentCapabiliti
 /** Tool-grammar hint for the assistant lane (read-only verbs only). */
 export const ASSISTANT_TOOLS = ["read", "outline", "glob", "grep", "repomap", "webfetch", "websearch", "skill"];
 
+/**
+ * Resolve the general/assistant-lane model (F5, Wave 3c). Priority mirrors
+ * resolveRoleModel: `agent.general.model` (an explicit config pin or an env
+ * override landed there by applyEnvOverrides) wins over the small-lane
+ * default. Callers previously hardcoded `config.small_model ?? config.model`,
+ * silently ignoring the forced model while reporting it elsewhere.
+ */
+export function resolveAssistantModel(config: { agent?: Record<string, { model?: string }>; small_model?: string; model: string }): string {
+  return config.agent?.general?.model ?? config.small_model ?? config.model;
+}
+
 /** Assistant-lane system prompt (exported for the i18n directive test).
  *  Mirrors agent.ts loadProjectMemory — kept inline here to avoid the
  *  agent.ts ↔ lane.ts import cycle. */

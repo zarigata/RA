@@ -21,7 +21,7 @@ import { resolveAgentFile, taskCatalogHint } from "./agents/catalog.ts";
 import { toolSkill } from "./skills.ts";
 import { toolRepoMap } from "./repomap.ts";
 import { loadRules, loadMemoryChain } from "./rules.ts";
-import { resolveLane, assistantCapabilities, ASSISTANT_TOOLS, assistantSystemPrompt } from "./lane.ts";
+import { resolveLane, assistantCapabilities, ASSISTANT_TOOLS, assistantSystemPrompt, resolveAssistantModel } from "./lane.ts";
 import { applyRoutingMode, downshiftForBudget, escalationChain } from "../../anubis/src/routing.ts";
 import { jobForRole } from "../../anubis/src/profiles.ts";
 import { pickForJobLive } from "../../anubis/src/capability.ts";
@@ -748,13 +748,26 @@ async function compactConversation(plan: CompactionPlan, config: RaConfig): Prom
   return res.content;
 }
 
+export interface RunTaskAgentOptions {
+  maxSteps?: number;
+  /**
+   * Wave 3c (F4): step-limit exhaustion degrades to the last model output
+   * with `status: "partial"` instead of throwing. Advisory callers (pipeline
+   * planner/review stages) set this — a wandering weak model on a tiny step
+   * budget then downgrades the stage, never aborts the whole run.
+   */
+  softStepLimit?: boolean;
+}
+
 export async function runTaskAgent(
   role: string, task: string, config: RaConfig, ctx: ToolContext,
-  env: Record<string, string>, maxSteps = 16,
+  env: Record<string, string>, maxStepsOrOpts: number | RunTaskAgentOptions = 16,
 ): Promise<TaskResult> {
   if (!/^[a-z][a-z0-9_-]{0,63}$/i.test(role)) throw new Error(`Invalid agent role: ${role}`);
+  const opts = typeof maxStepsOrOpts === "number" ? { maxSteps: maxStepsOrOpts } : maxStepsOrOpts;
+  const maxSteps = opts.maxSteps ?? 16;
   return withAgentRun({ limits: config.agent_limits, tree: activeTracker, renderer: activeStreamRenderer, signal: ctx.signal }, () =>
-    withAgentScope(role, task, () => runAdaptive(role, task, config, ctx, env, maxSteps)));
+    withAgentScope(role, task, () => runAdaptive(role, task, config, ctx, env, maxSteps, opts)));
 }
 
 /**
@@ -767,13 +780,13 @@ export async function runTaskAgent(
  */
 async function runAdaptive(
   role: string, task: string, config: RaConfig, ctx: ToolContext,
-  env: Record<string, string>, maxSteps: number,
+  env: Record<string, string>, maxSteps: number, runOpts: RunTaskAgentOptions = {},
 ): Promise<TaskResult> {
   const policy = contextPolicy(config);
   const adaptive = policy.adaptive && process.env.RA_NO_ADAPTIVE !== "1";
-  if (!adaptive) return executeTaskAgent(role, task, config, ctx, env, maxSteps);
+  if (!adaptive) return executeTaskAgent(role, task, config, ctx, env, maxSteps, { ...runOpts, continuation: 0, objective: task });
   const stats: ContextStats = { windowTokens: 0, usedTokens: 0, source: "", resumes: 0, compactions: 0, escalations: 0 };
-  let result = await executeTaskAgent(role, task, config, ctx, env, maxSteps, { continuation: 0, objective: task, stats });
+  let result = await executeTaskAgent(role, task, config, ctx, env, maxSteps, { ...runOpts, continuation: 0, objective: task, stats });
   const attachStats = (r: TaskResult): TaskResult => ({ ...r, context: { ...stats } });
   let resumes = 0;
   while (result.status === "resumable" && resumes < policy.resumeLimit) {
@@ -810,7 +823,7 @@ async function runAdaptive(
 async function executeTaskAgent(
   role: string, task: string, config: RaConfig, ctx: ToolContext,
   env: Record<string, string>, maxSteps: number,
-  opts: { continuation?: number; modelOverride?: string; objective?: string; stats?: ContextStats } = {},
+  opts: { continuation?: number; modelOverride?: string; objective?: string; stats?: ContextStats; softStepLimit?: boolean } = {},
 ): Promise<TaskResult> {
   ctx = { ...ctx, filesWritten: ctx.filesWritten ?? [], mutations: ctx.mutations ?? { count: 0 }, signal: runSignal() };
   const initialWrites = ctx.mutations!.count;
@@ -1148,6 +1161,17 @@ async function executeTaskAgent(
         // a continuation run picks up from the handoff packet.
         const pressured = lowWarned || (ledger?.pressure(messages) ?? "ok") !== "ok";
         if (adaptive && pressured) return checkpoint("step-limit");
+        // F4 (Wave 3c): advisory stages (pipeline planner/review roles) degrade
+        // to the last model output instead of throwing — a wandering weak model
+        // on a tiny budget downgrades the stage, never aborts the whole run.
+        if (opts.softStepLimit) {
+          emitGlobalHook("agent.turn.end", { role, model: usedModel, degraded: "step-limit" });
+          return withFallbacks({
+            role, model: usedModel,
+            output: `[RA: ${effectiveSteps}-step limit reached — partial output]${last ? `\n${last}` : ""}`,
+            status: "partial",
+          });
+        }
         throw new Error(`Agent ${role} reached its ${effectiveSteps}-step limit before finishing. Last tool result: ${tool.note.slice(0, 200)}`);
       }
       continue;
@@ -1223,7 +1247,7 @@ async function runAssistantTurn(
         emitGlobalHook("agent.turn.end", { role: "general", lane: "assistant", blocked: "imported hook" });
         return `Error: imported hook blocked the prompt: ${promptGuard.reason ?? "denied"}`;
       }
-      const { client, model } = await pickClientForModel(config.small_model ?? config.model, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
+      const { client, model } = await pickClientForModel(resolveAssistantModel(config), env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
       if (scope.node) scope.node.model = model;
       // ponytail: short asks are single-shot (1 model call + up to 2 tool
       // rounds); deep research naturally spills to the coding pipeline via
@@ -1317,7 +1341,7 @@ export function surfaceDisagreements(results: MoAResult[]): string[] {
 export async function aggregateMoa(task: string, results: MoAResult[], config: RaConfig): Promise<string> {
   return withAgentRun({ limits: config.agent_limits, tree: activeTracker }, () => withAgentScope("synthesis", task, async scope => {
   const env = loadEnv(ANUBIS_HOME);
-  const { client, model } = await pickClientForModel(config.small_model ?? config.model, env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
+  const { client, model } = await pickClientForModel(resolveAssistantModel(config), env, config.provider as Record<string, import("../../anubis/src/ollama.ts").ProviderDef> | undefined);
   const { buildAggregatePrompt } = await import("../../anubis/src/aggregator.ts");
   const prompt = buildAggregatePrompt(
     task,

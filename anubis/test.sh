@@ -163,7 +163,7 @@ echo "▶ bun test (ra runtime)"
 # Run from the repo root: the sandboxed MCP stdio fixtures resolve their
 # workspace from the process cwd, matching how the suites are run everywhere else.
 cd "$RA_HOME"
-bun test ra/tests/runtime.test.ts ra/tests/benchmark-artifacts.test.ts ra/tests/run-command.test.ts ra/tests/session.test.ts ra/tests/permission.test.ts ra/tests/custom-commands.test.ts ra/tests/subagents.test.ts ra/tests/checkpoint.test.ts ra/tests/symbols.test.ts ra/tests/mcp.test.ts ra/tests/daemon.test.ts ra/tests/diagnostics.test.ts ra/tests/airgap.test.ts ra/tests/selfheal.test.ts ra/tests/diff.test.ts ra/tests/search.test.ts ra/tests/replay.test.ts ra/tests/swarm.test.ts ra/tests/ide.test.ts ra/tests/eval.test.ts ra/tests/tree.test.ts ra/tests/remote.test.ts ra/tests/plugins.test.ts ra/tests/phase0.test.ts ra/tests/assistant-lane.test.ts ra/tests/explorer.test.ts ra/tests/plugins-import.test.ts
+bun test ra/tests/runtime.test.ts ra/tests/benchmark-artifacts.test.ts ra/tests/run-command.test.ts ra/tests/session.test.ts ra/tests/permission.test.ts ra/tests/custom-commands.test.ts ra/tests/subagents.test.ts ra/tests/checkpoint.test.ts ra/tests/symbols.test.ts ra/tests/mcp.test.ts ra/tests/daemon.test.ts ra/tests/diagnostics.test.ts ra/tests/airgap.test.ts ra/tests/selfheal.test.ts ra/tests/diff.test.ts ra/tests/search.test.ts ra/tests/replay.test.ts ra/tests/swarm.test.ts ra/tests/ide.test.ts ra/tests/eval.test.ts ra/tests/tree.test.ts ra/tests/remote.test.ts ra/tests/plugins.test.ts ra/tests/phase0.test.ts ra/tests/pipeline-stability.test.ts ra/tests/assistant-lane.test.ts ra/tests/explorer.test.ts ra/tests/plugins-import.test.ts
 cd "$ROOT"
 
 echo "▶ ra doctor"

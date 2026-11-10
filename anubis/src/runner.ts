@@ -8,6 +8,7 @@ import { DEFAULT_PIPELINE_STAGES, planPipeline } from "./pipeline.ts";
 import { renderSplash, renderStageProgress, renderTaskComplete, renderRolesTable } from "./tui.ts";
 import { loadEnv } from "./env.ts";
 import { formatReport, buildReport, loadUsage } from "./cost.ts";
+import { isUserCancel } from "./ollama.ts";
 import { saveLastRun, formatResultLine, formatLaneLine, formatIntentLine, formatPreferLine, type StageTiming } from "./last-run.ts";
 import { appendHistory } from "./history.ts";
 import { detectIntent } from "./intent.ts";
@@ -20,6 +21,13 @@ const ROLE_PROMPTS: Record<string, string> = {
   sekhmet: "Critique the implementation and identify edge cases. Read files and report findings; do not edit anything.",
   seshat: "Document the implementation, using actual files as evidence.",
 };
+
+/**
+ * Stages whose output is advisory (consumed by later stages / the final
+ * summary) — step-limit exhaustion downgrades the stage (F4, Wave 3c) instead
+ * of aborting the run. ptah implements; its failure is the pipeline's failure.
+ */
+const ADVISORY_STAGES = new Set(["thoth", "maat", "sekhmet", "seshat"]);
 
 export interface RunResult {
   task: string;
@@ -128,7 +136,12 @@ export async function runFullDevTask(
 
   const { withAgentRun } = await import("../../ra/src/execution.ts");
   const { runTaskAgent, getActiveSubagentTracker, getActiveStreamRenderer } = await import("../../ra/src/agent.ts");
-  return withAgentRun({ label: "pipeline", task, limits: config.agent_limits, tree: getActiveSubagentTracker(), renderer: getActiveStreamRenderer() }, async () => {
+  // The default agent timeout (180s) is a per-agent budget; a full pipeline
+  // legitimately needs stage-count× that once fallback chains engage (Wave 3c
+  // live evidence: one flaky 201-server stage burned the whole 180s in
+  // retries and killed three completed stages' work).
+  const perStageMs = config.agent_limits?.timeout_ms ?? 180_000;
+  return withAgentRun({ label: "pipeline", task, limits: { ...config.agent_limits, timeout_ms: perStageMs * plan.stages.length }, tree: getActiveSubagentTracker(), renderer: getActiveStreamRenderer() }, async () => {
 
   if (!opts.quiet) console.log(renderSplash());
 
@@ -147,10 +160,20 @@ export async function runFullDevTask(
     const prior = outputs.map((o) => `[${o.stage}]: ${o.content.slice(-6000)}`).join("\n");
     const prompt = `User goal: ${task}\n\nYour assignment (${stage}): ${ROLE_PROMPTS[stage] ?? "Complete your assigned role."}${prior ? `\n\nPrior work (verify against actual files):\n${prior}` : ""}`;
     let stageFallbacks: RunResult["outputs"][number]["fallbacks"];
+    const advisory = ADVISORY_STAGES.has(stage);
     try {
       mkdirSync(workDir, { recursive: true });
-      const result = await runTaskAgent(stage, prompt, config, { cwd: workDir, filesWritten }, env);
+      // F4 (Wave 3c): advisory stages degrade on step-limit, never abort.
+      const result = await runTaskAgent(stage, prompt, config, { cwd: workDir, filesWritten }, env,
+        { softStepLimit: advisory });
       content = result.output;
+      // A degraded advisory stage always carries some signal for the next
+      // stage — a wandering planner that never DONE'd still leaves its last
+      // partial prose; a fully-empty output gets an explicit degraded note so
+      // ptah never inherits a blank "Prior work" block.
+      if (result.status === "partial" && !content.trim()) {
+        content = `[RA: ${stage} stage degraded (step limit) — no plan text produced; proceed from the goal directly.]`;
+      }
       usedModel = result.model;
       usedHost = result.host ?? "unknown";
       for (const f of result.fallbacks ?? []) {
@@ -158,12 +181,26 @@ export async function runFullDevTask(
       }
       stageFallbacks = result.fallbacks;
     } catch (e) {
-      const error = `Stage ${stage} failed: ${String(e)}`;
-      const failed = saveLastRun({ task, stages: plan.stages, models: outputs.map(o => o.model), filesWritten,
-        hosts: hostsUsed, ms: Date.now() - t0, intent: detectIntent(task), cwd: workDir, timings,
-        status: "failed", error, outputs });
-      appendHistory(failed);
-      throw new Error(error);
+      // F4 completion (Wave 3c): an advisory stage that still failed after
+      // its fallback chain (provider flake, exhausted retries) downgrades to
+      // a degraded note instead of aborting the whole run — live evidence:
+      // 201-server 502 on sekhmet killed 3 completed stages' work. Run-level
+      // aborts (user cancel, whole-run deadline, budget) stay fatal — once
+      // the run itself is dead there is nothing to continue.
+      const runDead = isUserCancel(e) || /Run deadline exceeded|budget exhausted/i.test(String(e instanceof Error ? e.message : e));
+      if (advisory && !runDead) {
+        console.error(`RA stage ${stage} degraded: ${String(e instanceof Error ? e.message : e).slice(0, 200)}`);
+        content = `[RA: ${stage} stage degraded (${String(e instanceof Error ? e.message : e).slice(0, 160)}) — continuing without it.]`;
+        usedModel = assignment.model;
+        usedHost = "skipped";
+      } else {
+        const error = `Stage ${stage} failed: ${String(e)}`;
+        const failed = saveLastRun({ task, stages: plan.stages, models: outputs.map(o => o.model), filesWritten,
+          hosts: hostsUsed, ms: Date.now() - t0, intent: detectIntent(task), cwd: workDir, timings,
+          status: "failed", error, outputs });
+        appendHistory(failed);
+        throw new Error(error);
+      }
     }
 
     const stageMs = Date.now() - stageT0;

@@ -7,8 +7,9 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { classifyLane, resolveLane, assistantCapabilities } from "../src/lane.ts";
+import { classifyLane, resolveLane, assistantCapabilities, resolveAssistantModel } from "../src/lane.ts";
 import { runOrchestratorTurn } from "../src/agent.ts";
+import { applyEnvOverrides } from "../../anubis/src/config.ts";
 import type { RaConfig } from "../../anubis/src/config.ts";
 
 // ---- pure heuristic ----
@@ -63,6 +64,24 @@ describe("assistant capabilities are read-only", () => {
       expect(caps.tools.has(t)).toBe(false);
     }
     expect(caps.readOnly).toBe(true);
+  });
+});
+
+// ---- assistant model resolution (F5, Wave 3c) ----
+
+describe("resolveAssistantModel honors forced general model", () => {
+  test("agent.general.model pin wins over the small lane", () => {
+    const cfg = { model: "BIG/m1", small_model: "small/tiny", agent: { general: { model: "forced/m9" } } } as unknown as RaConfig;
+    expect(resolveAssistantModel(cfg)).toBe("forced/m9");
+  });
+  test("env override (RA_MODEL → agent.general.model via applyEnvOverrides) wins too", () => {
+    const base = { model: "BIG/m1", small_model: "small/tiny", agent: { general: {} } } as unknown as import("../../anubis/src/config.ts").RaConfig;
+    const over = applyEnvOverrides(base, { RA_MODEL: "env/forced-big" });
+    expect(resolveAssistantModel(over)).toBe("env/forced-big");
+  });
+  test("no pin falls back to small, then BIG", () => {
+    expect(resolveAssistantModel({ model: "BIG/m1", small_model: "small/tiny" } as RaConfig)).toBe("small/tiny");
+    expect(resolveAssistantModel({ model: "BIG/m1" } as RaConfig)).toBe("BIG/m1");
   });
 });
 
@@ -163,6 +182,50 @@ describe("orchestrator lanes (fake Ollama)", () => {
       expect(out).toContain("## ptah"); // coding pipeline, not the assistant lane
       const system = bodies[0].messages![0].content;
       expect(system).not.toContain("general-purpose assistant");
+    } finally {
+      server.stop(true);
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("a forced general model serves the assistant lane (F5 pin)", async () => {
+    // Two models on the fake provider: the assistant turn must call "big",
+    // not the small lane default.
+    const bodies: ChatBody[] = [];
+    let n = 0;
+    const script = ["The answer, served by the forced model."];
+    const server = Bun.serve({
+      port: 0,
+      async fetch(req) {
+        const u = new URL(req.url);
+        if (u.pathname === "/v1/models") return Response.json({ data: [{ id: "tiny" }, { id: "big" }] });
+        if (u.pathname === "/v1/chat/completions") {
+          bodies.push((await req.json()) as ChatBody);
+          const step = script[Math.min(n, script.length - 1)]!;
+          n++;
+          const payload = JSON.stringify({
+            model: "big",
+            choices: [{ delta: { content: step } }],
+            usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 },
+          });
+          return new Response(`data: ${payload}\n\ndata: [DONE]\n\n`, {
+            headers: { "Content-Type": "text/event-stream" },
+          });
+        }
+        return new Response("not found", { status: 404 });
+      },
+    });
+    const url = `http://localhost:${server.port}/v1`;
+    const cwd = mkdtempSync(join(tmpdir(), "ra-lane-f5-"));
+    try {
+      const cfg: RaConfig = {
+        ...laneConfig(url),
+        provider: { fakelan: { options: { baseURL: url }, models: { tiny: { context: 8192 }, big: { context: 8192 } } } },
+        agent: { general: { model: "fakelan/big" } },
+      } as RaConfig;
+      const out = await runOrchestratorTurn("What is the capital of France?", cfg, { cwd, filesWritten: [] });
+      expect(out).toContain("## general (big)"); // the forced model served the turn
+      expect(bodies[0].model).toBe("big"); // and the provider actually saw it
     } finally {
       server.stop(true);
       rmSync(cwd, { recursive: true, force: true });

@@ -1,7 +1,7 @@
 // src/cost.ts — cost-tracker estimation + ~/.ra/usage.json persistence
 // Prices in USD per million tokens. Local/LAN = free.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -165,20 +165,53 @@ export function usagePath(): string {
   return join(homedir(), ".ra", "usage.json");
 }
 
+/**
+ * Atomic write helper (F6, Wave 3c): tmp file + rename in the same directory,
+ * the pattern saveRaConfig already uses for ra.json. rename(2) is atomic, so
+ * a concurrent reader never observes a half-written file — it sees either the
+ * old or the new JSON.
+ */
+export function writeJsonAtomic(path: string, data: unknown): void {
+  mkdirSync(join(path, ".."), { recursive: true });
+  const tmp = `${path}.tmp.${process.pid}`;
+  writeFileSync(tmp, JSON.stringify(data, null, 2), "utf-8");
+  renameSync(tmp, path);
+}
+
 export function loadUsage(): Record<string, UsageEntry> {
-  const p = usagePath();
-  if (!existsSync(p)) return {};
+  return loadUsageJson(usagePath());
+}
+
+/**
+ * Tolerant JSON read (F6, Wave 3c): corrupt content (a torn or hand-mangled
+ * file) is moved aside to `<path>.corrupt-<ms>` and accounting starts fresh —
+ * cost reporting never crashes. A valid-but-non-object file also resets.
+ * ponytail: concurrent processes still race read-modify-write (last writer
+ * wins per row); the atomic write narrows the window to lost updates, it
+ * cannot produce corrupt rows. Full fix = lock file or per-process merge.
+ */
+export function loadUsageJson(path: string): Record<string, UsageEntry> {
+  if (!existsSync(path)) return {};
   try {
-    return JSON.parse(readFileSync(p, "utf-8")) as Record<string, UsageEntry>;
-  } catch {
-    return {};
+    const parsed = JSON.parse(readFileSync(path, "utf-8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, UsageEntry>
+      : backupCorrupt(path, `top-level ${Array.isArray(parsed) ? "array" : typeof parsed}`);
+  } catch (e) {
+    return backupCorrupt(path, String(e instanceof Error ? e.message : e).slice(0, 120));
   }
 }
 
+function backupCorrupt(path: string, reason: string): Record<string, UsageEntry> {
+  try {
+    renameSync(path, `${path}.corrupt-${Date.now()}`);
+  } catch { /* best-effort backup; a fresh file replaces it on next save */ }
+  console.warn(`RA usage: ${path} was corrupt (${reason}) — backed up, starting fresh.`);
+  return {};
+}
+
 export function saveUsage(usage: Record<string, UsageEntry>): void {
-  const dir = join(homedir(), ".ra");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(usagePath(), JSON.stringify(usage, null, 2), "utf-8");
+  writeJsonAtomic(usagePath(), usage);
 }
 
 export function clearUsage(): void {
@@ -280,9 +313,7 @@ export function loadSessionUsage(): Record<string, Record<string, UsageEntry>> {
 }
 
 export function saveSessionUsage(data: Record<string, Record<string, UsageEntry>>): void {
-  const dir = join(homedir(), ".ra");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(SESSION_USAGE_PATH(), JSON.stringify(data, null, 2), "utf-8");
+  writeJsonAtomic(SESSION_USAGE_PATH(), data);
 }
 
 function recordSessionUsage(session: string, model: string, inputTokens: number, outputTokens: number): void {

@@ -3,9 +3,10 @@
 // imperative plugins are listed with an honest note and skipped.
 
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { PluginHost } from "./host.ts";
+import { extractHookCommands } from "./hook-shim.ts";
 import type { StoreEntry } from "./stores.ts";
 
 export interface ImportRecord {
@@ -18,6 +19,10 @@ export interface ImportRecord {
   importedAt: string;
   /** Claude hook event → RA hook name; `null` = no sensible mapping (reported, never dropped). */
   hooks?: Record<string, string | null>;
+  /** User opted into executing this entry's command hooks (default-deny otherwise). */
+  hooksEnabled?: boolean;
+  /** Runnable hook definitions (event/matcher/command/timeout) for the runtime shim. */
+  hookDefs?: Array<{ event: string; matcher?: string; command: string; timeout?: number }>;
   note?: string;
 }
 
@@ -70,6 +75,11 @@ export interface ImportResult {
   report: string[];
 }
 
+export interface ImportOpts {
+  /** `--with-hooks`: mark imported command hooks as runnable (still gated by ra.json plugin_runtime.hooks). */
+  withHooks?: boolean;
+}
+
 /** Cline/OpenCode MCP server JSON → RA mcp config snippet (stdio or url shape). */
 export function mcpSnippet(name: string, data: Record<string, unknown>): string | null {
   if (typeof data.url === "string") {
@@ -83,8 +93,19 @@ export function mcpSnippet(name: string, data: Record<string, unknown>): string 
   return `"mcp": { "${name}": { "command": ${JSON.stringify(command[0])}${args ? `, "args": [${args}]` : ""}${env} } }`;
 }
 
-/** OpenCode agent JSON → RA agent markdown (mode names already match). */
-function agentMdFromJson(name: string, def: Record<string, unknown>): string {
+/** MCP server JSON → RA MCP config entry (stdio command/args/env or url). Never synthesizes secrets. */
+export function mcpConfigEntry(data: Record<string, unknown>): Record<string, unknown> | null {
+  if (typeof data.url === "string") return { url: data.url };
+  const argv = Array.isArray(data.command) ? data.command.map(String) : typeof data.command === "string" ? [data.command] : null;
+  if (!argv?.length) return null;
+  const out: Record<string, unknown> = { command: argv[0] };
+  const args = argv.length > 1 ? argv.slice(1) : Array.isArray(data.args) ? data.args.map(String) : undefined;
+  if (args?.length) out.args = args;
+  if (data.env && typeof data.env === "object") out.env = data.env;
+  return out;
+}
+
+/** OpenCode agent JSON → RA agent markdown (mode names already match). */function agentMdFromJson(name: string, def: Record<string, unknown>): string {
   const fm = [
     `description: ${String(def.description ?? `Imported from OpenCode: ${name}`)}`,
     `mode: ${def.mode === "primary" || def.mode === "all" ? def.mode : "subagent"}`,
@@ -94,7 +115,7 @@ function agentMdFromJson(name: string, def: Record<string, unknown>): string {
   return `---\n${fm.join("\n")}\n---\n\n${String(def.system ?? "").trim() || "(no system prompt in source)"}\n`;
 }
 
-export function importEntry(entry: StoreEntry, home = homedir()): ImportResult {
+export function importEntry(entry: StoreEntry, home = homedir(), opts: ImportOpts = {}): ImportResult {
   const id = `${entry.source}:${entry.kind}:${entry.name}`;
   const manifest = loadManifest(home);
   const existing = manifest.imports.find((r) => r.id === id);
@@ -106,6 +127,8 @@ export function importEntry(entry: StoreEntry, home = homedir()): ImportResult {
   let snippet: string | undefined;
   let note: string | undefined;
   let hooks: Record<string, string | null> | undefined;
+  let hookDefs: ImportRecord["hookDefs"] | undefined;
+  let hooksEnabled: boolean | undefined;
 
   if (entry.kind === "skill") {
     // Copy the whole skill dir (SKILL.md + assets); frontmatter is already compatible.
@@ -146,9 +169,18 @@ export function importEntry(entry: StoreEntry, home = homedir()): ImportResult {
     const unmapped = Object.entries(hooks).filter(([, v]) => v === null).map(([k]) => k);
     report.push(`hooks mapped: ${Object.entries(hooks).filter(([, v]) => v).map(([k, v]) => `${k}→${v}`).join(", ") || "(none)"}`);
     if (unmapped.length) report.push(`hooks with no RA equivalent (not dropped, recorded here): ${unmapped.join(", ")}`);
+    if (opts.withHooks) {
+      // Opt-in (--with-hooks): record runnable definitions. Execution remains
+      // gated by ra.json plugin_runtime.hooks:"on" (default "opt-in" = off).
+      hookDefs = extractHookCommands(rawHooks).map((h) => ({ event: h.event, matcher: h.matcher, command: h.handler.command, timeout: h.handler.timeout }));
+      hooksEnabled = true;
+      report.push(`hooks marked RUNNABLE (--with-hooks; also requires ra.json plugin_runtime.hooks:"on"): ${hookDefs.length} handler(s)`);
+    } else {
+      report.push("hooks imported as records only — re-import with --with-hooks to enable execution (plus ra.json plugin_runtime.hooks:\"on\")");
+    }
   }
 
-  const record: ImportRecord = { id, source: entry.source, kind: entry.kind, name: entry.name, originPath: entry.path, targetPath, importedAt: new Date().toISOString(), hooks, note };
+  const record: ImportRecord = { id, source: entry.source, kind: entry.kind, name: entry.name, originPath: entry.path, targetPath, importedAt: new Date().toISOString(), hooks, ...(hooksEnabled !== undefined ? { hooksEnabled } : {}), ...(hookDefs ? { hookDefs } : {}), note };
   manifest.imports.push(record);
   saveManifest(manifest, home);
   if (targetPath) report.unshift(`→ ${targetPath}`);
@@ -168,4 +200,53 @@ export function removeImported(idOrName: string, home = homedir()): boolean {
   }
   saveManifest(manifest, home);
   return true;
+}
+
+// ---- MCP auto-apply (--apply-mcp) ------------------------------------------------------
+
+export interface McpApplyResult {
+  applied: string[];
+  skipped: string[];
+  configPath: string;
+}
+
+/**
+ * Write detected MCP servers into a ra.json `mcp` block (project ra.json when
+ * present, else ~/.ra/ra.json — mirroring loadRaConfig resolution). Never
+ * overwrites an existing server of the same name; `{env:VAR}` templates and
+ * literal key names pass through untouched (no secret synthesis).
+ */
+export function applyMcpToConfig(
+  servers: Array<{ name: string; data: Record<string, unknown> }>,
+  home = homedir(),
+  projectRoot?: string,
+): McpApplyResult {
+  const applied: string[] = [];
+  const skipped: string[] = [];
+  let configPath: string;
+  let cfg: Record<string, unknown>;
+  if (projectRoot && existsSync(join(projectRoot, "ra.json"))) {
+    configPath = join(projectRoot, "ra.json");
+  } else {
+    configPath = join(home, ".ra", "ra.json");
+  }
+  try {
+    cfg = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown> : {};
+  } catch {
+    cfg = {};
+  }
+  for (const { name, data } of servers) {
+    const entry = mcpConfigEntry(data);
+    if (!entry) { skipped.push(`${name} (unrecognized shape)`); continue; }
+    const mcp = (cfg.mcp ?? {}) as Record<string, unknown>;
+    if (mcp[name] !== undefined) { skipped.push(`${name} (already configured — never overwritten)`); continue; }
+    mcp[name] = entry;
+    cfg.mcp = mcp;
+    applied.push(name);
+  }
+  if (applied.length) {
+    mkdirSync(dirname(configPath), { recursive: true });
+    writeFileSync(configPath, JSON.stringify(cfg, null, 2) + "\n", "utf-8");
+  }
+  return { applied, skipped, configPath };
 }

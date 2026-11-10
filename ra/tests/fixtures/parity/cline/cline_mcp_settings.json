@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "cline-mcp": { "command": "clined", "args": ["-s"], "env": { "K": "V" } }
+  }
+}

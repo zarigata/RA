@@ -1,16 +1,21 @@
 // commands/plugins.ts — `ra plugins` CLI: detect stores, import entries, show manifest.
 import type { StoreEntry } from "../plugins/stores.ts";
 import { detectStores } from "../plugins/stores.ts";
-import { importEntry, loadManifest, removeImported } from "../plugins/import.ts";
+import { importEntry, loadManifest, removeImported, applyMcpToConfig } from "../plugins/import.ts";
 
 export const PLUGINS_HELP = `RA plugins — convert other stores' declarative content into RA formats
   ra plugins                      Detect local stores (Claude Code, OpenCode, Cursor, Cline, Roo) + counts
   ra plugins --json               Detected entries as JSON
   ra plugins import <name>        Convert one entry into ~/.ra/{skills,agents,commands}
+  ra plugins import <name> --with-hooks   Also mark imported command hooks runnable
+                                         (still needs ra.json plugin_runtime.hooks:"on")
+  ra plugins import <name> --apply-mcp    Write MCP servers into ra.json instead of paste-only
+                                         (existing names are skipped, never overwritten)
   ra plugins list-imported        Show the import manifest (~/.ra/imports.json)
   ra plugins remove <name>        Delete an imported item (files + manifest record)
-Import never executes third-party code; imperative plugins are listed with a note.
-MCP servers return a config snippet for your ra config — it is never auto-edited.`;
+Import never executes third-party code unless hooks are explicitly enabled twice
+(--with-hooks at import + plugin_runtime.hooks:"on" in ra.json); imperative
+plugins are listed with a note. MCP is paste-only unless --apply-mcp is passed.`;
 
 export function pluginsCommand(args: string[], opts: { json?: boolean; home?: string } = {}): { code: number; data: unknown; text: string } {
   const home = opts.home ?? (process.env.HOME ?? "");
@@ -20,7 +25,7 @@ export function pluginsCommand(args: string[], opts: { json?: boolean; home?: st
   if (action === "list-imported") {
     const { imports } = loadManifest(home);
     const text = imports.length
-      ? ["RA imported plugins (~/.ra/imports.json)", ...imports.map((r) => `  ${r.id} → ${r.targetPath ?? `(no files — ${r.note ?? "snippet only"})`}`)]
+      ? ["RA imported plugins (~/.ra/imports.json)", ...imports.map((r) => `  ${r.id} → ${r.targetPath ?? `(no files — ${r.note ?? "snippet only"})`}${r.hooksEnabled ? " [hooks RUNNABLE]" : ""}`)]
       : "No imports yet. Run: ra plugins";
     return { code: 0, data: imports, text };
   }
@@ -32,11 +37,21 @@ export function pluginsCommand(args: string[], opts: { json?: boolean; home?: st
       const ok = removeImported(name, home);
       return { code: ok ? 0 : 1, data: { removed: ok }, text: ok ? `Removed ${name}` : `Not imported: ${name}` };
     }
+    const withHooks = args.includes("--with-hooks");
+    const applyMcp = args.includes("--apply-mcp");
     const matches = entries.filter((e) => e.name === name || e.name === `${name}.md`);
     if (!matches.length) throw new Error(`No detected entry named '${name}'. Try: ra plugins`);
-    const results = matches.map((e) => importEntry(e, home));
+    const results = matches.map((e) => importEntry(e, home, { withHooks }));
     const text = results.map((r) => [`RA plugins import ${r.record.name} [${r.status}]`, ...r.report].join("\n")).join("\n\n");
-    return { code: 0, data: results.map((r) => ({ ...r.record, status: r.status, snippet: r.snippet })), text };
+    let mcpText = "";
+    if (applyMcp) {
+      const mcpEntries = matches.filter((e) => e.kind === "mcp" && e.data).map((e) => ({ name: e.name, data: e.data! }));
+      if (mcpEntries.length) {
+        const applied = applyMcpToConfig(mcpEntries, home);
+        mcpText = `\n\nMCP auto-apply → ${applied.configPath}\n${applied.applied.map((n) => `  + ${n}`).join("\n")}${applied.skipped.map((n) => `  ! skipped ${n}`).join("\n")}`;
+      }
+    }
+    return { code: 0, data: results.map((r) => ({ ...r.record, status: r.status, snippet: r.snippet })), text: text + mcpText };
   }
 
   throw new Error(PLUGINS_HELP);

@@ -3,6 +3,7 @@ import { normalizeToolText } from "../../anubis/src/tool-call.ts";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { AGENTS_DIR, ANUBIS_HOME } from "./paths.ts";
+import { runImportedHooksFor } from "./plugins/hook-shim.ts";
 import { pickOllamaEndpoint, pickModel, pickClientForModel, resolveModelFallbacks, isAuthError, isUserCancel, isContextOverflowError } from "../../anubis/src/ollama.ts";
 import { recordChatUsage } from "../../anubis/src/cost.ts";
 import { contextPolicy, modelMaxContext, modelMaxContextLive, usableContext, modelKind, ContextLedger, type ContextInfo, type ContextPressure } from "../../anubis/src/context-limits.ts";
@@ -345,6 +346,14 @@ export async function execToolBlock(
   ctx.signal?.throwIfAborted();
   checkRun();
   content = normalizeToolText(content);
+  // Imported-hook runtime (Wave A): emit tool.execute.before for every
+  // well-formed tool call. No-op (one manifest stat, cached) when no hooks
+  // are enabled, so emissions without listeners stay cheap.
+  const verbMatch = content.trim().match(/^(WRITE|EDIT|MULTIEDIT|READ|OUTLINE|DIAGNOSE|GLOB|GREP|BASH|WEBFETCH|WEBSEARCH|TODO|TASK|MCP|SKILL|REPOMAP|TEST)\b/i);
+  if (verbMatch) {
+    const guard = await runImportedHooksFor("tool.execute.before", { tool: verbMatch[1]!.toLowerCase(), tool_input: { command: content }, cwd: ctx.cwd }, ctx.cwd);
+    if (guard.blocked) return { done: false, note: `Error: imported hook blocked: ${guard.reason ?? "denied"}` };
+  }
   // Models sometimes batch several tool calls in one reply despite the
   // "one at a time" grammar. Execute every well-formed block sequentially,
   // stopping at DONE or the first error; results are joined for the next turn.

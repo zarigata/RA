@@ -68,9 +68,19 @@ th{background:#1a1d24}</style></head>
         return new Response(html, { headers: { "Content-Type": "text/html" } });
       }
 
-      // GET /sessions
+      // GET /sessions — metadata only. Full transcripts (potentially huge,
+      // secret-bearing) stay behind GET /session?cwd=; the list endpoint
+      // never embeds message bodies (privacy + payload-size fix).
       if (req.method === "GET" && path === "/sessions") {
-        return json({ sessions: listSessions() });
+        const sessions = listSessions().map((s) => ({
+          id: s.id,
+          cwd: s.cwd,
+          created: s.created,
+          messages: s.messages.length,
+          model: s.modelOverride ?? null,
+          status: "saved",
+        }));
+        return json({ sessions });
       }
 
       // GET /session?cwd=...

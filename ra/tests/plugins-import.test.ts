@@ -5,11 +5,12 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { detectStores } from "../src/plugins/stores.ts";
-import { importEntry, loadManifest, removeImported, mapHooks } from "../src/plugins/import.ts";
+import { importEntry, loadManifest, removeImported, mapHooks, applyMcpToConfig, mcpConfigEntry } from "../src/plugins/import.ts";
 import { PluginHost } from "../src/plugins/host.ts";
 
 let HOME = "";
 const gs = () => join(HOME, "Library", "Application Support", "Code", "User", "globalStorage");
+const FIXTURES = join(import.meta.dir, "fixtures", "parity");
 
 beforeAll(() => {
   HOME = mkdtempSync(join(tmpdir(), "ra-plugins-test-"));
@@ -172,6 +173,93 @@ describe("importer", () => {
   test("mapHooks output values are KNOWN_HOOKS or null", () => {
     for (const v of Object.values(mapHooks({ PreToolUse: [], Stop: [], SubagentStop: [], Notification: [] }))) {
       expect(v === null || (PluginHost.KNOWN_HOOKS as readonly string[]).includes(v)).toBe(true);
+    }
+  });
+});
+
+describe("--with-hooks opt-in (import manifest)", () => {
+  test("imperative plugin with hooks but no --with-hooks → records only, not runnable", () => {
+    const e = find(detectStores(HOME), "claude-code", "plugin", "acme-code")!;
+    removeImported("acme-code", HOME);
+    const r = importEntry(e, HOME);
+    expect(r.record.hooksEnabled).toBeUndefined();
+    expect(r.record.hookDefs).toBeUndefined();
+    expect(r.report.some((l) => l.includes("--with-hooks"))).toBe(true);
+  });
+
+  test("--with-hooks → hooksEnabled + hookDefs persisted in manifest", () => {
+    const e = find(detectStores(HOME), "claude-code", "plugin", "acme-tools")!;
+    removeImported("acme-tools", HOME);
+    const r = importEntry(e, HOME, { withHooks: true });
+    expect(r.record.hooksEnabled).toBe(true);
+    expect(r.record.hookDefs!.length).toBeGreaterThan(0);
+    const rec = loadManifest(HOME).imports.find((i) => i.name === "acme-tools")!;
+    expect(rec.hooksEnabled).toBe(true);
+    expect(rec.hookDefs!.every((d) => typeof d.command === "string")).toBe(true);
+    removeImported("acme-tools", HOME);
+  });
+});
+
+describe("MCP auto-apply (--apply-mcp)", () => {
+  test("applies stdio + env servers into ~/.ra/ra.json mcp block", () => {
+    const applied = applyMcpToConfig(
+      [
+        { name: "cline-fx", data: JSON.parse(readFileSync(join(FIXTURES, "cline", "cline_mcp_settings.json"), "utf-8")).mcpServers["cline-mcp"] },
+        { name: "roo-fx", data: JSON.parse(readFileSync(join(FIXTURES, "roo", "mcp_settings.json"), "utf-8")).mcpServers["roo-mcp"] },
+      ],
+      HOME,
+    );
+    expect(applied.applied).toEqual(["cline-fx", "roo-fx"]);
+    const cfg = JSON.parse(readFileSync(applied.configPath, "utf-8"));
+    expect(cfg.mcp["cline-fx"]).toEqual({ command: "clined", args: ["-s"], env: { K: "V" } });
+    expect(cfg.mcp["roo-fx"]).toEqual({ command: "rood" }); // empty args dropped
+  });
+
+  test("opencode array-form command splits into command + args", () => {
+    const oc = JSON.parse(readFileSync(join(FIXTURES, "opencode", "opencode.json"), "utf-8"));
+    const applied = applyMcpToConfig([{ name: "chrome-fx", data: oc.mcp.servers["chrome-devtools"] }], HOME);
+    expect(applied.applied).toEqual(["chrome-fx"]);
+    const cfg = JSON.parse(readFileSync(applied.configPath, "utf-8"));
+    expect(cfg.mcp["chrome-fx"]).toEqual({ command: "npx", args: ["-y", "chrome-devtools-mcp@1.12.0"] });
+  });
+
+  test("re-apply skips existing names with a warning, never overwrites", () => {
+    const cline = JSON.parse(readFileSync(join(FIXTURES, "cline", "cline_mcp_settings.json"), "utf-8")).mcpServers["cline-mcp"];
+    const r = applyMcpToConfig([{ name: "cline-fx", data: { command: "EVIL", args: [] } }], HOME);
+    expect(r.applied).toEqual([]);
+    expect(r.skipped.join(" ")).toContain("cline-fx");
+    expect(r.skipped.join(" ")).toContain("never overwritten");
+    const cfg = JSON.parse(readFileSync(r.configPath, "utf-8"));
+    expect(cfg.mcp["cline-fx"].command).toBe("clined"); // untouched
+  });
+
+  test("url servers map to remote entries; unrecognized shapes are skipped", () => {
+    const r = applyMcpToConfig([
+      { name: "remote-fx", data: { url: "https://mcp.example.com/sse" } },
+      { name: "bad-fx", data: { foo: 1 } },
+    ], HOME);
+    expect(r.applied).toEqual(["remote-fx"]);
+    expect(r.skipped.join(" ")).toContain("bad-fx");
+    const cfg = JSON.parse(readFileSync(r.configPath, "utf-8"));
+    expect(cfg.mcp["remote-fx"]).toEqual({ url: "https://mcp.example.com/sse" });
+  });
+
+  test("mcpConfigEntry passes {env:VAR} templates through without synthesis", () => {
+    const e = mcpConfigEntry({ command: "x", env: { KEY: "{env:MY_SECRET}" } });
+    expect(e).toEqual({ command: "x", env: { KEY: "{env:MY_SECRET}" } });
+  });
+
+  test("project ra.json is preferred when it exists", () => {
+    const proj = mkdtempSync(join(tmpdir(), "ra-proj-"));
+    try {
+      writeFileSync(join(proj, "ra.json"), JSON.stringify({ model: "m" }));
+      const r = applyMcpToConfig([{ name: "proj-fx", data: { command: "projd" } }], HOME, proj);
+      expect(r.configPath).toBe(join(proj, "ra.json"));
+      const cfg = JSON.parse(readFileSync(join(proj, "ra.json"), "utf-8"));
+      expect(cfg.mcp["proj-fx"].command).toBe("projd");
+      expect(cfg.model).toBe("m"); // existing keys preserved
+    } finally {
+      rmSync(proj, { recursive: true, force: true });
     }
   });
 });

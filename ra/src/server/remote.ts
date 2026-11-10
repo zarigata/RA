@@ -52,20 +52,21 @@ export class RemoteClient {
     }
   }
 
-  /** List sessions from the daemon. */
-  async listSessions(): Promise<Session[]> {
+  /** List session summaries from the daemon (metadata only — transcripts
+   *  stay behind loadSession; the list endpoint embeds no message bodies). */
+  async listSessions(): Promise<Array<{ id: string; cwd: string; created: number; messages: number; model: string | null; status: string }>> {
     try {
       const res = await fetch(`${this.opts.url}/sessions`);
       if (res.ok) {
         const body = await res.json();
-        return body.sessions as Session[];
+        if (Array.isArray(body.sessions)) return body.sessions;
       }
     } catch {
       // fall through
     }
     // Fallback: import and use local listSessions
     const { listSessions } = await import("./session.ts");
-    return listSessions();
+    return listSessions().map((s) => ({ id: s.id, cwd: s.cwd, created: s.created ?? 0, messages: s.messages.length, model: s.modelOverride ?? null, status: "saved" }));
   }
 
   /** Delete a session on the daemon. */

@@ -49,6 +49,47 @@ describe("daemon", () => {
     expect(Array.isArray(body.sessions)).toBe(true);
   });
 
+  test("/sessions returns metadata only — no transcript bodies (privacy fix)", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-daemon-redact-"));
+    try {
+      const secret = "sk-ant-abcdefghijklmnopqrstuvwxyz123456";
+      await fetch(`${base}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd, role: "user", content: `leak me ${secret}` }),
+      });
+      const res = await fetch(`${base}/sessions`);
+      const text = await res.text();
+      expect(text).not.toContain("leak me");
+      expect(text).not.toContain("sk-ant-");
+      const body = JSON.parse(text) as { sessions: Array<Record<string, unknown>> };
+      const row = body.sessions.find((s) => s.cwd === cwd);
+      expect(row).toBeTruthy();
+      expect(row!.messages).toBe(1); // count, not contents
+      expect(row!.id).toBeTruthy();
+      expect(row!.created).toBeGreaterThan(0);
+      expect(Object.keys(row!).sort()).toEqual(["created", "cwd", "id", "messages", "model", "status"]);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("full transcript stays on GET /session?cwd=", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "ra-daemon-full-"));
+    try {
+      await fetch(`${base}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd, role: "user", content: "transcript-body-marker" }),
+      });
+      const res = await fetch(`${base}/session?cwd=${encodeURIComponent(cwd)}`);
+      const body = await res.json();
+      expect(body.session.messages.some((m: { content: string }) => m.content.includes("transcript-body-marker"))).toBe(true);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   test("unknown route returns 404", async () => {
     const res = await fetch(`${base}/nope`);
     expect(res.status).toBe(404);

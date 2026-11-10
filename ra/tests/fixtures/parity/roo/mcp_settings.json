@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "roo-mcp": { "command": "rood", "args": [] }
+  }
+}

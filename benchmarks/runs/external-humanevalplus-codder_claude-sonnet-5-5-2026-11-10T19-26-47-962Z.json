@@ -1,0 +1,233 @@
+{
+  "suite": "humanevalplus",
+  "model": "codder/claude-sonnet-5-5",
+  "n": 20,
+  "passed": 20,
+  "passAt1": 1,
+  "totalCost": 0.36310800000000004,
+  "totalMs": 293500,
+  "failures": {},
+  "tasks": [
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/0",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 24423,
+      "cost": 0.037152000000000004,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:21:14.537Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/1",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 15254,
+      "cost": 0.019578,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:21:30.778Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/2",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 19288,
+      "cost": 0.017373,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:21:51.126Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/3",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 20653,
+      "cost": 0.032475,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:22:12.279Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/4",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 15996,
+      "cost": 0.021849,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:22:28.986Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/5",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 10653,
+      "cost": 0.014787000000000002,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:22:40.140Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/6",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 23442,
+      "cost": 0.01791,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:23:04.070Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/7",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 7129,
+      "cost": 0.012345,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:23:11.574Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/8",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 9789,
+      "cost": 0.014211000000000001,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:23:21.890Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/9",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 15257,
+      "cost": 0.01749,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:23:37.677Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/10",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 25559,
+      "cost": 0.025389000000000002,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:24:04.086Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/11",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 11372,
+      "cost": 0.012764999999999999,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:24:16.046Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/12",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 10140,
+      "cost": 0.013449000000000003,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:24:26.963Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/13",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 9825,
+      "cost": 0.011439000000000001,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:24:37.701Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/14",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 17285,
+      "cost": 0.014145000000000001,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:24:55.593Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/15",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 10646,
+      "cost": 0.017780999999999998,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:25:59.729Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/16",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 8175,
+      "cost": 0.01251,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:26:08.541Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/17",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 13452,
+      "cost": 0.017960999999999998,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:26:22.393Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/18",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 13529,
+      "cost": 0.016248,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:26:36.138Z"
+    },
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/19",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 11633,
+      "cost": 0.016251,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T19:26:47.961Z"
+    }
+  ],
+  "at": "2026-11-10T19:26:47.962Z"
+}

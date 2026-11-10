@@ -137,7 +137,10 @@ export async function runHookCommand(
   let timedOut = false;
   let proc: ReturnType<typeof Bun.spawn> | null = null;
   try {
-    proc = Bun.spawn(["/bin/sh", "-c", command], {
+    // Windows has no /bin/sh — Bun.spawn on win32 resolves `sh` via Git-Bash
+    // (present on every runner with git); PATH lookup covers both platforms.
+    const shell = process.platform === "win32" ? "sh" : "/bin/sh";
+    proc = Bun.spawn([shell, "-c", command], {
       cwd,
       stdin: "pipe",
       stdout: "pipe",

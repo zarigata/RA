@@ -348,6 +348,7 @@ Long term, new code should move toward clear module ownership instead of duplica
 | Multi-agent/MoA support | Active | exposes disagreement and delegates specialist work |
 | Git worktrees for coding teams | Active | practical parallel edit isolation and reviewable commits |
 | Provider-agnostic model layer | Active | avoid coupling RA to one API/vendor |
+| 3-OS CI matrix (Linux/macOS/Windows) | Active | offline suites + install proof on every push; POSIX-only tests carry in-test platform guards, Windows lanes run `RA_ASCII=1` |
 | Semantic capability registry | Planned | scale agents/plugins without prompt bloat |
 | Time-aware Egyptian renderer | Planned | distinctive UX while preserving headless reliability |
 | Multi-node GPU scheduling | Planned | use multiple AI servers as one capability pool |

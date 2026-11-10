@@ -7,6 +7,8 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { homedir } from "node:os";
+// ponytail: RA_PLUGIN_HOME seam shared with hook-shim — prod callers never set it.
+const userHome = () => process.env.RA_PLUGIN_HOME ?? homedir();
 import type { RaConfig } from "../../anubis/src/config.ts";
 
 export interface SkillEntry {
@@ -34,7 +36,7 @@ export function skillDirs(cwd = process.cwd()): Array<{ source: SkillEntry["sour
     cur = parent;
   }
   // User-level dirs, RA's own first, then the neutral standard + compat dirs.
-  const home = homedir();
+  const home = userHome();
   dirs.push(
     { source: "user", dir: join(home, ".ra", "skills") },
     { source: "user", dir: join(home, ".agents", "skills") },

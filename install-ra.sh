@@ -55,13 +55,20 @@ if ! needs bun; then
 fi
 
 # ---- clone / update RA ----------------------------------------------------
+# RA_REPO_URL / RA_REPO_REF let CI (and forks) install a pinned tree instead
+# of main — unset, the public default applies.
+REPO_URL="${RA_REPO_URL:-$REPO_URL}"
 if [[ -d "$DEST_DIR/.git" ]]; then
   say "updating existing clone at $DEST_DIR"
-  git -C "$DEST_DIR" fetch -q origin main || die "git fetch failed (offline?)"
-  git -C "$DEST_DIR" reset -q --hard origin/main
+  git -C "$DEST_DIR" fetch -q origin "${RA_REPO_REF:-main}" || die "git fetch failed (offline?)"
+  git -C "$DEST_DIR" reset -q --hard FETCH_HEAD
 else
   say "cloning RA → $DEST_DIR"
   git clone -q --depth 1 "$REPO_URL" "$DEST_DIR"
+  if [[ -n "${RA_REPO_REF:-}" ]]; then
+    git -C "$DEST_DIR" fetch -q origin "$RA_REPO_REF"
+    git -C "$DEST_DIR" reset -q --hard FETCH_HEAD
+  fi
 fi
 
 # ---- repo install (PATH links + .env) --------------------------------------

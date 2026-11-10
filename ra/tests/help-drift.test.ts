@@ -15,7 +15,8 @@ const CLI = join(import.meta.dir, "..", "src", "cli.ts");
 const UNLISTED = new Set(["task"]); // `ra task "…"` is the long-form alias of --task
 
 function runHelp(): string {
-  const r = spawnSync("bun", [CLI, "help"], { encoding: "utf-8" });
+  // process.execPath = the running bun binary — Windows-safe (no .exe PATH lookup).
+  const r = spawnSync(process.execPath, [CLI, "help"], { encoding: "utf-8" });
   expect(r.status).toBe(0);
   return r.stdout ?? "";
 }

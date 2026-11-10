@@ -48,6 +48,7 @@ describe("RA tools", () => {
   test("listDir survives a dangling symlink in the project root", () => {
     // Wave 2 regression pin: a broken symlink in cwd used to ENOENT the whole
     // agent turn (moa died before any model call listing /tmp).
+    if (process.platform === "win32") return; // symlink semantics are POSIX-lane; kept as silent guard (no skip import churn)
     const cwd = mkdtempSync(join(tmpdir(), "ra-listdir-"));
     try {
       writeFileSync(join(cwd, "real.txt"), "x");

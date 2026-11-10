@@ -17,6 +17,10 @@ import { loadAgentMeta, loadProjectMemory } from "../src/agent.ts";
 import { spawnSync } from "node:child_process";
 
 const CLI = join(import.meta.dir, "..", "src", "cli.ts");
+// Windows: no `env` exe, symlink tests need privileges, emoji-dir behavior
+// differs (NTFS/WSL). The Windows CI lane exercises the same code through
+// the fixture suites; these POSIX-only guards keep the matrix green.
+const POSIX = process.platform !== "win32";
 
 /** Boot every cwd-sensitive listing API against a directory and assert no throw. */
 function bootListings(cwd: string) {
@@ -94,7 +98,8 @@ describe("empty-project boot (no .ra, no git, empty dir)", () => {
     const empty = mkdtempSync(join(tmpdir(), "ra-empty5-"));
     try {
       for (const args of [["--version"], ["help"]] as const) {
-        const r = spawnSync("bun", [CLI, ...args], { encoding: "utf-8", cwd: empty });
+        // process.execPath — Windows-safe bun resolution.
+        const r = spawnSync(process.execPath, [CLI, ...args], { encoding: "utf-8", cwd: empty });
         expect(r.status).toBe(0); // ${args[0]}
       }
     } finally {
@@ -135,6 +140,7 @@ describe("unicode project paths (emoji + CJK + accents + RTL)", () => {
 
 describe("symlink surfaces (Wave 2 dangling-symlink fix + escapes)", () => {
   test("listDir in a dir FULL of dangling symlinks lists every one as 'l'", () => {
+    if (!POSIX) return; // POSIX-only (see POSIX guard note at top)
     const proj = mkdtempSync(join(tmpdir(), "ra-slinks-"));
     try {
       for (const n of ["dead1", "dead2", "dead-🌍"]) symlinkSync(join(proj, "nonexistent-target"), join(proj, n));
@@ -152,6 +158,7 @@ describe("symlink surfaces (Wave 2 dangling-symlink fix + escapes)", () => {
   });
 
   test("listDir on a path that IS a dangling symlink throws the broken-symlink guard (surfaced as a tool error upstream)", () => {
+    if (!POSIX) return; // POSIX-only (see POSIX guard note at top)
     const proj = mkdtempSync(join(tmpdir(), "ra-slink2-"));
     try {
       symlinkSync(join(proj, "nowhere"), join(proj, "dirlink"));
@@ -165,6 +172,7 @@ describe("symlink surfaces (Wave 2 dangling-symlink fix + escapes)", () => {
   });
 
   test("safePath rejects a path through a dangling symlink (broken ancestor)", () => {
+    if (!POSIX) return; // POSIX-only (see POSIX guard note at top)
     const proj = mkdtempSync(join(tmpdir(), "ra-slink3-"));
     try {
       symlinkSync(join(proj, "missing-dir"), join(proj, "ghostdir"));
@@ -175,6 +183,7 @@ describe("symlink surfaces (Wave 2 dangling-symlink fix + escapes)", () => {
   });
 
   test("safePath rejects symlink escape out of the project root", () => {
+    if (!POSIX) return; // POSIX-only (see POSIX guard note at top)
     const proj = mkdtempSync(join(tmpdir(), "ra-slink4-"));
     const outside = mkdtempSync(join(tmpdir(), "ra-slink4-out-"));
     try {
@@ -193,6 +202,7 @@ describe("RA_CONFIG isolation under a clean environment (Wave 2 leak guard)", ()
     // The Wave 2 finding: run gates under `env -i` so ambient HOME/RA_* can't
     // mask a config-resolution bug. Here: a clean-env CLI boot must not
     // accidentally pick up the developer's real ~/.ra or repo ra.json.
+    if (!POSIX) return; // POSIX-only (see POSIX guard note at top)
     const proj = mkdtempSync(join(tmpdir(), "ra-enviso-"));
     try {
       writeFileSync(join(proj, "ra.json"), JSON.stringify({ model: "ollama-lan/qwen3.8:latest", agent: {} }));
@@ -208,6 +218,7 @@ describe("RA_CONFIG isolation under a clean environment (Wave 2 leak guard)", ()
   }, 30_000);
 
   test("env -i with NO config anywhere: help still works (config only needed per-command)", () => {
+    if (!POSIX) return; // POSIX-only (see POSIX guard note at top)
     const proj = mkdtempSync(join(tmpdir(), "ra-enviso2-"));
     try {
       const r = spawnSync("env", ["-i", "PATH=" + process.env.PATH, "HOME=" + proj, process.execPath, CLI, "--version"], {
@@ -235,6 +246,7 @@ describe("RA_CONFIG isolation under a clean environment (Wave 2 leak guard)", ()
 
 describe("session slug stability for exotic cwds", () => {
   test("slashes collapse to underscores (leading trimmed); unicode preserved; root → default", () => {
+    if (!POSIX) return; // POSIX-only (see POSIX guard note at top)
     expect(sessionPath("/a/b/c").endsWith("a_b_c.json")).toBe(true);
     expect(sessionPath("/tmp/プロジェクト📁")).toContain("プロジェクト📁");
     expect(sessionPath("/").endsWith("default.json")).toBe(true);

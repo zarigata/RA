@@ -34,9 +34,11 @@ const ROLE_RE = /^[a-z][a-z0-9_-]{0,63}$/i;
 export const estTokens = (text: string): number => Math.ceil(text.length / 4);
 
 export function agentScopeDirs(cwd = process.cwd()): Array<{ scope: AgentScope; dir: string }> {
+  // ponytail: RA_PLUGIN_HOME seam shared with hook-shim — prod callers never set it.
+  const home = process.env.RA_PLUGIN_HOME ?? homedir();
   return [
     { scope: "project", dir: join(cwd, ".ra", "agents") },
-    { scope: "user", dir: join(homedir(), ".ra", "agents") },
+    { scope: "user", dir: join(home, ".ra", "agents") },
     { scope: "builtin", dir: AGENTS_DIR },
   ];
 }
@@ -168,7 +170,7 @@ export function scaffoldAgent(
 ): { path: string } {
   if (!ROLE_RE.test(role)) throw new Error(`Invalid agent name: ${role}`);
   const cwd = opts.cwd ?? process.cwd();
-  const dir = opts.user ? join(homedir(), ".ra", "agents") : join(cwd, ".ra", "agents");
+  const dir = opts.user ? join(process.env.RA_PLUGIN_HOME ?? homedir(), ".ra", "agents") : join(cwd, ".ra", "agents");
   const path = join(dir, `${role}.md`);
   if (existsSync(path)) throw new Error(`Agent already exists: ${path}`);
   mkdirSync(dir, { recursive: true });

@@ -38,6 +38,134 @@ jobs:
       - name: Test, compile, smoke-check, and verify repository hygiene
         run: bash scripts/verify-release.sh
 
+  # Wave 4: 3-OS matrix — the same offline suites on macOS and Windows.
+  # Windows runs the bun suites directly (verify-release.sh's compile/install
+  # stages are POSIX: symlink launchers + /bin/sh wrappers); RA_ASCII=1 keeps
+  # output plain for non-UTF8 console codepages.
+  os-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+        working-directory: anubis
+
+      - name: Offline suites (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          # Same list verify-release.sh uses — single source of truth.
+          ( cd anubis && bun test $(grep '^tests/' ../scripts/offline-tests.txt) )
+          bun test $(grep '^ra/tests/' scripts/offline-tests.txt)
+
+      - name: Offline suites (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          RA_ASCII: "1"
+        run: |
+          # GitHub's bash (Git-for-Windows) handles the list; bun.exe resolves
+          # via setup-bun. Platform-guarded tests (symlinks, env -i) self-skip.
+          ( cd anubis && bun test $(grep '^tests/' ../scripts/offline-tests.txt) )
+          bun test $(grep '^ra/tests/' scripts/offline-tests.txt)
+
+      - name: CLI smoke (all OS)
+        shell: bash
+        env:
+          RA_ASCII: "1"
+        run: |
+          bun ra/src/cli.ts --version
+          bun ra/src/cli.ts help > /dev/null
+
+  # Wave 4: install proof — the "other computers" lane. install-ra.sh clones
+  # from GitHub (push-order proof: this job only goes green once the pushed
+  # tree is installable), then re-runs to prove idempotency. Windows uses the
+  # manual equivalent (clone + ./install via GitHub's bash) since install-ra.sh
+  # is POSIX-only by design.
+  install-proof:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Setup git (Windows bash env)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: git --version
+
+      - name: Install via install-ra.sh (mac/linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          GH_REPO_SLUG: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          RA_INSTALL_ROOT: ${{ runner.temp }}/ra-install-proof
+          RA_INSTALL_DIR: ${{ runner.temp }}/ra-install-proof/bin
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/${GH_REPO_SLUG}/${GH_SHA}/install-ra.sh" -o install-ra.sh
+          # Pin the install to this commit's tree (RA_REPO_REF) — proves the
+          # pushed SHA is installable, not just whatever main holds.
+          export RA_REPO_URL="https://github.com/${GH_REPO_SLUG}.git" RA_REPO_REF="$GH_SHA"
+          bash install-ra.sh
+
+      - name: "Install manually (Windows — git clone + ./install via bash)"
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          GH_REPO_SLUG: ${{ github.repository }}
+          RA_INSTALL_DIR: ${{ runner.temp }}/ra-install-proof/bin
+        run: |
+          git clone -q --depth 1 "https://github.com/${GH_REPO_SLUG}" "$RUNNER_TEMP/ra-install-proof"
+          cd "$RUNNER_TEMP/ra-install-proof"
+          # git-bash ln -s copies when native symlinks are unavailable — the
+          # launcher still works (anubis/bin/ra resolves via $0, not the link).
+          ./install --non-interactive
+
+      - name: Installed ra --version (all OS)
+        shell: bash
+        run: |
+          export PATH="$RUNNER_TEMP/ra-install-proof/bin:$PATH"
+          ra --version
+
+      - name: Idempotent re-install (safe to run twice)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          GH_REPO_SLUG: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          RA_INSTALL_ROOT: ${{ runner.temp }}/ra-install-proof
+          RA_INSTALL_DIR: ${{ runner.temp }}/ra-install-proof/bin
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/${GH_REPO_SLUG}/${GH_SHA}/install-ra.sh" -o install-ra.sh
+          export RA_REPO_URL="https://github.com/${GH_REPO_SLUG}.git" RA_REPO_REF="$GH_SHA"
+          bash install-ra.sh
+
+      - name: Idempotent re-install (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          RA_INSTALL_DIR: ${{ runner.temp }}/ra-install-proof/bin
+        run: |
+          cd "$RUNNER_TEMP/ra-install-proof"
+          ./install --non-interactive
+          export PATH="$RUNNER_TEMP/ra-install-proof/bin:$PATH"
+          ra --version
+
   # Live provider acceptance intentionally stays outside mandatory hosted CI.
   # Private LAN Ollama endpoints are unreachable from GitHub-hosted runners,
   # and pull requests should not require paid/cloud model calls to go green.

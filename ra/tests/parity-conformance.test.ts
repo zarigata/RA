@@ -44,7 +44,8 @@ afterAll(() => {
 
 /** Run the real CLI with an isolated HOME (os.homedir is read at process start). */
 function cli(args: string[], extraEnv: Record<string, string> = {}): { code: number; out: string; err: string } {
-  const r = spawnSync("bun", [CLI, ...args], {
+  // process.execPath = the running bun binary — Windows-safe (no .exe PATH lookup).
+  const r = spawnSync(process.execPath, [CLI, ...args], {
     encoding: "utf-8",
     env: { ...process.env, HOME, ...extraEnv },
     cwd: PROJ,

@@ -5,6 +5,7 @@
 <br>
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-c89b4b?style=for-the-badge)](LICENSE)
+[![verify](https://github.com/zarigata/RA/actions/workflows/test.yml/badge.svg)](https://github.com/zarigata/RA/actions/workflows/test.yml)
 [![Bun](https://img.shields.io/badge/runtime-Bun-141414?style=for-the-badge&logo=bun&logoColor=white)](https://bun.sh/)
 [![TypeScript](https://img.shields.io/badge/core-TypeScript-1f6feb?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 ![Local First](https://img.shields.io/badge/AI-local--first-3f7f68?style=for-the-badge)
@@ -407,6 +408,10 @@ bash scripts/verify-release.sh
 ~~~
 
 That gate is the repository's main confidence check: it runs the Bun test suites, compile/smoke checks, and repository hygiene verification used by GitHub Actions. Live-provider acceptance stays separate because private LAN endpoints and paid APIs are not appropriate mandatory CI dependencies.
+
+### CI matrix (Linux · macOS · Windows)
+
+Every push runs the offline suites on all three desktop operating systems, plus a separate install-proof job that clones the pushed tree through `install-ra.sh` (Linux/macOS) or the manual `git clone` + `./install` path (Windows, via Git-Bash) and re-runs the installer a second time to prove idempotency. Windows lanes set `RA_ASCII=1` and skip POSIX-only tests (symlink surfaces, `env -i` isolation) via in-test platform guards — the same guards keep the suites runnable on any dev box, not just CI. The shared test list lives in [`scripts/offline-tests.txt`](scripts/offline-tests.txt), so the local gate and all CI lanes always run the same suite.
 
 ## A good first RA setup
 

@@ -6,6 +6,9 @@
 // property: a bad key must fail loudly, never silently downgrade.
 
 import { describe, expect, test, beforeEach } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { resolveModelFallbacks, fallbackChain, isAuthError, isUserCancel, isContextOverflowError } from "../../anubis/src/ollama.ts";
 import { isQuotaError, quotaKey, markExhausted, isExhausted, exhaustedUntil, clearExhausted, quotaHealth, formatQuota, DEFAULT_COOLDOWN_MS } from "../../anubis/src/quota.ts";
 
@@ -135,7 +138,9 @@ describe("fallback chain composition permutations", () => {
 // ---- quota cooldown lifecycle -----------------------------------------------------------------
 
 describe("quota cooldown lifecycle (RA_QUOTA_PATH isolated)", () => {
-  const PATH = `/tmp/ra-w3a-quota-${process.pid}.json`;
+  // os.tmpdir(): CI matrix runs on Windows where /tmp does not exist.
+  const QUOTA_DIR = mkdtempSync(join(tmpdir(), "ra-quota-"));
+  const PATH = join(QUOTA_DIR, `ra-w3a-quota-${process.pid}.json`);
   beforeEach(() => {
     process.env.RA_QUOTA_PATH = PATH;
     clearExhausted("any");

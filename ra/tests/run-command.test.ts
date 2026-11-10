@@ -5,7 +5,8 @@ import { join } from "node:path";
 const CLI = join(import.meta.dir, "..", "src", "cli.ts");
 
 function runCli(args: string[]): { code: number; out: string; err: string } {
-  const r = spawnSync("bun", [CLI, ...args], { encoding: "utf-8" });
+  // process.execPath = the running bun binary — Windows-safe (no .exe PATH lookup).
+  const r = spawnSync(process.execPath, [CLI, ...args], { encoding: "utf-8" });
   return { code: r.status ?? -1, out: r.stdout ?? "", err: r.stderr ?? "" };
 }
 

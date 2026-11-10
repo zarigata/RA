@@ -33,9 +33,11 @@ const CUSTOM_COMMANDS_DIR = join(ANUBIS_HOME, ".anubis", "commands");
 
 /** Search order for custom commands: project, user, legacy repo dir. */
 export function customCommandDirs(cwd?: string): string[] {
+  // ponytail: RA_PLUGIN_HOME seam shared with hook-shim — prod callers never set it.
+  const home = process.env.RA_PLUGIN_HOME ?? homedir();
   return [
     join(cwd ?? process.cwd(), ".ra", "commands"),
-    join(homedir(), ".ra", "commands"),
+    join(home, ".ra", "commands"),
     CUSTOM_COMMANDS_DIR,
   ];
 }

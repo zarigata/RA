@@ -1,0 +1,24 @@
+{
+  "suite": "humanevalplus",
+  "model": "codder/claude-sonnet-5-5",
+  "n": 1,
+  "passed": 1,
+  "passAt1": 1,
+  "totalCost": 0,
+  "totalMs": 19372,
+  "failures": {},
+  "tasks": [
+    {
+      "suite": "humanevalplus",
+      "id": "HumanEval/0",
+      "model": "codder/claude-sonnet-5-5",
+      "passed": true,
+      "latencyMs": 19372,
+      "cost": 0,
+      "failure": "none",
+      "reason": null,
+      "at": "2026-11-10T18:36:23.789Z"
+    }
+  ],
+  "at": "2026-11-10T18:36:23.790Z"
+}
